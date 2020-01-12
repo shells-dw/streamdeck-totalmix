@@ -83,7 +83,6 @@
     <None Include="Release\de.shells.totalmix.streamDeckPlugin" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="!!README!!.txt" />
     <Content Include="Images\actionDefaultImage%402x.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -148,7 +147,6 @@
     <Content Include="PropertyInspector\css\sdpi.css">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="PropertyInspector\js\property-inspector.js" />
     <Content Include="PropertyInspector\js\PluginActionPI.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
