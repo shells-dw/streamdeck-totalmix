@@ -114,7 +114,7 @@ If you happen to have a working and proper MIDI implementation sheet for RME dev
 Currently the OSC documentation looks way better than what's there for MIDI. One could think they don't want people to develop these kind of things...
 
 # Disclaimer
-I'm in no way affiliated with RME or Elgato.
+I'm in no way affiliated with RME or Elgato. I wrote this plugin out of personal interest.
 
 <!-- Reference Links -->
 
