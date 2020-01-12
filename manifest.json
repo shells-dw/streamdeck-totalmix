@@ -1,0 +1,86 @@
+{
+  "Actions": [
+    {
+      "Icon": "Images/actionIcon",
+      "Name": "MIDI: Trigger Function",
+      "States": [
+        {
+          "Image": "Images/actionDefaultImage",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "MIDI: Trigger Function",
+      "UUID": "de.shells.totalmix.midinote.action"
+    },
+    {
+      "Icon": "Images/actionIcon",
+      "Name": "MIDI: Control Faders and Gains",
+      "States": [
+        {
+          "Image": "Images/actionDefaultImage",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "MIDI: Control Faders and Gains",
+      "UUID": "de.shells.totalmix.midicc.action"
+    },
+    {
+      "Icon": "Images/actionIcon",
+      "Name": "OSC: Trigger Global Function",
+      "States": [
+        {
+          "Image": "Images/actionDefaultImage",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "OSC: Trigger Global Function",
+      "UUID": "de.shells.totalmix.osctoggle.action"
+    },
+    {
+      "Icon": "Images/actionIcon",
+      "Name": "OSC: Toggle Channel Function",
+      "States": [
+        {
+          "Image": "Images/actionDefaultImage",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        },
+        {
+          "Image": "Images/actionMutedImage",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "OSC: Toogle Channel Function",
+      "UUID": "de.shells.totalmix.osconoff.action"
+    }
+  ],
+  "Category": "TotalMix FX Control",
+  "CategoryIcon": "Images/category/categoryIcon",
+  "Disabled": false,
+  "Author": "shells",
+  "CodePathWin": "de.shells.totalmix.exe",
+  "PropertyInspectorPath": "PropertyInspector/PluginActionPI.html",
+  "Description": "Trigger functions like snapshots/mixes, mute, cue, etc. and set faders and gain to defined values in RME TotalMix FX",
+  "Name": "RME TotalMix FX StreamDeck Plugin",
+  "Icon": "Images/pluginIcon",
+  "URL": "https://github.com/shells-dw/streamdeck-totalmix",
+  "Version": "1.0.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "4.3"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ]
+}
