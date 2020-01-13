@@ -69,10 +69,10 @@
   "CodePathWin": "de.shells.totalmix.exe",
   "PropertyInspectorPath": "PropertyInspector/PluginActionPI.html",
   "Description": "Trigger functions like snapshots/mixes, mute, cue, etc. and set faders and gain to defined values in RME TotalMix FX",
-  "Name": "RME TotalMix FX StreamDeck Plugin",
+  "Name": "RME TotalMix FX",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "4.3"
