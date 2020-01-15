@@ -82,7 +82,7 @@
   "Author": "shells",
   "CodePathWin": "de.shells.totalmix.exe",
   "PropertyInspectorPath": "PropertyInspector/PluginActionPI.html",
-  "Description": "Trigger functions like snapshots/mixes, mute, cue, etc. and set faders and gain to defined values in RME TotalMix FX",
+  "Description": "Control TotalMix FX with StreamDeck!<br>Features: (rather complete) OSC and (limited) MIDI implementation.<br>Load snapshots/mixes, toggle mute/solo globally and on individual channels, change channel volume, pan, gain, phase, cue, width, control master out and many other settings.",
   "Name": "RME TotalMix FX",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",

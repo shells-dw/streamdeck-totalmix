@@ -7,7 +7,7 @@
 It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers actions as well as individual channel actions on the [RME TotalMix FX][] application.
 
 It supports OSC protocol support which offers more functionality than MIDI commands (at least I implemented more in my plugin), is more solid than MIDI and doesn't interfere with your already existing MIDI setup.
-The plugin however also supports MIDI in case you don't want to use OSC.
+The plugin however also supports MIDI wiht a limited feature set in case you don't want to use OSC.
 
 ## What Is It Not (and what can't it do?)
 
@@ -30,6 +30,7 @@ Note: if you're using a (software) firewall on your PC and/or any firewall betwe
 
 ## Setup for MIDI
 
+_Only necessary if you do not use OSC or want to use MIDI alongside OSC._
 You will need a MIDI driver on your device for TotalMix FX to monitor. If you already control TotalMix FX from a MIDI controller, this is probably not the thing for you anyways.
 On Windows I used [virtualMidi][] but other packages like [loopBe][] should work just as well.
 
@@ -68,7 +69,7 @@ You can however include multiple instances of the actions in a multi-action (ava
 
 #### General
 
-It's important to understand that whenever you can select a channel in the dropdown selection in this plugin, this affects TotalMix channel strips as you see them in the software. TotalMix combines a stereo channel  to one channel strip. You will not have control over each individual channel mono channel that's part of a stereo channel.
+It's important to understand that whenever you can select a channel in the dropdown selection in this plugin, this affects TotalMix channel strips as you see them in the software. TotalMix combines a stereo channel to one channel strip. You will not have control over each individual mono channel that's part of a stereo channel.
 What that means is that if you have, for example, a stereo output channel AN1/2, this will be output channel 1. AN3 will be output channel 2 then. However if you have AN1 and AN2 set to mono, AN3 is output channel 3 then. Bear that in mind when you configure actions that are targeted to individual channels
 across multiple snapshots/mixes or when you change your channel layouts in regards to mono/stereo channels in TotalMix as this will likely break those actions on the StreamDeck and trigger actions on the wrong channels.
 
@@ -104,7 +105,7 @@ Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs
 Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use.
 You have 12 Input, 12 Playback and 12 Output channels available (remember when I said you should set TotalMix to have 12 Faders per bank? That's partly why) for which you can each Mute or Solo.
 Select the checkbox "Mirror TotalMix" to update the button's icon when it comes into focus in StreamDeck (e.g. when you open a folder containing the button, load a profile or start StreamDeck when it's on the top screen).
-Note: due to the nature of how OSC works this is not a permanent monitoring, it's only initialized on load of a button, if you then switch the status in TotalMix or by other means, it will not be reflected on the deck.
+Note: due to the nature of how OSC works and I have implemented the solution this is not a permanent monitoring, it's only initialized on load of a button, if you then switch the status in TotalMix or by other means, it will not be reflected on the deck.
 
 #### OSC: Control Channel
 
@@ -124,11 +125,16 @@ Select the functions to use in the drop-down field below. If the function requir
 
 # Limitations
 
-- OSC: currently I have the receive port hardcoded to 9001 ("Port outgoing" in TotalMix - which is used for the "Mirror TotalMix" function, planning on adding an option to change it.
-- OSC: part 2 of the getting the active state when loading a deck... it only checks when the deck is loaded, for example if you open a folder that contains those buttons, or switch to a profile that does, etc. so when stuff is changed on the UI in the computer, via MIDI or a snapshot is loaded, that will not reflect on the buttons. It will take roughly 2 seconds per input/playback/output group when a deck containing buttons that mirror TotalMix settings is opened, regardless how many buttons of that group are on the Deck. Meaning if you have 12 Input channel buttons, it will take 2 seconds, if you have 1 input, 1 playback and 1 output button, it will take 6.
+- Windows 10 with .NET Framework is required to run this plugin.
+- OSC: getting the active state when loading a deck... it only checks when the deck is loaded, for example if you open a folder that contains those buttons, or switch to a profile that does, etc. so when stuff is changed on the UI in the computer, via MIDI or a snapshot is loaded, that will not reflect on the buttons. It will take roughly 2 seconds per input/playback/output group when a deck containing buttons that mirror TotalMix settings is opened, regardless how many buttons of that group are on the Deck. Meaning if you have 12 Input channel buttons, it will take 2 seconds, if you have 1 input, 1 playback and 1 output button, it will take 6.
 - MIDI: I developed this on Windows, using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
 - There is no MacOS support. It would mean a total rewrite of the plugin in Xcode to have it work on MacOS natively, for which I don't have the time.
 - MIDI: It needs a virtual MIDI port, writing my own drivers and have them signed is definitely above my skillset, so you'll have to install a driver for that additionally. (e.g. [virtualMidi][], [loopBe][])
+
+# I have an issue or miss a feature?
+
+You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in %APPDATA%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin, and will be named pluginlog.log.
+As described above I developed this with a Fireface UC which is the only device I have at home and with that constant access to so debugging/developing for any other RME device might not be the the easiest task, but I'll see what I can do.
 
 # Contribute
 
@@ -147,4 +153,5 @@ I'm in no way affiliated with RME or Elgato. I wrote this plugin out of personal
 [RME ARC USB]: https://www.rme-audio.de/arc-usb.html "RME's ARC USB product page"
 [virtualMidi]: https://www.tobias-erichsen.de/software/virtualmidi.html "virtualMIDI product page"
 [loopBe]: https://www.nerds.de/en/loopbe1.html "loopBe product page"
+[GitHub issues]: https://github.com/shells-dw/streamdeck-totalmix/issues "GitHub issues link"
 
