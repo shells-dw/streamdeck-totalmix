@@ -25,6 +25,7 @@ namespace streamdeck_totalmix
                 {
                     Name = String.Empty,
                     SelectedAction = "1",
+                    ListeningPort = 9001,
                     Port = 7001,
                     IP = "127.0.0.1",
                     Bus = String.Empty,
@@ -41,6 +42,9 @@ namespace streamdeck_totalmix
 
             [JsonProperty(PropertyName = "Port")]
             public int Port { get; set; }
+
+            [JsonProperty(PropertyName = "ListeningPort")]
+            public int ListeningPort { get; set; }
 
             [JsonProperty(PropertyName = "IP")]
             public string IP { get; set; }
@@ -227,7 +231,7 @@ namespace streamdeck_totalmix
 
             if (bus == "Input" && bankSettingInputBus.Count == 0 || bus == "Playback" && bankSettingPlaybackBus.Count == 0 || bus == "Output" && bankSettingOutputBus.Count == 0)
             {
-                var listener = new UDPListener(9001);
+                var listener = new UDPListener(settings.ListeningPort);
                 OscBundle message = null;
                 bool done = false;
                 string snapRegEx = @"^\/$";

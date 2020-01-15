@@ -71,6 +71,7 @@
     <Compile Include="MidiCc.cs" />
     <Compile Include="MidiNote.cs" />
     <Compile Include="OscOnOff.cs" />
+    <Compile Include="OscChannel.cs" />
     <Compile Include="OscToggle.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -60,6 +60,20 @@
       "SupportedInMultiActions": true,
       "Tooltip": "OSC: Toogle Channel Function",
       "UUID": "de.shells.totalmix.osconoff.action"
+    },
+    {
+      "Icon": "Images/actionIcon",
+      "Name": "OSC: Control Channel",
+      "States": [
+        {
+          "Image": "Images/actionDefaultImage",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "OSC: Control Channel",
+      "UUID": "de.shells.totalmix.oscchannel.action"
     }
   ],
   "Category": "TotalMix FX Control",
@@ -72,7 +86,7 @@
   "Name": "RME TotalMix FX",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
-  "Version": "1.0.1",
+  "Version": "1.1.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "4.3"

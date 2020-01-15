@@ -10,7 +10,7 @@ var websocket = null,
 function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
     uuid = inUUID;
     registerEventName = inRegisterEvent;
-    console.log(inUUID, inActionInfo);
+    // console.log(inUUID, inActionInfo);
     actionInfo = JSON.parse(inActionInfo); // cache the info
     inInfo = JSON.parse(inInfo);
     websocket = new WebSocket('ws://127.0.0.1:' + inPort);
@@ -32,12 +32,21 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
         Name = actionInfo.payload.settings.Name;
         Port = actionInfo.payload.settings.Port;
+        ListeningPort = actionInfo.payload.settings.ListeningPort;
         IP = actionInfo.payload.settings.IP;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
         Bus = actionInfo.payload.settings.Bus;
         SelectedValue = actionInfo.payload.settings.SelectedValue;
         MuteSolo = actionInfo.payload.settings.MuteSolo;
         IncludeOscOnOff = actionInfo.payload.settings.IncludeOscOnOff;
+    } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
+        Name = actionInfo.payload.settings.Name;
+        Port = actionInfo.payload.settings.Port;
+        IP = actionInfo.payload.settings.IP;
+        SelectedAction = actionInfo.payload.settings.SelectedAction;
+        Bus = actionInfo.payload.settings.Bus;
+        SelectedValue = actionInfo.payload.settings.SelectedValue;
+        SelectedFunction = actionInfo.payload.settings.SelectedFunction;
     } else if (actionInfo.action === "de.shells.totalmix.midinote.action") {
         Channel = actionInfo.payload.settings.Channel;
         SelectedMidiAction = actionInfo.payload.settings.SelectedMidiAction;
@@ -65,8 +74,8 @@ function websocketOnOpen() {
 }
 
 function websocketOnMessage(evt) {
-    console.log("received event:");
-    console.log(evt.data);
+    // console.log("received event:");
+    // console.log(evt.data);
     // Received message from Stream Deck
     var jsonObj = JSON.parse(evt.data);
 
@@ -77,17 +86,17 @@ function websocketOnMessage(evt) {
     else if (jsonObj.event === 'didReceiveSettings') {
         var payload = jsonObj.payload;
         loadConfiguration(payload);
-        console.log("didReceiveSettings");
-        console.log(payload.settings);
+        // console.log("didReceiveSettings");
+        // console.log(payload.settings);
     }
     else {
-        console.log("Unhandled websocketOnMessage: " + jsonObj.event);
+        // console.log("Unhandled websocketOnMessage: " + jsonObj.event);
     }
 }
 
 function loadConfiguration(payload) {
-    console.log('loadConfiguration');
-    console.log(payload);
+    // console.log('loadConfiguration');
+    // console.log(payload);
     if (payload.payload != undefined) {
         updateUI(payload.action, payload.payload.settings);
     } else {
@@ -96,15 +105,16 @@ function loadConfiguration(payload) {
 }
 
 function setSettings(value, param) {
-    console.log("setSettings start:");
-    console.log(actionInfo.payload.settings);
+    // console.log("setSettings start:");
+    // console.log(actionInfo.payload.settings);
     var payload = {};
     payload[param] = value;
-    console.log("setSettings payload:");
-    console.log(payload);
+    // console.log("setSettings payload:");
+    // console.log(payload);
     let settings;
     if (param === "IP") { IP = payload.IP }
     if (param === "Port") { Port = payload.Port }
+    if (param === "ListeningPort") { ListeningPort = payload.ListeningPort }
     if (param === "Name") { Name = payload.Name }
     if (param === "SelectedAction") { SelectedAction = payload.SelectedAction }
     if (param === "SelectedMidiAction") { SelectedMidiAction = payload.SelectedMidiAction }
@@ -114,6 +124,7 @@ function setSettings(value, param) {
     if (param === "Channel") { Channel = payload.Channel }
     if (param === "MidiNote") { MidiNote = payload.MidiNote }
     if (param === "SelectedDevice") { SelectedDevice = payload.SelectedDevice }
+    if (param === "SelectedFunction") { SelectedFunction = payload.SelectedFunction }
     if (param === "Devices") { Devices = payload.Devices }
     if (param === "Control") { Control = payload.Control }
     if (param === "ControlValue") { ControlValue = payload.ControlValue }
@@ -129,12 +140,23 @@ function setSettings(value, param) {
         settings = {
             IP: IP,
             Port: Port,
+            ListeningPort: ListeningPort,
             Name: Name,
             SelectedAction: SelectedAction,
             Bus: Bus,
             SelectedValue: SelectedValue,
             MuteSolo: MuteSolo,
             IncludeOscOnOff: IncludeOscOnOff
+        }
+    } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
+        settings = {
+            IP: IP,
+            Port: Port,
+            Name: Name,
+            SelectedAction: SelectedAction,
+            Bus: Bus,
+            SelectedValue: SelectedValue,
+            SelectedFunction: SelectedFunction
         }
     } else if (actionInfo.action === "de.shells.totalmix.midinote.action") {
         settings = {
@@ -154,8 +176,8 @@ function setSettings(value, param) {
         }
     }
 
-    console.log("setSettings end:");
-    console.log(settings);
+    // console.log("setSettings end:");
+    // console.log(settings);
     setSettingsToPlugin(settings);
 }
 
@@ -234,10 +256,10 @@ function initPropertyInspector() {
 }
 
 function updateUI(pl, settings) {
-    console.log("updateUI pl:");
-    console.log(pl);
-    console.log("updateUI settings:");
-    console.log(settings);
+    // console.log("updateUI pl:");
+    // console.log(pl);
+    // console.log("updateUI settings:");
+    // console.log(settings);
     if (pl === "de.shells.totalmix.midinote.action") {
         let x = ['<div class="sdpi-item" id="devices">',
             '<div class="sdpi-item-label">Midi Device</div>',
@@ -413,7 +435,7 @@ function updateUI(pl, settings) {
             '        <summary>More Info</summary>',
             '        <p>Make sure TotalMix FX listens to a MIDI driver on your system, has Mackie Control Support enabled to be able to use all functions - and actually listens to MIDI ("in use" checkbox).</p>',
             '        <p>Midi Device<br>Select MIDI device that TotalMix monitors</p>',
-            '        <p>Select Channel<br>Select the Channel you want to change the fader/gain setting on</p>',
+            '        <p>Select Channel<br>Select the Channel you want to change the fader/gain setting on<br>Note: Stereo channels count as 1, so for example AN1/2 are channel 1, AN3 would be channel 2 then.</p>',
             '        <p>Fader/Gain Value<br>Enter the desired fader/gain value. The range on faders is 0 to 127 and 0dB is 104<br>The range on gain is 0 to 65</p>',
             '<p>Note: I developed and tested this plugin on a Fireface UC - which is the box I have at home. Drop me an issue on GitHub in case something doesn\'t work as expected on other hardware and I see if we can figure that out</p>',
             '<p><span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
@@ -438,7 +460,7 @@ function updateUI(pl, settings) {
             getMidiCCIndex = getMidiCCIndex - (calc * 16) + 1
             getMidiCCIndex = getMidiCCIndex + "-GI";
         }
-        console.log("ControlChange: " + getMidiCCIndex);
+        // console.log("ControlChange: " + getMidiCCIndex);
         document.getElementById('ControlChange').value = getMidiCCIndex;
         document.getElementById('txtValue').value = settings.ControlValue;
         document.getElementById('selDevices').value = settings.SelectedDevice;
@@ -605,13 +627,20 @@ function updateUI(pl, settings) {
             '</div>',
             '<div type="checkbox" class="sdpi-item">',
             '       <div class="sdpi-item-label">Mirror TotalMix Settings</div>',
-            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="includeInInitialize" onclick="includeOscOnOff(this)">',
+            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="includeInInitialize" onclick="includeOscOnOff(this);setSettings(document.getElementById(\'totalmixListeningPort\').value, \'ListeningPort\')"">',
             '       <label for="chk0"><span></span></label>',
             '</div>',
             '<details class="message">',
-            '    <summary>Info on Mirror TotalMix</summary>',
+            '    <summary>Info on Mirror TotalMix (click)</summary>',
             '   <h4>Information:</h4>',
             '    <p>Checking this checkbox will make the plugin query TotalMix when the button comes into focus (which is when the button is loaded - if the StreamDeck is started or when a folder is accessed that contains the button).<br>Note: When you use buttons for Input/Playback/Output channels on the same Deck all buttons will be unresponsive for 2 seconds for each category (e.g. having 5 buttons for Input, 5 for Output, will make the buttons unavailable for 4 seconds.)</p>',
+            '</details>',
+            '<div class="sdpi-item" id="required_text">',
+            '<div class="sdpi-item-label">Port outgoing (in TotalMix)</div>',
+            '<input class="sdpi-item-value" id="totalmixListeningPort" value="" placeholder="9001" required pattern="\\d{1,5}" onchange="setSettings(event.target.value, \'ListeningPort\')">',
+            '</div>',
+            '<details class="message">',
+            '    <summary>Only relevant for Mirror TotalMix settings</summary>',
             '</details>',
             '<div class="sdpi-item">',
             '    <div class="sdpi-item-label">Details</div>',
@@ -619,7 +648,7 @@ function updateUI(pl, settings) {
             '        <summary>More Info</summary>',
             '        <p>Make sure TotalMix FX has OSC setup and it\'s in use.</p>',
             '        <p>Enter IP and port as set up in TotalMix FX if it\s not running on your local PC with default port settings.</p>',
-            '        <p>Currently OSC control supports solo/mute the channels, other options might come later</p>',
+            '        <p>Select Channel:<br>Stereo channels count as 1, so, for example, if stereo channel AN1/2 is channel 1, AN3 would be channel 2 then.</p>',
             '<p>Note: I developed and tested this plugin on a Fireface UC - which is the box I have at home. Drop me an issue on GitHub in case something doesn\'t work as expected on other hardware and I see if we can figure that out</p>',
             '<p><span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
             '    </details>',
@@ -640,16 +669,153 @@ function updateUI(pl, settings) {
         } else {
             document.getElementById('totalmixPort').value = settings.Port;
         }
+        if (settings.ListeningPort === undefined) {
+            document.getElementById('totalmixListeningPort').value = "9001";
+        } else {
+            document.getElementById('totalmixListeningPort').value = settings.ListeningPort;
+        }
         if (settings.MuteSolo === "mute") {
             document.getElementById("rdio1").checked = true;
         } else if (settings.MuteSolo === "solo") {
             document.getElementById("rdio2").checked = true;
         }
-        console.log("includeininitialize: " + settings.IncludeOscOnOff);
+        // console.log("includeininitialize: " + settings.IncludeOscOnOff);
         if (settings.IncludeOscOnOff == true) {
             document.getElementById("chk0").checked = true;
         } else {
             document.getElementById("chk0").checked = false;
+        }
+    } else if (pl === "de.shells.totalmix.oscchannel.action") {
+        let x = ['<div class="sdpi-item" id="required_text">',
+            '<div class="sdpi-item-label">IP-Address</div>',
+            '<input class="sdpi-item-value" id="totalmixIP" value="" placeholder="127.0.0.1" required pattern="\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}" onchange="setSettings(event.target.value, \'IP\')">',
+            '</div>',
+            '<div class="sdpi-item" id="required_text">',
+            '<div class="sdpi-item-label">Port</div>',
+            '<input class="sdpi-item-value" id="totalmixPort" value="" placeholder="7001" required pattern="\\d{1,5}" onchange="setSettings(event.target.value, \'Port\')">',
+            '</div>',
+            '<div class="sdpi-item" id="select_single">',
+            '    <div class="sdpi-item-label">Select Channel</div>',
+            '    <select class="sdpi-item-value select" id="OscChannelSelect" onchange="setSettings(event.target.value, \'SelectedAction\');selectedOscChannelFunction(document.getElementById(\'OscChannelSelectCommand\').value,event.target.value)">',
+            '    <optgroup label="Inputs">',
+            '        <option value="1">Input Channel 1</option>',
+            '        <option value="2">Input Channel 2</option>',
+            '        <option value="3">Input Channel 3</option>',
+            '        <option value="4">Input Channel 4</option>',
+            '        <option value="5">Input Channel 5</option>',
+            '        <option value="6">Input Channel 6</option>',
+            '        <option value="7">Input Channel 7</option>',
+            '        <option value="8">Input Channel 8</option>',
+            '        <option value="9">Input Channel 9</option>',
+            '        <option value="10">Input Channel 10</option>',
+            '        <option value="11">Input Channel 11</option>',
+            '        <option value="12">Input Channel 12</option>',
+            '    </optgroup>',
+            '    <optgroup label="Software">',
+            '        <option value="13">Playback Channel 1</option>',
+            '        <option value="14">Playback Channel 2</option>',
+            '        <option value="15">Playback Channel 3</option>',
+            '        <option value="16">Playback Channel 4</option>',
+            '        <option value="17">Playback Channel 5</option>',
+            '        <option value="18">Playback Channel 6</option>',
+            '        <option value="19">Playback Channel 7</option>',
+            '        <option value="20">Playback Channel 8</option>',
+            '        <option value="21">Playback Channel 9</option>',
+            '        <option value="22">Playback Channel 10</option>',
+            '        <option value="23">Playback Channel 11</option>',
+            '        <option value="24">Playback Channel 12</option>',
+            '    </optgroup>',
+            '    <optgroup label="Outputs">',
+            '        <option value="25">Output Channel 1</option>',
+            '        <option value="26">Output Channel 2</option>',
+            '        <option value="27">Output Channel 3</option>',
+            '        <option value="28">Output Channel 4</option>',
+            '        <option value="29">Output Channel 5</option>',
+            '        <option value="30">Output Channel 6</option>',
+            '        <option value="31">Output Channel 7</option>',
+            '        <option value="32">Output Channel 8</option>',
+            '        <option value="33">Output Channel 9</option>',
+            '        <option value="34">Output Channel 10</option>',
+            '        <option value="35">Output Channel 11</option>',
+            '        <option value="36">Output Channel 12</option>',
+            '    </optgroup>',
+            '    <optgroup label="Master">',
+            '        <option value="37">Master</option>',
+            '    </optgroup></select>',
+            '</div>', '<div class="sdpi-item" id="select_single">',
+            '    <div class="sdpi-item-label">Select Function</div>',
+            '    <select class="sdpi-item-value select" id="OscChannelSelectCommand" onchange="selectedOscChannelFunction(event.target.value);document.getElementById(\'OscChannelSelect\').value">',
+            '    <optgroup label="Inputs">',
+            '        <option value="1">Volume</option>',
+            '        <option value="2">Pan</option>',
+            '        <option value="3">Phase</option>',
+            '        <option value="4">Phase Right</option>',
+            '        <option value="5">Phantom Power</option>',
+            '        <option value="6">Autoset</option>',
+            '        <option value="7">Loopback</option>',
+            '        <option value="8">Stereo</option>',
+            '        <option value="9">Cue</option>',
+            '        <option value="10">Gain</option>',
+            '        <option value="11">Gain Right</option>',
+            '        <option value="12">Width</option>',
+            '        <option value="13">EQ Enable</option>',
+            '        <option value="14">Comp Enable</option>',
+            '        <option value="15">AutoLevel Enable</option>',
+            '    </optgroup></select>',
+            '</div>',
+            '<div class="sdpi-item">',
+            '    <div class="sdpi-item-label">Value</div>',
+            '    <input class="sdpi-item-value" id="selectedValue" value="" placeholder="Enter value if applicable" onchange="setSettings(event.target.value, \'SelectedValue\')">',
+            '</div>',
+            '<div class="sdpi-item">',
+            '    <div class="sdpi-item-label">Help</div>',
+            '    <details class="sdpi-item-value">',
+            '        <summary>Acceptable Values / Channel Availability</summary>',
+            '        <p><font style="font-weight:bold">Volume</font>: 0-100.<br>0 is &#8734;, 82 is 0dB, 100 is +6dB<br><font style="font-style: italic">Available: All Channels</font></p>',
+            '        <p><font style="font-weight:bold">Pan</font>: L100 to R100.<br>Enter 0 for center<br><font style="font-style: italic">Available: All Channels</font></p>',
+            '        <p><font style="font-weight:bold">Gain/Gain Right</font>: 0-65.<br><font style="font-style: italic">Available: All Input Channels with Preamp - Gain Right only available on Stereo Channels</font></p>',
+            '        <p><font style="font-weight:bold">Width</font>: -1.00 to 1.00.<br><font style="font-style: italic">Available: All Input Channels without Preamp and all Playback Channels</font></p>',
+            '        <p><font style="font-weight:bold">Phantom Power, Autoset</font>: no value<br><font style="font-style: italic">Available: All Input Channels with Preamp</font></p>',
+            '        <p><font style="font-weight:bold">Loopback, Cue</font>: no value<br><font style="font-style: italic">Available: All Output Channels</font></p>',
+            '        <p><font style="font-weight:bold">Phase, Phase Right, Stereo, Cue, EQ, Comp, AutoLevel Enable</font>: no value<br><font style="font-style: italic">Available: All Channels / Phase Right only on Stereo Channels</font></p>',
+            '    </details>',
+            '</div>',
+            '<div class="sdpi-item">',
+            '    <div class="sdpi-item-label">Details</div>',
+            '    <details class="sdpi-item-value">',
+            '        <summary>More Info</summary>',
+            '        <p>Make sure TotalMix FX has OSC setup and it\'s in use.</p>',
+            '        <p>Enter IP and port as set up in TotalMix FX if it\s not running on your local PC with default port settings.</p>',
+            '        <p>Select Channel:<br>Stereo channels count as 1, so, for example, if stereo channel AN1/2 is channel 1, AN3 would be channel 2 then.</p>',
+            '<p>Note: I developed and tested this plugin on a Fireface UC - which is the box I have at home. Drop me an issue on GitHub in case something doesn\'t work as expected on other hardware and I see if we can figure that out</p>',
+            '<p><span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
+            '    </details>',
+            '</div>'].join('');
+        document.getElementById('placeholder').innerHTML = x;
+        if (settings.SelectedAction === undefined) {
+            document.getElementById('OscChannelSelect').value = "1";
+        } else {
+            document.getElementById('OscChannelSelect').value = settings.SelectedAction;
+        }
+        if (settings.SelectedFunction === undefined) {
+            document.getElementById('OscChannelSelectCommand').value = "1";
+        } else {
+            document.getElementById('OscChannelSelectCommand').value = settings.SelectedFunction;
+        }
+        if (settings.SelectedValue === undefined) {
+            document.getElementById('selectedValue').value = "";
+        } else {
+            document.getElementById('selectedValue').value = settings.SelectedValue;
+        }
+        if (settings.IP === undefined) {
+            document.getElementById('totalmixIP').value = "127.0.0.1";
+        } else {
+            document.getElementById('totalmixIP').value = settings.IP;
+        }
+        if (settings.Port === undefined) {
+            document.getElementById('totalmixPort').value = "7001";
+        } else {
+            document.getElementById('totalmixPort').value = settings.Port;
         }
     }
 }
@@ -734,10 +900,10 @@ function fadeColor(col, amt) {
 
 function includeOscOnOff(state) {
     if (state.checked == true) {
-        console.log("checkbox checked");
+        // console.log("checkbox checked");
         setSettings(true, 'IncludeOscOnOff');
     } else {
-        console.log("checkbox unchecked");
+        // console.log("checkbox unchecked");
         setSettings(false, 'IncludeOscOnOff');
     }
 }
@@ -1154,6 +1320,170 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
     setSettings(selectedRadio, 'MuteSolo');
 }
 
+function selectedOscChannelFunction(selectedOscChannelFunction, oscChannelSelect) {
+    // console.log("oscChannelSelect in selectedOscChannelFunction: " + oscChannelSelect);
+    if (oscChannelSelect == undefined) {
+        oscChannelSelect = actionInfo.payload.settings.SelectedAction;
+    }
+    // console.log("selectedOscChannelFunction: " + selectedOscChannelFunction);
+    // console.log("entry: actionInfo.payload.settings.SelectedAction " + actionInfo.payload.settings.SelectedAction);
+    // console.log("entry: oscChannelSelect: " + oscChannelSelect);
+    switch (selectedOscChannelFunction) {
+        case "1":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/1/volume" + oscChannelSelect;
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/1/volume" + (parseInt(oscChannelSelect) - 12);
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/1/volume" + (parseInt(oscChannelSelect) - 24);
+                bus = "Output";
+            } else if (parseInt(oscChannelSelect) === 37) {
+                name = "/1/mastervolume";
+                bus = "Output";
+            }
+            break;
+        case "2":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/1/pan" + oscChannelSelect;
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/1/pan" + (parseInt(oscChannelSelect) - 12);
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/1/pan" + (parseInt(oscChannelSelect) - 24);
+                bus = "Output";
+            }
+            break;
+        case "3":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/phase";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/phase";
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/phase";
+                bus = "Output";
+            }
+            break;
+        case "4":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/phaseRight";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/phaseRight";
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/phaseRight";
+                bus = "Output";
+            }
+            break;
+        case "5":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/phantom";
+                bus = "Input";
+            }
+            break;
+        case "6":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/autoset";
+                bus = "Input";
+            }
+            break;
+        case "7":
+            if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/loopback";
+                bus = "Output";
+            }
+            break;
+        case "8":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/stereo";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/stereo";
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/stereo";
+                bus = "Output";
+            }
+            break;
+        case "9":
+            if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/cue";
+                bus = "Output";
+            }
+            break;
+        case "10":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/gain";
+                bus = "Input";
+            }
+            break;
+        case "11":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/gainRight";
+                bus = "Input";
+            }
+            break;
+        case "12":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/width";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/width";
+                bus = "Playback";
+            }
+            break;
+        case "13":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/eqEnable";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/eqEnable";
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/eqEnable";
+                bus = "Output";
+            }
+
+            break;
+        case "14":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/compexpEnable";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/compexpEnable";
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/compexpEnable";
+                bus = "Output";
+            }
+
+            break;
+        case "15":
+            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+                name = "/2/alevEnable";
+                bus = "Input";
+            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+                name = "/2/alevEnable";
+                bus = "Playback";
+            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+                name = "/2/alevEnable";
+                bus = "Output";
+            }
+            break;
+        default:
+            break;
+    }
+
+            setSettings(selectedOscChannelFunction, "SelectedFunction");
+    setSettings(name, 'Name');
+    setSettings(bus, 'Bus');
+}
+
 function setFaderGainSetting(selectedsetting) {
     if (selectedsetting > 127) {
         selectedsetting = 127;
@@ -1163,9 +1493,9 @@ function setFaderGainSetting(selectedsetting) {
 
 function mapToMidiNote(selectedAction) {
     let selectedListItem = parseInt(selectedAction);
-    console.log("typeof selectedlistitem " + typeof (selectedListItem));
-    console.log("selectedAction: " + selectedAction);
-    console.log("mapping[]: " + midiNoteMapping[selectedAction - 1]);
+    // console.log("typeof selectedlistitem " + typeof (selectedListItem));
+    // console.log("selectedAction: " + selectedAction);
+    // console.log("mapping[]: " + midiNoteMapping[selectedAction - 1]);
     setSettings(selectedAction, 'SelectedMidiAction');
     setSettings(midiNoteMapping[selectedAction - 1], 'MidiNote');
 }
