@@ -149,7 +149,9 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Donate](h
 
 
 # Changelog
-
+## [1.2.1] - 2021-07-04
+### Fixed
+- calulations updated for 16 channels in OSC Channel handling
 ## [1.2.0] - 2021-07-04
 ### Fixed
 - Mirrored buttons initilization delay

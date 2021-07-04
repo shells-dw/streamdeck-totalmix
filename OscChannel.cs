@@ -103,16 +103,16 @@ namespace streamdeck_totalmix
             // gain/gainRight
             else if (settings.SelectedFunction == "10" || settings.SelectedFunction == "11")
             {
-                for (int i = 0; i < 12; i++)
+                for (int i = 0; i < 16; i++)
                 {
                     SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
                 }
                 int channelNumber = 1;
-                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 12)
+                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction);
                 }
-                else if (Int32.Parse(settings.SelectedAction) > 12)
+                else if (Int32.Parse(settings.SelectedAction) > 16)
                 {
                     Connection.ShowAlert();
                     Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Tried to set {settings.Name} on non-input channel: {settings.SelectedAction}");
@@ -167,22 +167,22 @@ namespace streamdeck_totalmix
             } // All Channels Toggles
             else if (settings.SelectedFunction == "3" || settings.SelectedFunction == "4" || settings.SelectedFunction == "8" || settings.SelectedFunction == "13" || settings.SelectedFunction == "14" || settings.SelectedFunction == "15")
             {
-                for (int i = 0; i < 12; i++)
+                for (int i = 0; i < 16; i++)
                 {
                     SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
                 }
 
                 SetBus();
                 int channelNumber = 1;
-                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 12)
+                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction);
-                } else if (Int32.Parse(settings.SelectedAction) >= 12 && Int32.Parse(settings.SelectedAction) <= 24)
+                } else if (Int32.Parse(settings.SelectedAction) >= 16 && Int32.Parse(settings.SelectedAction) <= 32)
                 {
-                    channelNumber = Int32.Parse(settings.SelectedAction) - 12;
-                } else if (Int32.Parse(settings.SelectedAction) >= 23 && Int32.Parse(settings.SelectedAction) <= 36)
+                    channelNumber = Int32.Parse(settings.SelectedAction) - 16;
+                } else if (Int32.Parse(settings.SelectedAction) >= 33 && Int32.Parse(settings.SelectedAction) <= 48)
                 {
-                    channelNumber = Int32.Parse(settings.SelectedAction) - 24;
+                    channelNumber = Int32.Parse(settings.SelectedAction) - 32;
                 }
 
                 for (int i = 0; i < channelNumber; i++)
@@ -199,16 +199,16 @@ namespace streamdeck_totalmix
             else if (settings.SelectedFunction == "5" || settings.SelectedFunction == "6")
             {
                 SetBus();
-                for (int i = 0; i < 12; i++)
+                for (int i = 0; i < 16; i++)
                 {
                     SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
                 }
                 int channelNumber = 1;
-                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 12)
+                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction);
                 }
-                else if (Int32.Parse(settings.SelectedAction) > 12)
+                else if (Int32.Parse(settings.SelectedAction) > 16)
                 {
                     Connection.ShowAlert();
                     Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Tried to set {settings.Name} on non-input channel: {settings.SelectedAction}");
@@ -228,20 +228,20 @@ namespace streamdeck_totalmix
             else if (settings.SelectedFunction == "12")
             {
                 SetBus();
-                for (int i = 0; i < 12; i++)
+                for (int i = 0; i < 16; i++)
                 {
                     SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
                 }
                 int channelNumber = 1;
-                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 12)
+                if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction);
                 }
-                else if (Int32.Parse(settings.SelectedAction) >= 12 && Int32.Parse(settings.SelectedAction) <= 24)
+                else if (Int32.Parse(settings.SelectedAction) >= 17 && Int32.Parse(settings.SelectedAction) <= 32)
                 {
-                    channelNumber = Int32.Parse(settings.SelectedAction) - 12;
+                    channelNumber = Int32.Parse(settings.SelectedAction) - 16;
                 }
-                else if (Int32.Parse(settings.SelectedAction) > 24)
+                else if (Int32.Parse(settings.SelectedAction) > 32)
                 {
                     Connection.ShowAlert();
                     Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Tried to set {settings.Name} on non-input/playback channel: {settings.SelectedAction}");
@@ -274,16 +274,16 @@ namespace streamdeck_totalmix
             else if (settings.SelectedFunction == "7" || settings.SelectedFunction == "9")
             {
                 SetBus();
-                for (int i = 0; i < 12; i++)
+                for (int i = 0; i < 16; i++)
                 {
                     SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
                 }
                 int channelNumber = 1;
-                if (Int32.Parse(settings.SelectedAction) >= 25 && Int32.Parse(settings.SelectedAction) <= 36)
+                if (Int32.Parse(settings.SelectedAction) >= 33 && Int32.Parse(settings.SelectedAction) <= 48)
                 {
-                    channelNumber = Int32.Parse(settings.SelectedAction) - 24;
+                    channelNumber = Int32.Parse(settings.SelectedAction) - 32;
                 }
-                else if (Int32.Parse(settings.SelectedAction) < 25)
+                else if (Int32.Parse(settings.SelectedAction) < 33)
                 {
                     Connection.ShowAlert();
                     Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Tried to set {settings.Name} on non-output channel: {settings.SelectedAction}");
