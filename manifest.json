@@ -86,7 +86,7 @@
   "Name": "RME TotalMix FX",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
-  "Version": "1.1.0",
+  "Version": "1.2.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "4.3"

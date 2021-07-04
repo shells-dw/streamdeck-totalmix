@@ -7,6 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using System.Runtime;
+using System.Diagnostics;
 using SharpOSC;
 
 namespace streamdeck_totalmix
@@ -66,10 +69,36 @@ namespace streamdeck_totalmix
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Destructor called");
         }
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+        private const int SW_HIDE = 0;
+        private const int SW_RESTORE = 5;
+        private IntPtr hWnd;
+        private IntPtr hWndCache;
+        private int hWndId;
 
         public override void KeyPressed(KeyPayload payload)
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Pressed");
+            if (this.settings.Name == "showhideui")
+            {
+                Process[] p = Process.GetProcessesByName("TotalMixFX");
+              //  hWnd = (int)p[0].MainWindowHandle;
+              hWnd = p[0].MainWindowHandle;
+                if (hWndCache == IntPtr.Zero)
+                {
+                    hWndCache = hWnd;
+                }
+                hWndId = (int)p[0].Id;
+                if (hWnd == (IntPtr)0)
+                {
+                    ShowWindowAsync(hWndCache, SW_RESTORE);
+                }
+                else
+                {
+                    ShowWindowAsync(hWnd, SW_HIDE);
+                }
+            }
             this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
         }
 

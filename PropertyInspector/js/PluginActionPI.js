@@ -529,7 +529,10 @@ function updateUI(pl, settings) {
             '        <option value="30">Fader Groups 2</option>',
             '        <option value="31">Fader Groups 3</option>',
             '        <option value="32">Fader Groups 4</option>',
-            '    </optgroup></select>',
+            '    </optgroup>',
+            '    <optgroup label="UI">',
+            '        <option value="33">Show/Hide Totalmix UI</option>',
+            '    </optgroup></select > ',
             '</div>',
             '<div class="sdpi-item">',
             '    <div class="sdpi-item-label">Details</div>',
@@ -595,34 +598,46 @@ function updateUI(pl, settings) {
             '        <option value="10">Input Channel 10</option>',
             '        <option value="11">Input Channel 11</option>',
             '        <option value="12">Input Channel 12</option>',
+            '        <option value="13">Input Channel 13</option>',
+            '        <option value="14">Input Channel 14</option>',
+            '        <option value="15">Input Channel 15</option>',
+            '        <option value="16">Input Channel 16</option>',
             '    </optgroup>',
             '    <optgroup label="Software">',
-            '        <option value="13">Playback Channel 1</option>',
-            '        <option value="14">Playback Channel 2</option>',
-            '        <option value="15">Playback Channel 3</option>',
-            '        <option value="16">Playback Channel 4</option>',
-            '        <option value="17">Playback Channel 5</option>',
-            '        <option value="18">Playback Channel 6</option>',
-            '        <option value="19">Playback Channel 7</option>',
-            '        <option value="20">Playback Channel 8</option>',
-            '        <option value="21">Playback Channel 9</option>',
-            '        <option value="22">Playback Channel 10</option>',
-            '        <option value="23">Playback Channel 11</option>',
-            '        <option value="24">Playback Channel 12</option>',
+            '        <option value="17">Playback Channel 1</option>',
+            '        <option value="18">Playback Channel 2</option>',
+            '        <option value="19">Playback Channel 3</option>',
+            '        <option value="20">Playback Channel 4</option>',
+            '        <option value="21">Playback Channel 5</option>',
+            '        <option value="22">Playback Channel 6</option>',
+            '        <option value="23">Playback Channel 7</option>',
+            '        <option value="24">Playback Channel 8</option>',
+            '        <option value="25">Playback Channel 9</option>',
+            '        <option value="26">Playback Channel 10</option>',
+            '        <option value="27">Playback Channel 11</option>',
+            '        <option value="28">Playback Channel 12</option>',
+            '        <option value="29">Playback Channel 13</option>',
+            '        <option value="30">Playback Channel 14</option>',
+            '        <option value="31">Playback Channel 15</option>',
+            '        <option value="32">Playback Channel 16</option>',
             '    </optgroup>',
             '    <optgroup label="Outputs">',
-            '        <option value="25">Output Channel 1</option>',
-            '        <option value="26">Output Channel 2</option>',
-            '        <option value="27">Output Channel 3</option>',
-            '        <option value="28">Output Channel 4</option>',
-            '        <option value="29">Output Channel 5</option>',
-            '        <option value="30">Output Channel 6</option>',
-            '        <option value="31">Output Channel 7</option>',
-            '        <option value="32">Output Channel 8</option>',
-            '        <option value="33">Output Channel 9</option>',
-            '        <option value="34">Output Channel 10</option>',
-            '        <option value="35">Output Channel 11</option>',
-            '        <option value="36">Output Channel 12</option>',
+            '        <option value="33">Output Channel 1</option>',
+            '        <option value="34">Output Channel 2</option>',
+            '        <option value="35">Output Channel 3</option>',
+            '        <option value="36">Output Channel 4</option>',
+            '        <option value="37">Output Channel 5</option>',
+            '        <option value="38">Output Channel 6</option>',
+            '        <option value="39">Output Channel 7</option>',
+            '        <option value="40">Output Channel 8</option>',
+            '        <option value="41">Output Channel 9</option>',
+            '        <option value="42">Output Channel 10</option>',
+            '        <option value="43">Output Channel 11</option>',
+            '        <option value="44">Output Channel 12</option>',
+            '        <option value="45">Output Channel 13</option>',
+            '        <option value="46">Output Channel 14</option>',
+            '        <option value="47">Output Channel 15</option>',
+            '        <option value="48">Output Channel 16</option>',
             '    </optgroup></select>',
             '</div>',
             '<div type="checkbox" class="sdpi-item">',
@@ -710,34 +725,46 @@ function updateUI(pl, settings) {
             '        <option value="10">Input Channel 10</option>',
             '        <option value="11">Input Channel 11</option>',
             '        <option value="12">Input Channel 12</option>',
+            '        <option value="13">Input Channel 13</option>',
+            '        <option value="14">Input Channel 14</option>',
+            '        <option value="15">Input Channel 15</option>',
+            '        <option value="16">Input Channel 16</option>',
             '    </optgroup>',
             '    <optgroup label="Software">',
-            '        <option value="13">Playback Channel 1</option>',
-            '        <option value="14">Playback Channel 2</option>',
-            '        <option value="15">Playback Channel 3</option>',
-            '        <option value="16">Playback Channel 4</option>',
-            '        <option value="17">Playback Channel 5</option>',
-            '        <option value="18">Playback Channel 6</option>',
-            '        <option value="19">Playback Channel 7</option>',
-            '        <option value="20">Playback Channel 8</option>',
-            '        <option value="21">Playback Channel 9</option>',
-            '        <option value="22">Playback Channel 10</option>',
-            '        <option value="23">Playback Channel 11</option>',
-            '        <option value="24">Playback Channel 12</option>',
+            '        <option value="17">Playback Channel 1</option>',
+            '        <option value="18">Playback Channel 2</option>',
+            '        <option value="19">Playback Channel 3</option>',
+            '        <option value="20">Playback Channel 4</option>',
+            '        <option value="21">Playback Channel 5</option>',
+            '        <option value="22">Playback Channel 6</option>',
+            '        <option value="23">Playback Channel 7</option>',
+            '        <option value="24">Playback Channel 8</option>',
+            '        <option value="25">Playback Channel 9</option>',
+            '        <option value="26">Playback Channel 10</option>',
+            '        <option value="27">Playback Channel 11</option>',
+            '        <option value="28">Playback Channel 12</option>',
+            '        <option value="29">Playback Channel 13</option>',
+            '        <option value="30">Playback Channel 14</option>',
+            '        <option value="31">Playback Channel 15</option>',
+            '        <option value="32">Playback Channel 16</option>',
             '    </optgroup>',
             '    <optgroup label="Outputs">',
-            '        <option value="25">Output Channel 1</option>',
-            '        <option value="26">Output Channel 2</option>',
-            '        <option value="27">Output Channel 3</option>',
-            '        <option value="28">Output Channel 4</option>',
-            '        <option value="29">Output Channel 5</option>',
-            '        <option value="30">Output Channel 6</option>',
-            '        <option value="31">Output Channel 7</option>',
-            '        <option value="32">Output Channel 8</option>',
-            '        <option value="33">Output Channel 9</option>',
-            '        <option value="34">Output Channel 10</option>',
-            '        <option value="35">Output Channel 11</option>',
-            '        <option value="36">Output Channel 12</option>',
+            '        <option value="33">Output Channel 1</option>',
+            '        <option value="34">Output Channel 2</option>',
+            '        <option value="35">Output Channel 3</option>',
+            '        <option value="36">Output Channel 4</option>',
+            '        <option value="37">Output Channel 5</option>',
+            '        <option value="38">Output Channel 6</option>',
+            '        <option value="39">Output Channel 7</option>',
+            '        <option value="40">Output Channel 8</option>',
+            '        <option value="41">Output Channel 9</option>',
+            '        <option value="42">Output Channel 10</option>',
+            '        <option value="43">Output Channel 11</option>',
+            '        <option value="44">Output Channel 12</option>',
+            '        <option value="45">Output Channel 13</option>',
+            '        <option value="46">Output Channel 14</option>',
+            '        <option value="47">Output Channel 15</option>',
+            '        <option value="48">Output Channel 16</option>',
             '    </optgroup>',
             '    <optgroup label="Master">',
             '        <option value="37">Master</option>',
@@ -1007,6 +1034,9 @@ function selectedOscTriggerCommand(selectedOscTriggerCommand) {
         case "32":
             name = "/3/faderGroups/1/1";
             break;
+        case "33":
+            name = "showhideui";
+            break;
         default:
             break;
     }
@@ -1122,53 +1152,85 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             break;
         case "13":
             if (selectedRadio == "mute") {
-                name = "/1/mute/1/1";
+                name = "/1/mute/1/13";
             } else {
-                name = "/1/solo/1/1";
+                name = "/1/solo/1/13";
             }
-            bus = "Playback";
+            bus = "Input";
             break;
         case "14":
             if (selectedRadio == "mute") {
-                name = "/1/mute/1/2";
+                name = "/1/mute/1/14";
             } else {
-                name = "/1/solo/1/2";
+                name = "/1/solo/1/14";
             }
-            bus = "Playback";
+            bus = "Input";
             break;
         case "15":
             if (selectedRadio == "mute") {
-                name = "/1/mute/1/3";
+                name = "/1/mute/1/15";
             } else {
-                name = "/1/solo/1/3";
+                name = "/1/solo/1/15";
             }
-            bus = "Playback";
+            bus = "Input";
             break;
         case "16":
             if (selectedRadio == "mute") {
-                name = "/1/mute/1/4";
+                name = "/1/mute/1/16";
             } else {
-                name = "/1/solo/1/4";
+                name = "/1/solo/1/16";
             }
-            bus = "Playback";
+            bus = "Input";
             break;
         case "17":
             if (selectedRadio == "mute") {
-                name = "/1/mute/1/5";
+                name = "/1/mute/1/1";
             } else {
-                name = "/1/solo/1/5";
+                name = "/1/solo/1/1";
             }
             bus = "Playback";
             break;
         case "18":
             if (selectedRadio == "mute") {
+                name = "/1/mute/1/2";
+            } else {
+                name = "/1/solo/1/2";
+            }
+            bus = "Playback";
+            break;
+        case "19":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/3";
+            } else {
+                name = "/1/solo/1/3";
+            }
+            bus = "Playback";
+            break;
+        case "20":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/4";
+            } else {
+                name = "/1/solo/1/4";
+            }
+            bus = "Playback";
+            break;
+        case "21":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/5";
+            } else {
+                name = "/1/solo/1/5";
+            }
+            bus = "Playback";
+            break;
+        case "22":
+            if (selectedRadio == "mute") {
                 name = "/1/mute/1/6";
             } else {
                 name = "/1/solo/1/6";
             }
             bus = "Playback";
             break;
-        case "19":
+        case "23":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/7";
             } else {
@@ -1176,7 +1238,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Playback";
             break;
-        case "20":
+        case "24":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/8";
             } else {
@@ -1184,7 +1246,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Playback";
             break;
-        case "21":
+        case "25":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/9";
             } else {
@@ -1192,7 +1254,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Playback";
             break;
-        case "22":
+        case "26":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/10";
             } else {
@@ -1200,7 +1262,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Playback";
             break;
-        case "23":
+        case "27":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/11";
             } else {
@@ -1208,7 +1270,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Playback";
             break;
-        case "24":
+        case "28":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/12";
             } else {
@@ -1216,7 +1278,39 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Playback";
             break;
-        case "25":
+        case "29":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/13";
+            } else {
+                name = "/1/solo/1/13";
+            }
+            bus = "Playback";
+            break;
+        case "30":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/14";
+            } else {
+                name = "/1/solo/1/14";
+            }
+            bus = "Playback";
+            break;
+        case "31":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/15";
+            } else {
+                name = "/1/solo/1/15";
+            }
+            bus = "Playback";
+            break;
+        case "32":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/16";
+            } else {
+                name = "/1/solo/1/16";
+            }
+            bus = "Playback";
+            break;
+        case "33":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/1";
             } else {
@@ -1224,7 +1318,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "26":
+        case "34":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/2";
             } else {
@@ -1232,7 +1326,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "27":
+        case "35":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/3";
             } else {
@@ -1240,7 +1334,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "28":
+        case "36":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/4";
             } else {
@@ -1248,7 +1342,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "29":
+        case "37":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/5";
             } else {
@@ -1256,7 +1350,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "30":
+        case "38":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/6";
             } else {
@@ -1264,7 +1358,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "31":
+        case "39":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/7";
             } else {
@@ -1272,7 +1366,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "32":
+        case "40":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/8";
             } else {
@@ -1280,7 +1374,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "33":
+        case "41":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/9";
             } else {
@@ -1288,7 +1382,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "34":
+        case "42":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/10";
             } else {
@@ -1296,7 +1390,7 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "35":
+        case "43":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/11";
             } else {
@@ -1304,11 +1398,43 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             }
             bus = "Output";
             break;
-        case "36":
+        case "44":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/12";
             } else {
                 name = "/1/solo/1/12";
+            }
+            bus = "Output";
+            break;
+        case "45":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/13";
+            } else {
+                name = "/1/solo/1/13";
+            }
+            bus = "Output";
+            break;
+        case "46":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/14";
+            } else {
+                name = "/1/solo/1/14";
+            }
+            bus = "Output";
+            break;
+        case "47":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/15";
+            } else {
+                name = "/1/solo/1/15";
+            }
+            bus = "Output";
+            break;
+        case "48":
+            if (selectedRadio == "mute") {
+                name = "/1/mute/1/16";
+            } else {
+                name = "/1/solo/1/16";
             }
             bus = "Output";
             break;

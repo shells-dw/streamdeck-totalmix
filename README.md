@@ -20,7 +20,7 @@ Inside the Release-folder you can find the precompiled plugin. Download and open
 
 ## Setup for OSC
 
-Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for ease of typing) and have it listen to OSC commands. Please also set the "Number of faders per bank" to 12, or it will not fully work.
+Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for ease of typing) and have it listen to OSC commands. Please also set the "Number of faders per bank" to 16, or it will not fully work.
 
 ![Setup TotalMix OSC](/docs/images/TM_OSC_setup.png) ![Enable OSC](/docs/images/TM_OSC_en.png) ![Setup TotalMix OSC 2](/docs/images/TM_OSC_setup2.png)
 
@@ -61,9 +61,9 @@ You can however include multiple instances of the actions in a multi-action (ava
 
 - Trigger Global Function: It supports loading snapshots/mixes and toggle master solo/mute, toggle FX reverb/echo, control room/main functions as well as activating fader groups, mute groups and solo groups.
 
-- Toggle Channel Function: Currently it's possible to set mute and solo for up to each 12 input, playback and output channels. It can also load the current status of the channel mute/solo when you load a page that has these buttons on it, so they will directly switch the button image to the active state.
+- Toggle Channel Function: Currently it's possible to set mute and solo for up to each 16 input, playback and output channels. It can also load the current status of the channel mute/solo when you load a page that has these buttons on it, so they will directly switch the button image to the active state.
 
-- Control Channels: Here you can set up individual channel actions for all 36 channels, including: setting the volume, pan, phase, phantom power, autoset, loopback, stereo, cue, gain, width, autolevel, eq and comp. Obviously not everything is available for every channel, for example: gain is only supported on input channels with preamps obviously.
+- Control Channels: Here you can set up individual channel actions for all 48 channels, including: setting the volume, pan, phase, phantom power, autoset, loopback, stereo, cue, gain, width, autolevel, eq and comp. Obviously not everything is available for every channel, for example: gain is only supported on input channels with preamps obviously.
 
 ### Actions
 
@@ -103,7 +103,7 @@ Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs
 ![StreamDeckPlugin_OSC_2](/docs/images/SD_P_OSC_2.png)
 
 Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use.
-You have 12 Input, 12 Playback and 12 Output channels available (remember when I said you should set TotalMix to have 12 Faders per bank? That's partly why) for which you can each Mute or Solo.
+You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 16 Faders per bank? That's partly why) for which you can each Mute or Solo.
 Select the checkbox "Mirror TotalMix" to update the button's icon when it comes into focus in StreamDeck (e.g. when you open a folder containing the button, load a profile or start StreamDeck when it's on the top screen).
 Note: due to the nature of how OSC works and I have implemented the solution this is not a permanent monitoring, it's only initialized on load of a button, if you then switch the status in TotalMix or by other means, it will not be reflected on the deck.
 
@@ -112,7 +112,7 @@ Note: due to the nature of how OSC works and I have implemented the solution thi
 ![StreamDeckPlugin_OSC_3](/docs/images/SD_P_OSC_3.png)
 
 Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use.
-You have 12 Input, 12 Playback and 12 Output channels available (remember when I said you should set TotalMix to have 12 Faders per bank? That's partly why) plus Master, for which you can trigger functions.
+You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 12 Faders per bank? That's partly why) plus Master, for which you can trigger functions.
 Select the functions to use in the drop-down field below. If the function requires a value to send, for example Volume, enter the "Value" field with the value. Not all functions work on all channels. You can't, for example, set Gain on a channel that has no preamp. The acceptable values are:
 * Volume: 0-100. 0 is &#8734;, 82 is 0dB, 100 is +6dB. _Available in all channels._
 * Pan: L100 to R100. Enter 0 for center. _Available in all channels._
@@ -142,6 +142,22 @@ If you're interested in using this plugin but something you really need is missi
 
 If you happen to have a working and proper MIDI implementation sheet for RME devices, I'd be happy to implement them in the plugin.
 Currently the OSC documentation looks way better than what's there for MIDI. One could think they don't want people to develop these kind of things...
+
+# Support
+
+If you'd like to drop me a coffee for the hours I've spent on this: [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2)
+
+
+# Changelog
+
+## [1.2.0] - 2021-07-04
+### Fixed
+- Mirrored buttons initilization delay
+
+### Added
+- Real time updates for channel mute/solo. StreamDeck should now (with a slight delay at times for technical reasons) update the button state if a channel is muted or solo-ed inside TotalMix or by other means (if you enable the mirror-checkbox on that button)
+- Option to hide/restore the TotalMix window (using Windows techniques, haven't found out how RME does that with ARC, probably not exposed for third parties)
+- Support for up to 48 channels (3x 16) _pending testing, I don't have access to a 16 channel RME interface myself at the moment_
 
 # Disclaimer
 I'm in no way affiliated with RME or Elgato. I wrote this plugin out of personal interest.
