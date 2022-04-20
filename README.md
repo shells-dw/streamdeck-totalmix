@@ -96,7 +96,7 @@ If you select Input Gain as target, the acceptable values are 0 to 65, just as i
 
 ![StreamDeckPlugin_OSC](/docs/images/SD_P_OSC.png)
 
-Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use.
+Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use. Enabling the "Hold Mode" will only trigger the function as long as the button is pressed. Note: when selecting Snapshots, the Hold Mode will automaically engange.
 
 #### OSC: Toggle Channel Function
 

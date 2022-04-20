@@ -29,6 +29,7 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
         Port = actionInfo.payload.settings.Port;
         IP = actionInfo.payload.settings.IP;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
+        Latch = actionInfo.payload.settings.Latch;
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
         Name = actionInfo.payload.settings.Name;
         Port = actionInfo.payload.settings.Port;
@@ -117,6 +118,7 @@ function setSettings(value, param) {
     if (param === "ListeningPort") { ListeningPort = payload.ListeningPort }
     if (param === "Name") { Name = payload.Name }
     if (param === "SelectedAction") { SelectedAction = payload.SelectedAction }
+    if (param === "Latch") { Latch = payload.Latch }
     if (param === "SelectedMidiAction") { SelectedMidiAction = payload.SelectedMidiAction }
     if (param === "Bus") { Bus = payload.Bus }
     if (param === "SelectedValue") { SelectedValue = payload.SelectedValue }
@@ -134,7 +136,8 @@ function setSettings(value, param) {
             IP: IP,
             Port: Port,
             Name: Name,
-            SelectedAction: SelectedAction
+            SelectedAction: SelectedAction,
+            Latch: Latch
         }
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
         settings = {
@@ -534,6 +537,11 @@ function updateUI(pl, settings) {
             '        <option value="33">Show/Hide Totalmix UI</option>',
             '    </optgroup></select > ',
             '</div>',
+            '<div type="checkbox" class="sdpi-item">',
+            '       <div class="sdpi-item-label">Hold Mode (only active while pressed)</div>',
+            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="nolatch" onclick="latch(this);setSettings(document.getElementById(\'chk0\').value, \'nolatch\')""">',
+            '       <label for="chk0"><span></span></label>',
+            '</div>',
             '<div class="sdpi-item">',
             '    <div class="sdpi-item-label">Details</div>',
             '    <details class="sdpi-item-value">',
@@ -559,6 +567,11 @@ function updateUI(pl, settings) {
             document.getElementById('totalmixPort').value = "7001";
         } else {
             document.getElementById('totalmixPort').value = settings.Port;
+        }
+        if (settings.Latch == true) {
+            document.getElementById("chk0").checked = true;
+        } else {
+            document.getElementById("chk0").checked = false;
         }
     } else if (pl === "de.shells.totalmix.osconoff.action") {
         let x = ['<div class="sdpi-item" id="required_text">',
@@ -935,32 +948,50 @@ function includeOscOnOff(state) {
     }
 }
 
+function latch(state) {
+    if (state.checked == true) {
+        // console.log("checkbox checked");
+        setSettings(true, 'Latch');
+    } else {
+        // console.log("checkbox unchecked");
+        setSettings(false, 'Latch');
+    }
+}
+
 function selectedOscTriggerCommand(selectedOscTriggerCommand) {
     setSettings(selectedOscTriggerCommand, 'SelectedAction');
     switch (selectedOscTriggerCommand) {
         case "1":
             name = "/3/snapshots/8/1";
+            setSettings(true, 'Latch');
             break;
         case "2":
             name = "/3/snapshots/7/1";
+            setSettings(true, 'Latch');
             break;
         case "3":
             name = "/3/snapshots/6/1";
+            setSettings(true, 'Latch');
             break;
         case "4":
             name = "/3/snapshots/5/1";
+            setSettings(true, 'Latch');
             break;
         case "5":
             name = "/3/snapshots/4/1";
+            setSettings(true, 'Latch');
             break;
         case "6":
             name = "/3/snapshots/3/1";
+            setSettings(true, 'Latch');
             break;
         case "7":
             name = "/3/snapshots/2/1";
+            setSettings(true, 'Latch');
             break;
         case "8":
             name = "/3/snapshots/1/1";
+            setSettings(true, 'Latch');
             break;
         case "9":
             name = "/3/globalMute";

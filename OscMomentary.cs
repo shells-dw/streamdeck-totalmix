@@ -11,7 +11,6 @@ using System.Runtime.InteropServices;
 using System.Runtime;
 using System.Diagnostics;
 using SharpOSC;
-using System.Drawing;
 
 namespace streamdeck_totalmix
 {
@@ -44,9 +43,6 @@ namespace streamdeck_totalmix
 
             [JsonProperty(PropertyName = "SelectedAction")]
             public string SelectedAction { get; set; }
-
-            [JsonProperty(PropertyName = "Latch")]
-            public bool Latch { get; set; }
         }
 
         #region Private Members
@@ -80,7 +76,7 @@ namespace streamdeck_totalmix
         private IntPtr hWnd;
         private IntPtr hWndCache;
         private int hWndId;
-        private int counter;
+
         public override void KeyPressed(KeyPayload payload)
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Pressed");
@@ -103,36 +99,12 @@ namespace streamdeck_totalmix
                     ShowWindowAsync(hWnd, SW_HIDE);
                 }
             }
-
             this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
-            this.counter++;
-            if (this.settings.Latch == true)
-            {
-                Connection.SetStateAsync(1);
-            }
-            Image actionSoloImage = Image.FromFile(@"Images/actionSoloImage.png");
-            var actionSoloImageBase64 = Tools.ImageToBase64(actionSoloImage, true);
-            Connection.SetImageAsync(actionSoloImageBase64);
-            
-            if (this.counter % 2 == 0) {
-                Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                Connection.SetImageAsync(actionDefaultImageBase64);
-            }
         }
 
         public override void KeyReleased(KeyPayload payload) {
-
-            if (this.settings.Latch == true)
-            {
-                Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Released");
-                this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
-                Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                Connection.SetImageAsync(actionDefaultImageBase64);
-                this.counter--;
-                Connection.SetStateAsync(0);
-            }
+            Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Released");
+            this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
         }
 
         public override void OnTick() { }
