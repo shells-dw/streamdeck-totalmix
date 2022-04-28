@@ -2,16 +2,13 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
-using System.Runtime;
 using System.Diagnostics;
 using SharpOSC;
 using System.Drawing;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace streamdeck_totalmix
 {
@@ -81,17 +78,37 @@ namespace streamdeck_totalmix
         private IntPtr hWndCache;
         private int hWndId;
         private int counter;
+
+        delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        static extern bool EnumThreadWindows(int dwThreadId, EnumThreadDelegate lpfn,
+            IntPtr lParam);
+
+        static IEnumerable<IntPtr> EnumerateProcessWindowHandles(int processId)
+        {
+            var handles = new List<IntPtr>();
+
+            foreach (ProcessThread thread in Process.GetProcessById(processId).Threads)
+                EnumThreadWindows(thread.Id,
+                    (hWnd, lParam) => { handles.Add(hWnd); return true; }, IntPtr.Zero);
+
+            return handles;
+        }
+
         public override void KeyPressed(KeyPayload payload)
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Pressed");
             if (this.settings.Name == "showhideui")
             {
                 Process[] p = Process.GetProcessesByName("TotalMixFX");
-              //  hWnd = (int)p[0].MainWindowHandle;
-              hWnd = p[0].MainWindowHandle;
+                //  hWnd = (int)p[0].MainWindowHandle;
+                hWnd = p[0].MainWindowHandle;
+                IntPtr WindowHandle = EnumerateProcessWindowHandles(p[0].Id).First();
                 if (hWndCache == IntPtr.Zero)
                 {
-                    hWndCache = hWnd;
+                //    hWndCache = hWnd;
+                    hWndCache = WindowHandle;
                 }
                 hWndId = (int)p[0].Id;
                 if (hWnd == (IntPtr)0)
@@ -103,8 +120,10 @@ namespace streamdeck_totalmix
                     ShowWindowAsync(hWnd, SW_HIDE);
                 }
             }
-
-            this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+            if (this.settings.Name != "showhideui")
+            {
+             this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+            }
             this.counter++;
             if (this.settings.Latch == true)
             {
@@ -113,20 +132,25 @@ namespace streamdeck_totalmix
             Image actionSoloImage = Image.FromFile(@"Images/actionSoloImage.png");
             var actionSoloImageBase64 = Tools.ImageToBase64(actionSoloImage, true);
             Connection.SetImageAsync(actionSoloImageBase64);
-            
-            if (this.counter % 2 == 0) {
+
+            if (this.counter % 2 == 0)
+            {
                 Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
                 var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
                 Connection.SetImageAsync(actionDefaultImageBase64);
             }
         }
 
-        public override void KeyReleased(KeyPayload payload) {
+        public override void KeyReleased(KeyPayload payload)
+        {
 
             if (this.settings.Latch == true)
             {
                 Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Released");
-                this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+                if (this.settings.Name != "showhideui")
+                {
+                    this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+                }
                 Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
                 var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
                 Connection.SetImageAsync(actionDefaultImageBase64);

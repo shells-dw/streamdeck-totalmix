@@ -49,6 +49,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="PresentationCore" />
     <Reference Include="SharpOSC">
       <HintPath>dll\SharpOSC.dll</HintPath>
     </Reference>

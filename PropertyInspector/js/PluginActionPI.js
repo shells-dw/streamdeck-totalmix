@@ -1067,6 +1067,7 @@ function selectedOscTriggerCommand(selectedOscTriggerCommand) {
             break;
         case "33":
             name = "showhideui";
+            setSettings(true, 'Latch');
             break;
         default:
             break;

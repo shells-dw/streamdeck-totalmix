@@ -1,3 +1,6 @@
+ ![GitHub](https://img.shields.io/github/license/shells-dw/streamdeck-totalmix) ![GitHub last commit](https://img.shields.io/github/last-commit/shells-dw/streamdeck-totalmix) [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) / [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
+
+
 # Unofficial StreamDeck RME TotalMix FX Plugin - supporting MIDI and OSC
 
 ![Overview](/docs/images/GH_SocPic.png)
@@ -65,9 +68,9 @@ You can however include multiple instances of the actions in a multi-action (ava
 
 - Control Channels: Here you can set up individual channel actions for all 48 channels, including: setting the volume, pan, phase, phantom power, autoset, loopback, stereo, cue, gain, width, autolevel, eq and comp. Obviously not everything is available for every channel, for example: gain is only supported on input channels with preamps obviously.
 
-### Actions
+## Actions
 
-#### General
+### General
 
 It's important to understand that whenever you can select a channel in the dropdown selection in this plugin, this affects TotalMix channel strips as you see them in the software. TotalMix combines a stereo channel to one channel strip. You will not have control over each individual mono channel that's part of a stereo channel.
 What that means is that if you have, for example, a stereo output channel AN1/2, this will be output channel 1. AN3 will be output channel 2 then. However if you have AN1 and AN2 set to mono, AN3 is output channel 3 then. Bear that in mind when you configure actions that are targeted to individual channels
@@ -145,10 +148,21 @@ Currently the OSC documentation looks way better than what's there for MIDI. One
 
 # Support
 
-If you'd like to drop me a coffee for the hours I've spent on this: [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2)
+If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) or use Ko-Fi [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
 
 
 # Changelog
+## [2.1.0] - 2022-04-28
+### Improvement
+- Show/Hide UI should work now even when/after moving back to Stream Deck top level
+### Various
+- removed unused namespaces from all modules, cleaned up a bit, updated readme.md
+## [2.0.0] - 2022-04-20
+### Feature
+- hold-mode (no latch mode) for OSC Global Functions
+- enable toggle icons for all modules
+### Fixed
+- various minor fixes
 ## [1.2.1] - 2021-07-04
 ### Fixed
 - calulations updated for 16 channels in OSC Channel handling
