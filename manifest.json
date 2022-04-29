@@ -10,7 +10,7 @@
           "FontSize": "10"
         },
         {
-          "Image": "Images/actionMutedImage",
+          "Image": "Images/actionDefaultImage",
           "TitleAlignment": "middle",
           "FontSize": "10"
         }
@@ -29,7 +29,7 @@
           "FontSize": "10"
         },
         {
-          "Image": "Images/actionMutedImage",
+          "Image": "Images/actionDefaultImage",
           "TitleAlignment": "middle",
           "FontSize": "10"
         }
@@ -48,7 +48,7 @@
           "FontSize": "10"
         },
         {
-          "Image": "Images/actionMutedImage",
+          "Image": "Images/actionDefaultImage",
           "TitleAlignment": "middle",
           "FontSize": "10"
         }
@@ -67,7 +67,7 @@
           "FontSize": "10"
         },
         {
-          "Image": "Images/actionMutedImage",
+          "Image": "Images/actionDefaultImage",
           "TitleAlignment": "middle",
           "FontSize": "10"
         }
@@ -86,7 +86,7 @@
           "FontSize": "10"
         },
         {
-          "Image": "Images/actionMutedImage",
+          "Image": "Images/actionDefaultImage",
           "TitleAlignment": "middle",
           "FontSize": "10"
         }
@@ -106,7 +106,7 @@
   "Name": "RME TotalMix FX",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
-  "Version": "2.1.0",
+  "Version": "2.2.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "4.3"

@@ -129,9 +129,9 @@ namespace streamdeck_totalmix
             {
                 Connection.SetStateAsync(1);
             }
-            Image actionSoloImage = Image.FromFile(@"Images/actionSoloImage.png");
-            var actionSoloImageBase64 = Tools.ImageToBase64(actionSoloImage, true);
-            Connection.SetImageAsync(actionSoloImageBase64);
+            Image actionOnImage = Image.FromFile(@"Images/actionOnImage.png");
+            var actionOnImageBase64 = Tools.ImageToBase64(actionOnImage, true);
+            Connection.SetImageAsync(actionOnImageBase64);
 
             if (this.counter % 2 == 0)
             {

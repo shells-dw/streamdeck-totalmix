@@ -250,9 +250,26 @@ namespace streamdeck_totalmix
                                 }
                                 else
                                 {
-                                    Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                                    var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                                    Connection.SetImageAsync(actionDefaultImageBase64);
+                                    //    Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
+                                    //    var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
+                                    //    Connection.SetImageAsync(actionDefaultImageBase64);
+                                    if (settings.Name.Contains("solo"))
+                                    {
+
+                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        Image actionSoloOffImage = Image.FromFile(@"Images/actionSoloOffImage.png");
+                                        var actionSoloOffImageBase64 = Tools.ImageToBase64(actionSoloOffImage, true);
+                                        Connection.SetImageAsync(actionSoloOffImageBase64);
+
+                                    }
+                                    else
+                                    {
+                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        Image actionUnmutedImage = Image.FromFile(@"Images/actionUnmutedImage.png");
+                                        var actionUnmutedImageBase64 = Tools.ImageToBase64(actionUnmutedImage, true);
+                                        Connection.SetImageAsync(actionUnmutedImageBase64);
+
+                                    }
                                 }
                             }
                             else

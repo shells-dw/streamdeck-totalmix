@@ -152,6 +152,9 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [2.2.0] - 2022-04-29
+### Improvement
+- Updated default graphics
 ## [2.1.0] - 2022-04-28
 ### Improvement
 - Show/Hide UI should work now even when/after moving back to Stream Deck top level
