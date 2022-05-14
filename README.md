@@ -130,7 +130,6 @@ Select the functions to use in the drop-down field below. If the function requir
 
 - **Windows 10** with .NET Framework is required to run this plugin.
 - As per user reports, the mirror functionality might not work with Windows 11.
-- OSC: getting the active state when loading a deck... it only checks when the deck is loaded, for example if you open a folder that contains those buttons, or switch to a profile that does, etc. so when stuff is changed on the UI in the computer, via MIDI or a snapshot is loaded, that will not reflect on the buttons. It will take roughly 2 seconds per input/playback/output group when a deck containing buttons that mirror TotalMix settings is opened, regardless how many buttons of that group are on the Deck. Meaning if you have 12 Input channel buttons, it will take 2 seconds, if you have 1 input, 1 playback and 1 output button, it will take 6.
 - MIDI: I developed this on Windows, using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
 - There is no MacOS support. It would mean a total rewrite of the plugin in Xcode to have it work on MacOS natively, for which I don't have the time.
 - MIDI: It needs a virtual MIDI port, writing my own drivers and have them signed is definitely above my skillset, so you'll have to install a driver for that additionally. (e.g. [virtualMidi][], [loopBe][])
