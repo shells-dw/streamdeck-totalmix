@@ -64,7 +64,7 @@ You can however include multiple instances of the actions in a multi-action (ava
 
 - Trigger Global Function: It supports loading snapshots/mixes and toggle master solo/mute, toggle FX reverb/echo, control room/main functions as well as activating fader groups, mute groups and solo groups.
 
-- Toggle Channel Function: Currently it's possible to set mute and solo for up to each 16 input, playback and output channels. It can also load the current status of the channel mute/solo when you load a page that has these buttons on it, so they will directly switch the button image to the active state.
+- Toggle Channel Function: Currently it's possible to set mute and solo for up to each 16 input, playback and output channels. It can also mirror the current status of the channel mute/solo and show respective button images (reportedly not working with Windows 11).
 
 - Control Channels: Here you can set up individual channel actions for all 48 channels, including: setting the volume, pan, phase, phantom power, autoset, loopback, stereo, cue, gain, width, autolevel, eq and comp. Obviously not everything is available for every channel, for example: gain is only supported on input channels with preamps obviously.
 
@@ -128,7 +128,8 @@ Select the functions to use in the drop-down field below. If the function requir
 
 # Limitations
 
-- Windows 10 with .NET Framework is required to run this plugin.
+- **Windows 10** with .NET Framework is required to run this plugin.
+- As per user reports, the mirror functionality might not work with Windows 11.
 - OSC: getting the active state when loading a deck... it only checks when the deck is loaded, for example if you open a folder that contains those buttons, or switch to a profile that does, etc. so when stuff is changed on the UI in the computer, via MIDI or a snapshot is loaded, that will not reflect on the buttons. It will take roughly 2 seconds per input/playback/output group when a deck containing buttons that mirror TotalMix settings is opened, regardless how many buttons of that group are on the Deck. Meaning if you have 12 Input channel buttons, it will take 2 seconds, if you have 1 input, 1 playback and 1 output button, it will take 6.
 - MIDI: I developed this on Windows, using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
 - There is no MacOS support. It would mean a total rewrite of the plugin in Xcode to have it work on MacOS natively, for which I don't have the time.
@@ -152,6 +153,14 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [2.2.1] - 2022-05-14
+### Updated
+- updated readme.md to reflect potential issues with Windows 11 and mirror channel
+- moved files locally from a dying drive, git recognizes them all as modified now and I can't be bothered to mess with that, so I'm pushing it, but nothing should have changed except for a bit of debugging I added for testing this Windows 11 thing in osconoff.cs.
+## [2.2.0] - 2022-04-29
+### Improvement
+- Updated default graphics
+- Updated README.md to reflect graphics changes
 ## [2.1.0] - 2022-04-28
 ### Improvement
 - Show/Hide UI should work now even when/after moving back to Stream Deck top level

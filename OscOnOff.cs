@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Threading;
 using SharpOSC;
 using System.Drawing;
 using System.Text.RegularExpressions;
@@ -199,9 +200,23 @@ namespace streamdeck_totalmix
         {
 
         }
-
+        private int counter;
+        private int tickCounter = 0;
         public override void OnTick()
         {
+            tickCounter++;
+            System.IO.FileInfo fi = new System.IO.FileInfo(@"pluginlog.log");
+            long size = fi.Length;
+  //          Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: filesize " + size);
+            if (fi.Length > 10000000)
+            {
+                string path = @"pluginlog.log";
+                System.IO.File.WriteAllText(path, String.Empty);
+                System.IO.TextWriter tw = new System.IO.StreamWriter(path, true);
+                tw.WriteLine("flushed for size");
+                tw.Close();
+            }
+            Console.WriteLine("File Size in Bytes: {0}", size);
             if (this.settings.IncludeOscOnOff == true && this.settings.IP != null && this.settings.Name != null && this.settings.Port != 0 && this.settings.Bus != null)
             {
                 TotalMixListener(this.settings.Bus, this.settings.IP, this.settings.Port);
@@ -226,8 +241,14 @@ namespace streamdeck_totalmix
                         {
                             if (DictToUse.TryGetValue(this.settings.Name, out string result))
                             {
-                                Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: result: " + result);
-                                Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: settings.Name: " + settings.Name);
+                                if (counter > 20)
+                                {
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: TickCounter " + tickCounter);
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: result: " + result);
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: settings.Name: " + settings.Name);
+                                    counter = 0;
+                                }
+                                counter++;
                                 if (result == "1")
                                 {
                                     if (settings.Name.Contains("solo"))
@@ -250,9 +271,26 @@ namespace streamdeck_totalmix
                                 }
                                 else
                                 {
-                                    Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                                    var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                                    Connection.SetImageAsync(actionDefaultImageBase64);
+                                    //    Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
+                                    //    var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
+                                    //    Connection.SetImageAsync(actionDefaultImageBase64);
+                                    if (settings.Name.Contains("solo"))
+                                    {
+
+                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        Image actionSoloOffImage = Image.FromFile(@"Images/actionSoloOffImage.png");
+                                        var actionSoloOffImageBase64 = Tools.ImageToBase64(actionSoloOffImage, true);
+                                        Connection.SetImageAsync(actionSoloOffImageBase64);
+
+                                    }
+                                    else
+                                    {
+                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        Image actionUnmutedImage = Image.FromFile(@"Images/actionUnmutedImage.png");
+                                        var actionUnmutedImageBase64 = Tools.ImageToBase64(actionUnmutedImage, true);
+                                        Connection.SetImageAsync(actionUnmutedImageBase64);
+
+                                    }
                                 }
                             }
                             else
@@ -288,6 +326,8 @@ namespace streamdeck_totalmix
 
         public Task TotalMixListener(string bus, string ip, int port)
         {
+ //           Thread.Sleep(250);
+            Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In Listener");
             bankSettingInputBus.Clear();
             bankSettingPlaybackBus.Clear();
             bankSettingOutputBus.Clear();
@@ -346,7 +386,10 @@ namespace streamdeck_totalmix
                     }
                 }
             }
+
+    //        Thread.Sleep(500);
             listener.Close();
+            Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Out Listener");
             return Task.CompletedTask;
         }
 
