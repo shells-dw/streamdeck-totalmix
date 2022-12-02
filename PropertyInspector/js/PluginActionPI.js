@@ -26,24 +26,18 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
     loadConfiguration(actionInfo);
     if (actionInfo.action === "de.shells.totalmix.osctoggle.action") {
         Name = actionInfo.payload.settings.Name;
-        Port = actionInfo.payload.settings.Port;
-        IP = actionInfo.payload.settings.IP;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
         Latch = actionInfo.payload.settings.Latch;
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
         Name = actionInfo.payload.settings.Name;
-        Port = actionInfo.payload.settings.Port;
-        ListeningPort = actionInfo.payload.settings.ListeningPort;
-        IP = actionInfo.payload.settings.IP;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
         Bus = actionInfo.payload.settings.Bus;
         SelectedValue = actionInfo.payload.settings.SelectedValue;
         MuteSolo = actionInfo.payload.settings.MuteSolo;
-        IncludeOscOnOff = actionInfo.payload.settings.IncludeOscOnOff;
+        MirrorTotalMix = actionInfo.payload.settings.MirrorTotalMix;
+        DisplayChannelName = actionInfo.payload.settings.DisplayChannelName;
     } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
         Name = actionInfo.payload.settings.Name;
-        Port = actionInfo.payload.settings.Port;
-        IP = actionInfo.payload.settings.IP;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
         Bus = actionInfo.payload.settings.Bus;
         SelectedValue = actionInfo.payload.settings.SelectedValue;
@@ -113,9 +107,6 @@ function setSettings(value, param) {
     // console.log("setSettings payload:");
     // console.log(payload);
     let settings;
-    if (param === "IP") { IP = payload.IP }
-    if (param === "Port") { Port = payload.Port }
-    if (param === "ListeningPort") { ListeningPort = payload.ListeningPort }
     if (param === "Name") { Name = payload.Name }
     if (param === "SelectedAction") { SelectedAction = payload.SelectedAction }
     if (param === "Latch") { Latch = payload.Latch }
@@ -130,31 +121,26 @@ function setSettings(value, param) {
     if (param === "Devices") { Devices = payload.Devices }
     if (param === "Control") { Control = payload.Control }
     if (param === "ControlValue") { ControlValue = payload.ControlValue }
-    if (param === "IncludeOscOnOff") { IncludeOscOnOff = payload.IncludeOscOnOff }
+    if (param === "MirrorTotalMix") { MirrorTotalMix = payload.MirrorTotalMix }
+    if (param === "DisplayChannelName") { DisplayChannelName = payload.DisplayChannelName }
     if (actionInfo.action === "de.shells.totalmix.osctoggle.action") {
         settings = {
-            IP: IP,
-            Port: Port,
             Name: Name,
             SelectedAction: SelectedAction,
             Latch: Latch
         }
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
         settings = {
-            IP: IP,
-            Port: Port,
-            ListeningPort: ListeningPort,
             Name: Name,
             SelectedAction: SelectedAction,
             Bus: Bus,
             SelectedValue: SelectedValue,
             MuteSolo: MuteSolo,
-            IncludeOscOnOff: IncludeOscOnOff
+            MirrorTotalMix: MirrorTotalMix,
+            DisplayChannelName: DisplayChannelName
         }
     } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
         settings = {
-            IP: IP,
-            Port: Port,
             Name: Name,
             SelectedAction: SelectedAction,
             Bus: Bus,
@@ -481,14 +467,7 @@ function updateUI(pl, settings) {
 
     } else if (pl === "de.shells.totalmix.osctoggle.action") {
         let x = ['<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">IP-Address</div>',
-            '<input class="sdpi-item-value" id="totalmixIP" value="127.0.0.1" placeholder="192.168.1.150" required pattern="\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}" onchange="setSettings(event.target.value, \'IP\')">',
-            '</div>',
-            '<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">Port</div>',
-            '<input class="sdpi-item-value" id="totalmixPort" value="7001" placeholder="7001" required pattern="\\d{1,5}" onchange="setSettings(event.target.value, \'Port\')">',
-            '</div>',
-            '<div class="sdpi-item" id="select_single">',
+            '<div class="sdpi-item" id="select_single"></div>',
             '    <div class="sdpi-item-label">Select Function</div>',
             '    <select class="sdpi-item-value select" id="OscToggleSelect" onchange="selectedOscTriggerCommand(event.target.value)">',
             '    <optgroup label="Snapshots">',
@@ -547,7 +526,6 @@ function updateUI(pl, settings) {
             '    <details class="sdpi-item-value">',
             '        <summary>More Info</summary>',
             '        <p>Make sure TotalMix FX has OSC setup and it\'s in use.</p>',
-            '        <p>Enter IP and port as set up in TotalMix FX if it\s not running on your local PC with default port settings.</p>',
             '<p>Note: I developed and tested this plugin on a Fireface UC - which is the box I have at home. Drop me an issue on GitHub in case something doesn\'t work as expected on other hardware and I see if we can figure that out</p>',
             '<p><span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
             '    </details>',
@@ -558,16 +536,6 @@ function updateUI(pl, settings) {
         } else {
             document.getElementById('OscToggleSelect').value = settings.SelectedAction;
         }
-        if (settings.IP === undefined) {
-            document.getElementById('totalmixIP').value = "127.0.0.1";
-        } else {
-            document.getElementById('totalmixIP').value = settings.IP;
-        }
-        if (settings.Port === undefined) {
-            document.getElementById('totalmixPort').value = "7001";
-        } else {
-            document.getElementById('totalmixPort').value = settings.Port;
-        }
         if (settings.Latch == true) {
             document.getElementById("chk0").checked = true;
         } else {
@@ -575,14 +543,7 @@ function updateUI(pl, settings) {
         }
     } else if (pl === "de.shells.totalmix.osconoff.action") {
         let x = ['<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">IP-Address</div>',
-            '<input class="sdpi-item-value" id="totalmixIP" value="" placeholder="127.0.0.1" required pattern="\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}" onchange="setSettings(event.target.value, \'IP\')">',
-            '</div>',
-            '<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">Port</div>',
-            '<input class="sdpi-item-value" id="totalmixPort" value="" placeholder="7001" required pattern="\\d{1,5}" onchange="setSettings(event.target.value, \'Port\')">',
-            '</div>',
-            '        <div type="radio" class="sdpi-item" id="adjust_radio">',
+            '        <div type="radio" class="sdpi-item" id="adjust_radio"></div>',
             ' <div class="sdpi-item-label">Mute or Solo</div>',
             ' <div class="sdpi-item-value ">',
             '     <span class="sdpi-item-child">',
@@ -592,6 +553,10 @@ function updateUI(pl, settings) {
             '     <span class="sdpi-item-child">',
             '         <input id="rdio2" type="radio" value="solo" name="rdio" onchange="selectedOscToggleCommand(document.getElementById(\'OscOnOffSelect\').value)">',
             '         <label for="rdio2" class="sdpi-item-label"><span></span>solo</label>',
+            '     </span>',
+            '     <span class="sdpi-item-child">',
+            '         <input id="rdio3" type="radio" value="phantom" name="rdio" onchange="selectedOscToggleCommand(document.getElementById(\'OscOnOffSelect\').value)">',
+            '         <label for="rdio3" class="sdpi-item-label"><span></span>phantom power</label>',
             '     </span>',
             '  </div>',
             '</div>',
@@ -655,28 +620,24 @@ function updateUI(pl, settings) {
             '</div>',
             '<div type="checkbox" class="sdpi-item">',
             '       <div class="sdpi-item-label">Mirror TotalMix Settings</div>',
-            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="includeInInitialize" onclick="includeOscOnOff(this);setSettings(document.getElementById(\'totalmixListeningPort\').value, \'ListeningPort\')"">',
+            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="includeInInitialize" onclick="mirrorTotalMix(this)">',
             '       <label for="chk0"><span></span></label>',
+            '</div>',
+            '<div type="checkbox" class="sdpi-item">',
+            '       <div class="sdpi-item-label">Display Channel Name</div>',
+            '       <input class="sdpi-item-value" id="chk1" type="checkbox" value="displayChannelName" onclick="displayChannelName(this)">',
+            '       <label for="chk1"><span></span></label>',
             '</div>',
             '<details class="message">',
             '    <summary>Info on Mirror TotalMix (click)</summary>',
             '   <h4>Information:</h4>',
-            '    <p>Checking this checkbox will make the plugin query TotalMix when the button comes into focus (which is when the button is loaded - if the StreamDeck is started or when a folder is accessed that contains the button).<br>Note: When you use buttons for Input/Playback/Output channels on the same Deck all buttons will be unresponsive for 2 seconds for each category (e.g. having 5 buttons for Input, 5 for Output, will make the buttons unavailable for 4 seconds.)</p>',
-            '</details>',
-            '<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">Port outgoing (in TotalMix)</div>',
-            '<input class="sdpi-item-value" id="totalmixListeningPort" value="" placeholder="9001" required pattern="\\d{1,5}" onchange="setSettings(event.target.value, \'ListeningPort\')">',
-            '</div>',
-            '<details class="message">',
-            '    <summary>Only relevant for Mirror TotalMix settings</summary>',
+            '    <p>Please make sure to set up OSC in TotalMix FX correctly for this to work! <span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
             '</details>',
             '<div class="sdpi-item">',
             '    <div class="sdpi-item-label">Details</div>',
             '    <details class="sdpi-item-value">',
             '        <summary>More Info</summary>',
             '        <p>Make sure TotalMix FX has OSC setup and it\'s in use.</p>',
-            '        <p>Enter IP and port as set up in TotalMix FX if it\s not running on your local PC with default port settings.</p>',
-            '        <p>Select Channel:<br>Stereo channels count as 1, so, for example, if stereo channel AN1/2 is channel 1, AN3 would be channel 2 then.</p>',
             '<p>Note: I developed and tested this plugin on a Fireface UC - which is the box I have at home. Drop me an issue on GitHub in case something doesn\'t work as expected on other hardware and I see if we can figure that out</p>',
             '<p><span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
             '    </details>',
@@ -687,42 +648,27 @@ function updateUI(pl, settings) {
         } else {
             document.getElementById('OscOnOffSelect').value = settings.SelectedAction;
         }
-        if (settings.IP === undefined) {
-            document.getElementById('totalmixIP').value = "127.0.0.1";
-        } else {
-            document.getElementById('totalmixIP').value = settings.IP;
-        }
-        if (settings.Port === undefined) {
-            document.getElementById('totalmixPort').value = "7001";
-        } else {
-            document.getElementById('totalmixPort').value = settings.Port;
-        }
-        if (settings.ListeningPort === undefined) {
-            document.getElementById('totalmixListeningPort').value = "9001";
-        } else {
-            document.getElementById('totalmixListeningPort').value = settings.ListeningPort;
-        }
         if (settings.MuteSolo === "mute") {
             document.getElementById("rdio1").checked = true;
         } else if (settings.MuteSolo === "solo") {
             document.getElementById("rdio2").checked = true;
+        } else if (settings.MuteSolo === "phantom") {
+            document.getElementById("rdio3").checked = true;
         }
-        // console.log("includeininitialize: " + settings.IncludeOscOnOff);
-        if (settings.IncludeOscOnOff == true) {
+        //   console.log("includeInInitialize: " + settings.MirrorTotalMix);
+        if (settings.MirrorTotalMix == true) {
             document.getElementById("chk0").checked = true;
         } else {
             document.getElementById("chk0").checked = false;
         }
+        if (settings.DisplayChannelName == true) {
+            document.getElementById("chk1").checked = true;
+        } else {
+            document.getElementById("chk1").checked = false;
+        }
     } else if (pl === "de.shells.totalmix.oscchannel.action") {
         let x = ['<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">IP-Address</div>',
-            '<input class="sdpi-item-value" id="totalmixIP" value="" placeholder="127.0.0.1" required pattern="\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}" onchange="setSettings(event.target.value, \'IP\')">',
-            '</div>',
-            '<div class="sdpi-item" id="required_text">',
-            '<div class="sdpi-item-label">Port</div>',
-            '<input class="sdpi-item-value" id="totalmixPort" value="" placeholder="7001" required pattern="\\d{1,5}" onchange="setSettings(event.target.value, \'Port\')">',
-            '</div>',
-            '<div class="sdpi-item" id="select_single">',
+            '<div class="sdpi-item" id="select_single"></div>',
             '    <div class="sdpi-item-label">Select Channel</div>',
             '    <select class="sdpi-item-value select" id="OscChannelSelect" onchange="setSettings(event.target.value, \'SelectedAction\');selectedOscChannelFunction(document.getElementById(\'OscChannelSelectCommand\').value,event.target.value)">',
             '    <optgroup label="Inputs">',
@@ -825,8 +771,6 @@ function updateUI(pl, settings) {
             '    <details class="sdpi-item-value">',
             '        <summary>More Info</summary>',
             '        <p>Make sure TotalMix FX has OSC setup and it\'s in use.</p>',
-            '        <p>Enter IP and port as set up in TotalMix FX if it\s not running on your local PC with default port settings.</p>',
-            '        <p>Select Channel:<br>Stereo channels count as 1, so, for example, if stereo channel AN1/2 is channel 1, AN3 would be channel 2 then.</p>',
             '<p>Note: I developed and tested this plugin on a Fireface UC - which is the box I have at home. Drop me an issue on GitHub in case something doesn\'t work as expected on other hardware and I see if we can figure that out</p>',
             '<p><span class="linkspan" onclick="openWebsite()">Link: more detailed instructions</span></p>',
             '    </details>',
@@ -846,16 +790,6 @@ function updateUI(pl, settings) {
             document.getElementById('selectedValue').value = "";
         } else {
             document.getElementById('selectedValue').value = settings.SelectedValue;
-        }
-        if (settings.IP === undefined) {
-            document.getElementById('totalmixIP').value = "127.0.0.1";
-        } else {
-            document.getElementById('totalmixIP').value = settings.IP;
-        }
-        if (settings.Port === undefined) {
-            document.getElementById('totalmixPort').value = "7001";
-        } else {
-            document.getElementById('totalmixPort').value = settings.Port;
         }
     }
 }
@@ -938,22 +872,32 @@ function fadeColor(col, amt) {
     return '#' + (g | (b << 8) | (r << 16)).toString(16).padStart(6, 0);
 }
 
-function includeOscOnOff(state) {
+function mirrorTotalMix(state) {
     if (state.checked == true) {
-        // console.log("checkbox checked");
-        setSettings(true, 'IncludeOscOnOff');
+        console.log("checkbox checked");
+        setSettings(true, 'MirrorTotalMix');
     } else {
-        // console.log("checkbox unchecked");
-        setSettings(false, 'IncludeOscOnOff');
+        console.log("checkbox unchecked");
+        setSettings(false, 'MirrorTotalMix');
+    }
+}
+
+function displayChannelName(state) {
+    if (state.checked == true) {
+        console.log("checkbox checked");
+        setSettings(true, 'DisplayChannelName');
+    } else {
+        console.log("checkbox unchecked");
+        setSettings(false, 'DisplayChannelName');
     }
 }
 
 function latch(state) {
     if (state.checked == true) {
-        // console.log("checkbox checked");
+        console.log("checkbox checked");
         setSettings(true, 'Latch');
     } else {
-        // console.log("checkbox unchecked");
+        console.log("checkbox unchecked");
         setSettings(false, 'Latch');
     }
 }
@@ -1089,384 +1033,480 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
         case "1":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/1";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/1";
+            } else {
+                name = "/1/phantom/1/1";
             }
             bus = "Input";
             break;
         case "2":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/2";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/2";
+            } else {
+                name = "/1/phantom/1/2";
             }
             bus = "Input";
             break;
         case "3":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/3";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/3";
+            } else {
+                name = "/1/phantom/1/3";
             }
             bus = "Input";
             break;
         case "4":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/4";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/4";
+            } else {
+                name = "/1/phantom/1/4";
             }
             bus = "Input";
             break;
         case "5":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/5";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/5";
+            } else {
+                name = "/1/phantom/1/5";
             }
             bus = "Input";
             break;
         case "6":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/6";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/6";
+            } else {
+                name = "/1/phantom/1/6";
             }
             bus = "Input";
             break;
         case "7":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/7";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/7";
+            } else {
+                name = "/1/phantom/1/7";
             }
             bus = "Input";
             break;
         case "8":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/8";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/8";
+            } else {
+                name = "/1/phantom/1/8";
             }
             bus = "Input";
             break;
         case "9":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/9";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/9";
+            } else {
+                name = "/1/phantom/1/9";
             }
             bus = "Input";
             break;
         case "10":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/10";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/10";
+            } else {
+                name = "/1/phantom/1/10";
             }
             bus = "Input";
             break;
         case "11":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/11";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/11";
+            } else {
+                name = "/1/phantom/1/11";
             }
             bus = "Input";
             break;
         case "12":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/12";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/12";
+            } else {
+                name = "/1/phantom/1/12";
             }
             bus = "Input";
             break;
         case "13":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/13";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/13";
+            } else {
+                name = "/1/phantom/1/13";
             }
             bus = "Input";
             break;
         case "14":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/14";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/14";
+            } else {
+                name = "/1/phantom/1/14";
             }
             bus = "Input";
             break;
         case "15":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/15";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/15";
+            } else {
+                name = "/1/phantom/1/15";
             }
             bus = "Input";
             break;
         case "16":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/16";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/16";
+            } else {
+                name = "/1/phantom/1/16";
             }
             bus = "Input";
             break;
         case "17":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/1";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/1";
+            } else {
+                name = "/1/phantom/1/1";
             }
             bus = "Playback";
             break;
         case "18":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/2";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/2";
+            } else {
+                name = "/1/phantom/1/2";
             }
             bus = "Playback";
             break;
         case "19":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/3";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/3";
+            } else {
+                name = "/1/phantom/1/3";
             }
             bus = "Playback";
             break;
         case "20":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/4";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/4";
+            } else {
+                name = "/1/phantom/1/4";
             }
             bus = "Playback";
             break;
         case "21":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/5";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/5";
+            } else {;
+                name = "/1/phantom/1/5";
             }
             bus = "Playback";
             break;
         case "22":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/6";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/6";
+            } else {
+                name = "/1/phantom/1/6";
             }
             bus = "Playback";
             break;
         case "23":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/7";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/7";
+            } else {
+                name = "/1/phantom/1/7";
             }
             bus = "Playback";
             break;
         case "24":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/8";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/8";
+            } else {
+                name = "/1/phantom/1/8";
             }
             bus = "Playback";
             break;
         case "25":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/9";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/9";
+            } else {
+                name = "/1/phantom/1/9";
             }
             bus = "Playback";
             break;
         case "26":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/10";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/10";
+            } else {
+                name = "/1/phantom/1/10";
             }
             bus = "Playback";
             break;
         case "27":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/11";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/11";
+            } else {
+                name = "/1/phantom/1/11";
             }
             bus = "Playback";
             break;
         case "28":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/12";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/12";
+            } else {
+                name = "/1/phantom/1/12";
             }
             bus = "Playback";
             break;
         case "29":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/13";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/13";
+            } else {
+                name = "/1/phantom/1/13";
             }
             bus = "Playback";
             break;
         case "30":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/14";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/14";
+            } else {
+                name = "/1/phantom/1/14";
             }
             bus = "Playback";
             break;
         case "31":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/15";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/15";
+            } else {
+                name = "/1/phantom/1/15";
             }
             bus = "Playback";
             break;
         case "32":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/16";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/16";
+            } else {
+                name = "/1/phantom/1/16";
             }
             bus = "Playback";
             break;
         case "33":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/1";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/1";
+            } else {
+                name = "/1/phantom/1/1";
             }
             bus = "Output";
             break;
         case "34":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/2";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/2";
+            } else {
+                name = "/1/phantom/1/2";
             }
             bus = "Output";
             break;
         case "35":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/3";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/3";
+            } else {
+                name = "/1/phantom/1/3";
             }
             bus = "Output";
             break;
         case "36":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/4";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/4";
+            } else {
+                name = "/1/phantom/1/4";
             }
             bus = "Output";
             break;
         case "37":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/5";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/5";
+            } else {
+                name = "/1/phantom/1/5";
             }
             bus = "Output";
             break;
         case "38":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/6";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/6";
+            } else {
+                name = "/1/phantom/1/6";
             }
             bus = "Output";
             break;
         case "39":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/7";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/7";
+            } else {
+                name = "/1/phantom/1/7";
             }
             bus = "Output";
             break;
         case "40":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/8";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/8";
+            } else {
+                name = "/1/phantom/1/8";
             }
             bus = "Output";
             break;
         case "41":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/9";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/9";
+            } else {
+                name = "/1/phantom/1/9";
             }
             bus = "Output";
             break;
         case "42":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/10";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/10";
+            } else {
+                name = "/1/phantom/1/10";
             }
             bus = "Output";
             break;
         case "43":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/11";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/11";
+            } else {
+                name = "/1/phantom/1/11";
             }
             bus = "Output";
             break;
         case "44":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/12";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/12";
+            } else {
+                name = "/1/phantom/1/12";
             }
             bus = "Output";
             break;
         case "45":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/13";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/13";
+            } else {
+                name = "/1/phantom/1/13";
             }
             bus = "Output";
             break;
         case "46":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/14";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/14";
+            } else {
+                name = "/1/phantom/1/14";
             }
             bus = "Output";
             break;
         case "47":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/15";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/15";
+            } else {
+                name = "/1/phantom/1/15";
             }
             bus = "Output";
             break;
         case "48":
             if (selectedRadio == "mute") {
                 name = "/1/mute/1/16";
-            } else {
+            } else if (selectedRadio == "solo") {
                 name = "/1/solo/1/16";
+            } else {
+                name = "/1/phantom/1/16";
             }
             bus = "Output";
             break;
@@ -1637,7 +1677,7 @@ function selectedOscChannelFunction(selectedOscChannelFunction, oscChannelSelect
             break;
     }
 
-            setSettings(selectedOscChannelFunction, "SelectedFunction");
+    setSettings(selectedOscChannelFunction, "SelectedFunction");
     setSettings(name, 'Name');
     setSettings(bus, 'Bus');
 }

@@ -1,9 +1,11 @@
 ﻿using BarRaider.SdTools;
+using BarRaider.SdTools.Wrappers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using RtMidi.Core.Enums;
 using System;
+using System.Drawing;
 using System.Threading.Tasks;
-using SharpOSC;
 
 namespace streamdeck_totalmix
 {
@@ -18,8 +20,6 @@ namespace streamdeck_totalmix
                 {
                     Name = "/1/volume1",
                     SelectedAction = "1",
-                    Port = 7001,
-                    IP = "127.0.0.1",
                     Bus = "Input",
                     SelectedValue = String.Empty,
                     SelectedFunction = "1"
@@ -30,12 +30,6 @@ namespace streamdeck_totalmix
             [FilenameProperty]
             [JsonProperty(PropertyName = "Name")]
             public string Name { get; set; }
-
-            [JsonProperty(PropertyName = "Port")]
-            public int Port { get; set; }
-
-            [JsonProperty(PropertyName = "IP")]
-            public string IP { get; set; }
 
             [JsonProperty(PropertyName = "SelectedAction")]
             public string SelectedAction { get; set; }
@@ -91,7 +85,7 @@ namespace streamdeck_totalmix
                 }
                 dBInFloat = (float)Math.Round(selectedValue / 100.0, 2);
                 SetBus();
-                SendOscCommand(settings.Name, dBInFloat, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, dBInFloat, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set Volume: {settings.Name} {dBInFloat}");
             }
             // gain/gainRight
@@ -99,7 +93,7 @@ namespace streamdeck_totalmix
             {
                 for (int i = 0; i < 16; i++)
                 {
-                    SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
+                    Task.Run(() => HelperFunctions.SendOscCommand("/2/track-", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 }
                 int channelNumber = 1;
                 if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
@@ -116,7 +110,7 @@ namespace streamdeck_totalmix
                 {
                     if (i > 0)
                     {
-                        SendOscCommand("/2/track+", 1.0f, settings.IP, settings.Port);
+                        Task.Run(() => HelperFunctions.SendOscCommand("/2/track+", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                     }
                 }
                 int selectedValue = 0;
@@ -126,7 +120,7 @@ namespace streamdeck_totalmix
                 }
                 dBInFloat = (float)Math.Round(selectedValue / 65.0, 2);
                 SetBus();
-                SendOscCommand(settings.Name, dBInFloat, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, dBInFloat, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set Volume: {settings.Name} {dBInFloat}");
             }
             // pan
@@ -156,14 +150,14 @@ namespace streamdeck_totalmix
                 }
                 dBInFloat = (float)Math.Round((Int32.Parse(selectedValue) + 100) / 200.0, 2);
                 SetBus();
-                SendOscCommand(settings.Name, dBInFloat, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, dBInFloat, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Pan Channel: {settings.Name} {dBInFloat}");
             } // All Channels Toggles
             else if (settings.SelectedFunction == "3" || settings.SelectedFunction == "4" || settings.SelectedFunction == "8" || settings.SelectedFunction == "13" || settings.SelectedFunction == "14" || settings.SelectedFunction == "15")
             {
                 for (int i = 0; i < 16; i++)
                 {
-                    SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
+                    Task.Run(() => HelperFunctions.SendOscCommand("/2/track-", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 }
 
                 SetBus();
@@ -171,22 +165,24 @@ namespace streamdeck_totalmix
                 if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction);
-                } else if (Int32.Parse(settings.SelectedAction) >= 16 && Int32.Parse(settings.SelectedAction) <= 32)
+                }
+                else if (Int32.Parse(settings.SelectedAction) >= 16 && Int32.Parse(settings.SelectedAction) <= 32)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction) - 16;
-                } else if (Int32.Parse(settings.SelectedAction) >= 33 && Int32.Parse(settings.SelectedAction) <= 48)
+                }
+                else if (Int32.Parse(settings.SelectedAction) >= 33 && Int32.Parse(settings.SelectedAction) <= 48)
                 {
                     channelNumber = Int32.Parse(settings.SelectedAction) - 32;
                 }
 
                 for (int i = 0; i < channelNumber; i++)
+                {
+                    if (i > 0)
                     {
-                        if (i > 0)
-                        {
-                            SendOscCommand("/2/track+", 1.0f, settings.IP, settings.Port);
-                        }
+                        Task.Run(() => HelperFunctions.SendOscCommand("/2/track+", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                     }
-                    SendOscCommand(settings.Name, 1.0f, settings.IP, settings.Port);
+                }
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set {settings.Name} on Channel: {channelNumber} -> {settings.Name}");
             }
             // Input Channels Only Toggle
@@ -195,7 +191,7 @@ namespace streamdeck_totalmix
                 SetBus();
                 for (int i = 0; i < 16; i++)
                 {
-                    SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
+                    Task.Run(() => HelperFunctions.SendOscCommand("/2/track-", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 }
                 int channelNumber = 1;
                 if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
@@ -212,10 +208,11 @@ namespace streamdeck_totalmix
                 {
                     if (i > 0)
                     {
-                        SendOscCommand("/2/track+", 1.0f, settings.IP, settings.Port);
+                        Task.Run(() => HelperFunctions.SendOscCommand("/2/track+", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                     }
                 }
-                SendOscCommand(settings.Name, 1.0f, settings.IP, settings.Port);
+
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set {settings.Name}: {channelNumber} -> {settings.Name}");
             }
             // width
@@ -224,7 +221,7 @@ namespace streamdeck_totalmix
                 SetBus();
                 for (int i = 0; i < 16; i++)
                 {
-                    SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
+                    Task.Run(() => HelperFunctions.SendOscCommand("/2/track-", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 }
                 int channelNumber = 1;
                 if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
@@ -245,7 +242,7 @@ namespace streamdeck_totalmix
                 {
                     if (i > 0)
                     {
-                        SendOscCommand("/2/track+", 1.0f, settings.IP, settings.Port);
+                        Task.Run(() => HelperFunctions.SendOscCommand("/2/track+", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                     }
                 }
                 float selectedValue = 0.0f;
@@ -256,12 +253,13 @@ namespace streamdeck_totalmix
                 if (selectedValue < -100)
                 {
                     selectedValue = -100;
-                } else if (selectedValue > 100)
+                }
+                else if (selectedValue > 100)
                 {
                     selectedValue = 100;
                 }
                 dBInFloat = (float)Math.Round((selectedValue + 100) / 200, 2);
-                SendOscCommand(settings.Name, dBInFloat, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, dBInFloat, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set {settings.Name}: {channelNumber} -> {settings.Name}");
             }
             //Output Channels only Toggle
@@ -270,7 +268,7 @@ namespace streamdeck_totalmix
                 SetBus();
                 for (int i = 0; i < 16; i++)
                 {
-                    SendOscCommand("/2/track-", 1.0f, settings.IP, settings.Port);
+                    Task.Run(() => HelperFunctions.SendOscCommand("/2/track-", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 }
                 int channelNumber = 1;
                 if (Int32.Parse(settings.SelectedAction) >= 33 && Int32.Parse(settings.SelectedAction) <= 48)
@@ -287,10 +285,10 @@ namespace streamdeck_totalmix
                 {
                     if (i > 0)
                     {
-                        SendOscCommand("/2/track+", 1.0f, settings.IP, settings.Port);
+                        Task.Run(() => HelperFunctions.SendOscCommand("/2/track+", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                     }
                 }
-                SendOscCommand(settings.Name, 1.0f, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set {settings.Name}: {channelNumber} -> {settings.Name}");
             }
         }
@@ -300,7 +298,96 @@ namespace streamdeck_totalmix
 
         }
 
-        public override void OnTick() { }
+        public override void OnTick()
+        {
+            TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - Globals.lastQuery.Ticks);
+            if (Globals.bankSettings[$"{this.settings.Bus}"].Count != 0 || elapsedSpan.TotalSeconds > 10)
+            {
+                if (elapsedSpan.TotalSeconds > 1)
+                {
+                    Globals.lastQuery = DateTime.Now;
+                    Listener listener = new Listener();
+                    listener.Listen(this.settings.Bus, $"/1/bus{this.settings.Bus}", 1);
+                }
+            try
+            {
+
+                Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{ChannelNumber()}", out string trackname);
+                switch (this.settings.SelectedFunction)
+                {
+                    case "1":
+                        DrawImage(trackname, "Images/volume.png");
+                        break;
+                    case "2":
+                        DrawImage(trackname, "Images/pan.png");
+                        break;
+                    case "3":
+                        DrawImage(trackname, "Images/phaseOff.png");
+                        break;
+                    case "4":
+                        DrawImage(trackname, "Images/phaseRightOff.png");
+                        break;
+                    case "5":
+                        DrawImage(trackname, "Images/phantomOff.png");
+                        break;
+                    case "6":
+                        DrawImage(trackname, "Images/autoset.png");
+                        break;
+                    case "7":
+                        DrawImage(trackname, "Images/loopback.png");
+                        break;
+                    case "8":
+                        DrawImage(trackname, "Images/stereo.png");
+                        break;
+                    case "9":
+                        DrawImage(trackname, "Images/cueOff.png");
+                        break;
+                    case "10":
+                        DrawImage(trackname, "Images/gain.png");
+                        break;
+                    case "11":
+                        DrawImage(trackname, "Images/gain.png");
+                        break;
+                    default:
+                        break;
+                }
+            }
+            catch (Exception ex)
+                {
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: OnTick, try catch => {ex.Message}");
+                }
+
+            }
+
+        }
+        private Int32 ChannelNumber()
+        {
+            if (Int32.Parse(settings.SelectedAction) >= 1 && Int32.Parse(settings.SelectedAction) <= 16)
+            {
+                return _ = Int32.Parse(settings.SelectedAction);
+            }
+            else if (Int32.Parse(settings.SelectedAction) >= 16 && Int32.Parse(settings.SelectedAction) <= 32)
+            {
+                return _ = Int32.Parse(settings.SelectedAction) - 16;
+            }
+            else if (Int32.Parse(settings.SelectedAction) >= 33 && Int32.Parse(settings.SelectedAction) <= 48)
+            {
+                return _ = Int32.Parse(settings.SelectedAction) - 32;
+            }
+            return 0;
+        }
+        private void DrawImage(String trackname, String imagePath)
+        {
+            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, 12, Color.White, false, TitleVerticalAlignment.Bottom);
+            using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
+            {
+                Image actionImage = Image.FromFile(@imagePath);
+                graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
+                graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                Connection.SetImageAsync(image);
+                graphics.Dispose();
+            }
+        }
 
         public override void ReceivedSettings(ReceivedSettingsPayload payload)
         {
@@ -320,26 +407,19 @@ namespace streamdeck_totalmix
         #endregion
 
 
-        public void SendOscCommand(string name, float value, string ip, int port)
-        {
-            var message = new OscMessage(name, value);
-            var sender = new UDPSender(ip, port);
-            sender.Send(message);
-        }
-
         public void SetBus()
         {
             if (this.settings.Bus == "Input")
             {
-                SendOscCommand("/1/busInput", 1.0f, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand("/1/busInput", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
             else if (this.settings.Bus == "Playback")
             {
-                SendOscCommand("/1/busPlayback", 1.0f, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand("/1/busPlayback", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
             else if (this.settings.Bus == "Output")
             {
-                SendOscCommand("/1/busOutput", 1.0f, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand("/1/busOutput", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
         }
     }

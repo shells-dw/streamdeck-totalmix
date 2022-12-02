@@ -2,13 +2,13 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-using SharpOSC;
+using System.Threading.Tasks;
 using System.Drawing;
 using System.Collections.Generic;
 using System.Linq;
+using BarRaider.SdTools.Wrappers;
 
 namespace streamdeck_totalmix
 {
@@ -22,9 +22,7 @@ namespace streamdeck_totalmix
                 PluginSettings instance = new PluginSettings
                 {
                     Name = "/3/snapshots/8/1",
-                    SelectedAction = "1",
-                    Port = 7001,
-                    IP = "127.0.0.1"
+                    SelectedAction = "1"
                 };
                 return instance;
             }
@@ -32,12 +30,6 @@ namespace streamdeck_totalmix
             [FilenameProperty]
             [JsonProperty(PropertyName = "Name")]
             public string Name { get; set; }
-
-            [JsonProperty(PropertyName = "Port")]
-            public int Port { get; set; }
-
-            [JsonProperty(PropertyName = "IP")]
-            public string IP { get; set; }
 
             [JsonProperty(PropertyName = "SelectedAction")]
             public string SelectedAction { get; set; }
@@ -70,6 +62,7 @@ namespace streamdeck_totalmix
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Destructor called");
         }
+
         [DllImport("user32.dll")]
         public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
         private const int SW_HIDE = 0;
@@ -107,7 +100,7 @@ namespace streamdeck_totalmix
                 IntPtr WindowHandle = EnumerateProcessWindowHandles(p[0].Id).First();
                 if (hWndCache == IntPtr.Zero)
                 {
-                //    hWndCache = hWnd;
+                    //    hWndCache = hWnd;
                     hWndCache = WindowHandle;
                 }
                 hWndId = (int)p[0].Id;
@@ -122,22 +115,18 @@ namespace streamdeck_totalmix
             }
             if (this.settings.Name != "showhideui")
             {
-             this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
             this.counter++;
             if (this.settings.Latch == true)
             {
-                Connection.SetStateAsync(1);
+                Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
             }
-            Image actionOnImage = Image.FromFile(@"Images/actionOnImage.png");
-            var actionOnImageBase64 = Tools.ImageToBase64(actionOnImage, true);
-            Connection.SetImageAsync(actionOnImageBase64);
+            DrawImage("Global Mute", "Images/mixerOn.png");
 
             if (this.counter % 2 == 0)
             {
-                Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                Connection.SetImageAsync(actionDefaultImageBase64);
+                DrawImage("Global Mute", "Images/actionDefaultImage.png");
             }
         }
 
@@ -149,18 +138,233 @@ namespace streamdeck_totalmix
                 Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Released");
                 if (this.settings.Name != "showhideui")
                 {
-                    this.SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+                    Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 }
-                Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                Connection.SetImageAsync(actionDefaultImageBase64);
+                DrawImage("Global Mute", "Images/actionDefaultImage.png");
+                Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
                 this.counter--;
-                Connection.SetStateAsync(0);
             }
         }
 
-        public override void OnTick() { }
-
+        public override void OnTick()
+        {
+            TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - Globals.lastQuery.Ticks);
+            if (Globals.bankSettings["Input"].Count != 0 || elapsedSpan.TotalSeconds > 10)
+            {
+                if (elapsedSpan.TotalSeconds > 1)
+                {
+                    Globals.lastQuery = DateTime.Now;
+                    Listener listener = new Listener();
+                    listener.Listen("Input", "/1/busInput", 1);
+                }
+            }
+            try
+            {
+                switch (this.settings.SelectedAction)
+                {
+                    case "9":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/globalMute"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/globalMute", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Global Mute", "Images/muteOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Global Mute", "Images/muteOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "10":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/globalSolo"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/globalSolo", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Global Solo", "Images/soloOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Global Solo", "Images/soloOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "11":
+                        DrawImage("Reverb", "Images/actionDefaultImage.png");
+                        break;
+                    case "12":
+                        DrawImage("Echo", "Images/actionDefaultImage.png");
+                        break;
+                    case "13":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/trim"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/trim", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Trim", "Images/trimOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Trim", "Images/trimOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "14":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainDim"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainDim", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Main Dim", "Images/dimOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Main Dim", "Images/dimOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "15":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainSpeakerB"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainSpeakerB", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Speaker B", "Images/speakerBOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Speaker B", "Images/speakerBOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "16":
+                        DrawImage("Recall", "Images/recall.png");
+                        break;
+                    case "17":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainMuteFx"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainMuteFx", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Main Mute FX", "Images/muteFXOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Main Mute FX", "Images/muteFXOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "18":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainMono"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainMono", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Main Mono", "Images/monoOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Main Mono", "Images/monoOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "19":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainExtIn"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainExtIn", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Ext In", "Images/extInOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Ext In", "Images/extInOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "20":
+                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainTalkback"))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainTalkback", out string result))
+                            {
+                                if (result == "1")
+                                {
+                                    DrawImage("Talkback", "Images/talkbackOn.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                }
+                                else
+                                {
+                                    DrawImage("Talkback", "Images/talkbackOff.png");
+                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                }
+                            }
+                        }
+                        break;
+                    case "33":
+                        DrawImage("Show/hide UI", "Images/actionDefaultImage.png");
+                        break;
+                    default:
+                        if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)
+                        {
+                            DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
+                        }
+                        else
+                        {
+                            DrawImage("", "Images/actionDefaultImage.png");
+                        }
+                        break;
+                }
+            }
+            catch
+            {
+                //
+            }
+        }
+        private void DrawImage(String trackname, String imagePath)
+        {
+            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, 11, Color.White, false, TitleVerticalAlignment.Bottom);
+            using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
+            {
+                Image actionImage = Image.FromFile(@imagePath);
+                graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
+                graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                Connection.SetImageAsync(image);
+                graphics.Dispose();
+            }
+        }
         public override void ReceivedSettings(ReceivedSettingsPayload payload)
         {
             Tools.AutoPopulateSettings(settings, payload.Settings);
@@ -168,21 +372,5 @@ namespace streamdeck_totalmix
         }
 
         public override void ReceivedGlobalSettings(ReceivedGlobalSettingsPayload payload) { }
-
-        #region Private Methods
-
-        private Task SaveSettings()
-        {
-            return Connection.SetSettingsAsync(JObject.FromObject(settings));
-        }
-
-        #endregion
-
-        public void SendOscCommand(string name, float value, string ip, int port)
-        {
-            var message = new OscMessage(name, value);
-            var sender = new UDPSender(ip, port);
-            sender.Send(message);
-        }
     }
 }

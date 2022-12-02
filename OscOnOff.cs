@@ -2,19 +2,17 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Threading;
-using SharpOSC;
 using System.Drawing;
-using System.Text.RegularExpressions;
+using System.Threading;
+using BarRaider.SdTools.Wrappers;
+using RtMidi.Core.Enums;
 
 namespace streamdeck_totalmix
 {
     [PluginActionId("de.shells.totalmix.osconoff.action")]
     public class OscOnOff : PluginBase
     {
-
         private class PluginSettings
         {
             public static PluginSettings CreateDefaultSettings()
@@ -23,13 +21,11 @@ namespace streamdeck_totalmix
                 {
                     Name = String.Empty,
                     SelectedAction = "1",
-                    ListeningPort = 9001,
-                    Port = 7001,
-                    IP = "127.0.0.1",
                     Bus = String.Empty,
                     MuteSolo = String.Empty,
                     SettingValue = 1.0f,
-                    IncludeOscOnOff = false
+                    MirrorTotalMix = false,
+                    DisplayChannelName = true
                 };
                 return instance;
             }
@@ -37,15 +33,6 @@ namespace streamdeck_totalmix
             [FilenameProperty]
             [JsonProperty(PropertyName = "Name")]
             public string Name { get; set; }
-
-            [JsonProperty(PropertyName = "Port")]
-            public int Port { get; set; }
-
-            [JsonProperty(PropertyName = "ListeningPort")]
-            public int ListeningPort { get; set; }
-
-            [JsonProperty(PropertyName = "IP")]
-            public string IP { get; set; }
 
             [JsonProperty(PropertyName = "SelectedAction")]
             public string SelectedAction { get; set; }
@@ -59,8 +46,11 @@ namespace streamdeck_totalmix
             [JsonProperty(PropertyName = "SettingValue")]
             public float SettingValue { get; set; }
 
-            [JsonProperty(PropertyName = "IncludeOscOnOff")]
-            public bool IncludeOscOnOff { get; set; }
+            [JsonProperty(PropertyName = "MirrorTotalMix")]
+            public bool MirrorTotalMix { get; set; }
+
+            [JsonProperty(PropertyName = "DisplayChannelName")]
+            public bool DisplayChannelName { get; set; }
         }
 
         #region Private Members
@@ -81,118 +71,53 @@ namespace streamdeck_totalmix
             {
                 this.settings = payload.Settings.ToObject<PluginSettings>();
             }
-            /*           if (this.settings.IncludeOscOnOff == true && this.settings.IP != null && this.settings.Name != null && this.settings.Port != 0 && this.settings.Bus != null)
-                       {
-                           if (payload.State == 1)
-                           {
-                               Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                               var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                               Connection.SetImageAsync(actionDefaultImageBase64);
-                           }
-                               TotalMixListener(this.settings.Bus, this.settings.IP, this.settings.Port);
-
-                           var DictToUse = bankSettingInputBus;
-                           if (this.settings.Bus == "Input")
-                           {
-                               DictToUse = bankSettingInputBus;
-                           }
-                           else if (this.settings.Bus == "Playback")
-                           {
-                               DictToUse = bankSettingPlaybackBus;
-                           }
-                           else if (this.settings.Bus == "Output")
-                           {
-                               DictToUse = bankSettingOutputBus;
-                           }
-                           if (DictToUse.ContainsKey(this.settings.Name))
-                           {
-                               if (DictToUse.TryGetValue("/1/bus" + settings.Bus, out string busValue))
-                               {
-                                   if (busValue == "1")
-                                   {
-                                       if (DictToUse.TryGetValue(this.settings.Name, out string result))
-                                       {
-                                           Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: result: " + result);
-                                           Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: settings.Name: " + settings.Name);
-                                           if (result == "1")
-                                           {
-                                               if (settings.Name.Contains("solo"))
-                                               {
-
-                                                   connection.StreamDeckConnection.SetStateAsync(1, connection.ContextId);
-                                                   Image actionSoloImage = Image.FromFile(@"Images/actionSoloImage.png");
-                                                   var actionSoloImageBase64 = Tools.ImageToBase64(actionSoloImage, true);
-                                                   Connection.SetImageAsync(actionSoloImageBase64);
-
-                                               }
-                                               else
-                                               {
-                                                   connection.StreamDeckConnection.SetStateAsync(1, connection.ContextId);
-                                                   Image actionMutedImage = Image.FromFile(@"Images/actionMutedImage.png");
-                                                   var actionMutedImageBase64 = Tools.ImageToBase64(actionMutedImage, true);
-                                                   Connection.SetImageAsync(actionMutedImageBase64);
-
-                                               }
-                                           }
-                                       }
-                                       else
-                                       {
-                                           Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Could not find the specific key in bankSetting dict");
-                                       }
-                                   }
-                               }
-                           }
-                       }*/
         }
 
 
         public override void Dispose()
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Destructor called");
-            bankSettingInputBus.Clear();
-            bankSettingPlaybackBus.Clear();
-            bankSettingOutputBus.Clear();
         }
-
         public override void KeyPressed(KeyPayload payload)
         {
+            Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string address);
+            char channel = this.settings.Name[this.settings.Name.Length - 1];
+            Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Key Pressed");
             if (this.settings.Bus == "Input")
             {
-                SendOscCommand("/1/busInput", 1.0f, settings.IP, settings.Port);
-
+                Task.Run(() => HelperFunctions.SendOscCommand("/1/busInput", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
             else if (this.settings.Bus == "Playback")
             {
-                SendOscCommand("/1/busPlayback", 1.0f, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand("/1/busPlayback", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
             else if (this.settings.Bus == "Output")
             {
-                SendOscCommand("/1/busOutput", 1.0f, settings.IP, settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand("/1/busOutput", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             }
             if (payload.State == 1)
             {
-                SendOscCommand(this.settings.Name, 0, this.settings.IP, this.settings.Port);
-                Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                Connection.SetImageAsync(actionDefaultImageBase64);
+                Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
+                DrawImage(trackname, "Images/actionDefaultImage.png");
 
             }
             else
             {
-                SendOscCommand(this.settings.Name, 1, this.settings.IP, this.settings.Port);
+                Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 if (settings.Name.Contains("solo"))
                 {
-                    Image actionSoloImage = Image.FromFile(@"Images/actionSoloImage.png");
-                    var actionSoloImageBase64 = Tools.ImageToBase64(actionSoloImage, true);
-                    Connection.SetImageAsync(actionSoloImageBase64);
+                    DrawImage(trackname, "Images/soloOn.png");
+                }
+                if (settings.Name.Contains("phantom"))
+                {
+                    DrawImage(trackname, "Images/phantomOn.png");
                 }
                 else
                 {
-                    Image actionMutedImage = Image.FromFile(@"Images/actionMutedImage.png");
-                    var actionMutedImageBase64 = Tools.ImageToBase64(actionMutedImage, true);
-                    Connection.SetImageAsync(actionMutedImageBase64);
+                    DrawImage(trackname, "Images/muteOn.png");
                 }
+                Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
             }
         }
 
@@ -200,105 +125,76 @@ namespace streamdeck_totalmix
         {
 
         }
-        private int counter;
-        private int tickCounter = 0;
         public override void OnTick()
         {
-            tickCounter++;
-            System.IO.FileInfo fi = new System.IO.FileInfo(@"pluginlog.log");
-            long size = fi.Length;
-  //          Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: filesize " + size);
-            if (fi.Length > 10000000)
+            if (this.settings.MirrorTotalMix == true && this.settings.Name != null && this.settings.Bus != null)
             {
-                string path = @"pluginlog.log";
-                System.IO.File.WriteAllText(path, String.Empty);
-                System.IO.TextWriter tw = new System.IO.StreamWriter(path, true);
-                tw.WriteLine("flushed for size");
-                tw.Close();
-            }
-            Console.WriteLine("File Size in Bytes: {0}", size);
-            if (this.settings.IncludeOscOnOff == true && this.settings.IP != null && this.settings.Name != null && this.settings.Port != 0 && this.settings.Bus != null)
-            {
-                TotalMixListener(this.settings.Bus, this.settings.IP, this.settings.Port);
-                var DictToUse = bankSettingInputBus;
-                if (this.settings.Bus == "Input")
+                TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - Globals.lastQuery.Ticks);
+                if (Globals.bankSettings[$"{this.settings.Bus}"].Count != 0 || elapsedSpan.TotalSeconds > 10)
                 {
-                    DictToUse = bankSettingInputBus;
-                }
-                else if (this.settings.Bus == "Playback")
-                {
-                    DictToUse = bankSettingPlaybackBus;
-                }
-                else if (this.settings.Bus == "Output")
-                {
-                    DictToUse = bankSettingOutputBus;
-                }
-                if (DictToUse.ContainsKey(this.settings.Name))
-                {
-                    if (DictToUse.TryGetValue("/1/bus" + settings.Bus, out string busValue))
+                    if (elapsedSpan.TotalSeconds > 1)
                     {
-                        if (busValue == "1")
+                        Globals.lastQuery = DateTime.Now;
+                        Listener listener = new Listener();
+                        listener.Listen(this.settings.Bus, $"/1/bus{this.settings.Bus}", 1);
+                    }
+                }
+                try
+                {
+                    if (Globals.bankSettings[$"{this.settings.Bus}"].ContainsKey(this.settings.Name))
+                    {
+                        if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue("/1/bus" + this.settings.Bus, out string busValue))
                         {
-                            if (DictToUse.TryGetValue(this.settings.Name, out string result))
+                            if (busValue == "1")
                             {
-                                if (counter > 20)
+                                if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string result))
                                 {
-                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: TickCounter " + tickCounter);
-                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: result: " + result);
-                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In TotalMixListener: settings.Name: " + settings.Name);
-                                    counter = 0;
-                                }
-                                counter++;
-                                if (result == "1")
-                                {
-                                    if (settings.Name.Contains("solo"))
+                                    char channel = this.settings.Name[this.settings.Name.Length - 1];
+                                    Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
+                                    if (result == "1")
                                     {
-
+                                        if (settings.Name.Contains("solo"))
+                                        {
+                                            DrawImage(trackname, "Images/soloOn.png");
+                                        }
+                                        if (settings.Name.Contains("phantom"))
+                                        {
+                                            DrawImage(trackname, "Images/phantomOn.png");
+                                        }
+                                        if (settings.Name.Contains("mute"))
+                                        {
+                                            DrawImage(trackname, "Images/muteOn.png");
+                                        }
                                         Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                        Image actionSoloImage = Image.FromFile(@"Images/actionSoloImage.png");
-                                        var actionSoloImageBase64 = Tools.ImageToBase64(actionSoloImage, true);
-                                        Connection.SetImageAsync(actionSoloImageBase64);
-
                                     }
                                     else
                                     {
-                                        Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                        Image actionMutedImage = Image.FromFile(@"Images/actionMutedImage.png");
-                                        var actionMutedImageBase64 = Tools.ImageToBase64(actionMutedImage, true);
-                                        Connection.SetImageAsync(actionMutedImageBase64);
-
+                                        if (settings.Name.Contains("solo"))
+                                        {
+                                            DrawImage(trackname, "Images/soloOff.png");
+                                        }
+                                        if (settings.Name.Contains("phantom"))
+                                        {
+                                            DrawImage(trackname, "Images/phantomOff.png");
+                                        }
+                                        if (settings.Name.Contains("mute"))
+                                        {
+                                            DrawImage(trackname, "Images/muteOff.png");
+                                        }
+                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
                                     }
                                 }
                                 else
                                 {
-                                    //    Image actionDefaultImage = Image.FromFile(@"Images/actionDefaultImage.png");
-                                    //    var actionDefaultImageBase64 = Tools.ImageToBase64(actionDefaultImage, true);
-                                    //    Connection.SetImageAsync(actionDefaultImageBase64);
-                                    if (settings.Name.Contains("solo"))
-                                    {
-
-                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                        Image actionSoloOffImage = Image.FromFile(@"Images/actionSoloOffImage.png");
-                                        var actionSoloOffImageBase64 = Tools.ImageToBase64(actionSoloOffImage, true);
-                                        Connection.SetImageAsync(actionSoloOffImageBase64);
-
-                                    }
-                                    else
-                                    {
-                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                        Image actionUnmutedImage = Image.FromFile(@"Images/actionUnmutedImage.png");
-                                        var actionUnmutedImageBase64 = Tools.ImageToBase64(actionUnmutedImage, true);
-                                        Connection.SetImageAsync(actionUnmutedImageBase64);
-
-                                    }
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Could not find the specific key in bankSetting dict");
                                 }
-                            }
-                            else
-                            {
-                                Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Could not find the specific key in bankSetting dict");
                             }
                         }
                     }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: OnTick, try catch => {ex.Message}");
                 }
             }
         }
@@ -307,6 +203,22 @@ namespace streamdeck_totalmix
         {
             Tools.AutoPopulateSettings(settings, payload.Settings);
             Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: Settings loaded: {payload.Settings}");
+        }
+
+        private void DrawImage(String trackname, String imagePath)
+        {
+            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, 12, Color.White, false, TitleVerticalAlignment.Bottom);
+            using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
+            {
+                Image actionImage = Image.FromFile(@imagePath);
+                graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
+                if (settings.DisplayChannelName)
+                {
+                    graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                }
+                Connection.SetImageAsync(image);
+                graphics.Dispose();
+            }
         }
 
         public override void ReceivedGlobalSettings(ReceivedGlobalSettingsPayload payload) { }
@@ -320,84 +232,5 @@ namespace streamdeck_totalmix
 
         #endregion
 
-        public static Dictionary<string, string> bankSettingInputBus = new Dictionary<string, string>();
-        public static Dictionary<string, string> bankSettingPlaybackBus = new Dictionary<string, string>();
-        public static Dictionary<string, string> bankSettingOutputBus = new Dictionary<string, string>();
-
-        public Task TotalMixListener(string bus, string ip, int port)
-        {
- //           Thread.Sleep(250);
-            Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: In Listener");
-            bankSettingInputBus.Clear();
-            bankSettingPlaybackBus.Clear();
-            bankSettingOutputBus.Clear();
-
-            var listener = new UDPListener(settings.ListeningPort);
-            OscBundle message = null;
-            bool done = false;
-            string snapRegEx = @"^\/$";
-            Regex r = new Regex(snapRegEx, RegexOptions.IgnoreCase);
-            SendOscCommand("/1/bus" + bus, 1.0f, ip, port);
-            while (done == false)
-            {
-                message = (OscBundle)listener.Receive();
-                if (message != null)
-                {
-                    Match m = r.Match(message.Messages[0].Address);
-
-                    if (bus == "Input")
-                    {
-                        for (int i = 0; i < message.Messages.Count; i++)
-                        {
-                            if (bankSettingInputBus.ContainsKey(message.Messages[i].Address))
-                            {
-                                bankSettingInputBus.Remove(message.Messages[i].Address);
-                            }
-                            bankSettingInputBus.Add(message.Messages[i].Address, message.Messages[i].Arguments[0].ToString());
-                        }
-                        if ((m.Success && bankSettingInputBus.Count >= 5) || bankSettingInputBus.Count > 145)
-                        {
-                            break;
-                        }
-                    }
-                    if (bus == "Playback")
-                    {
-                        for (int i = 0; i < message.Messages.Count; i++)
-                        {
-                            if (bankSettingPlaybackBus.ContainsKey(message.Messages[i].Address))
-                            {
-                                bankSettingPlaybackBus.Remove(message.Messages[i].Address);
-                            }
-                            bankSettingPlaybackBus.Add(message.Messages[i].Address, message.Messages[i].Arguments[0].ToString());
-                        }
-                        break;
-                    }
-                    if (bus == "Output")
-                    {
-                        for (int i = 0; i < message.Messages.Count; i++)
-                        {
-                            if (bankSettingOutputBus.ContainsKey(message.Messages[i].Address))
-                            {
-                                bankSettingOutputBus.Remove(message.Messages[i].Address);
-                            }
-                            bankSettingOutputBus.Add(message.Messages[i].Address, message.Messages[i].Arguments[0].ToString());
-                        }
-                        break;
-                    }
-                }
-            }
-
-    //        Thread.Sleep(500);
-            listener.Close();
-            Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Out Listener");
-            return Task.CompletedTask;
-        }
-
-        public void SendOscCommand(string name, float value, string ip, int port)
-        {
-            var message = new OscMessage(name, value);
-            var sender = new UDPSender(ip, port);
-            sender.Send(message);
-        }
     }
 }

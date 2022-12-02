@@ -100,13 +100,13 @@
   "CategoryIcon": "Images/category/categoryIcon",
   "Disabled": false,
   "Author": "shells",
-  "CodePathWin": "de.shells.totalmix.exe",
+  "CodePath": "de.shells.totalmix.exe",
   "PropertyInspectorPath": "PropertyInspector/PluginActionPI.html",
   "Description": "Control TotalMix FX with StreamDeck! Features: (rather complete) OSC and (limited) MIDI implementation. Load snapshots/mixes, toggle mute/solo globally and on individual channels, change channel volume, pan, gain, phase, cue, width, control master out and many other settings. Visit the project Github-site linked below to view a full manual!",
   "Name": "Control RME TotalMix FX",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
-  "Version": "2.2.1",
+  "Version": "3.0.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "4.3"

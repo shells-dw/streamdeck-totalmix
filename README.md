@@ -1,4 +1,4 @@
- ![GitHub](https://img.shields.io/github/license/shells-dw/streamdeck-totalmix) ![GitHub last commit](https://img.shields.io/github/last-commit/shells-dw/streamdeck-totalmix) [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) / [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
+ ![GitHub](https://img.shields.io/github/license/shells-dw/streamdeck-totalmix)     ![GitHub last commit](https://img.shields.io/github/last-commit/shells-dw/streamdeck-totalmix)     [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) / [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
 
 
 # Unofficial StreamDeck RME TotalMix FX Plugin - supporting MIDI and OSC
@@ -23,13 +23,41 @@ Inside the Release-folder you can find the precompiled plugin. Download and open
 
 ## Setup for OSC
 
-Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for ease of typing) and have it listen to OSC commands. Please also set the "Number of faders per bank" to 16, or it will not fully work.
+Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for ease of typing) and have it listen to OSC commands. Note that there are 4 OSC Remote Controllers available. If you already use one, set up two for the plugin specifically. This plugin uses 2 of them, 1 and 2. 1 is used for the main actions, 2 is used for the background thread that mirrors TotalMix changes to the Loupedeck.
 
-![Setup TotalMix OSC](/docs/images/TM_OSC_setup.png) ![Enable OSC](/docs/images/TM_OSC_en.png) ![Setup TotalMix OSC 2](/docs/images/TM_OSC_setup2.png)
+- Open "Options" -> "Settings..." in TotalMix, then open the tab "OSC".
+- Make sure Remote Controller 1 has a checkmark next to "In Use". By default TotalMix will use the ports 7001 and 9001.
+
+Note: on MacOS, you'll have to enter "127.0.0.1" in the Remote Controller Address textbox, otherwise it will not work.
+
+- Please also set the "Number of faders per bank" to 16, or it will not fully work.
+- Then, do the same for Remote Controller 2. It will default to 7002 and 9002.
+
+If you (have to) change these ports, make sure updating them in the plugin config as well!
+
+Then, make sure to enable "Enable OSC control". Also link both Remote Controllers to the submix.
+
+![Setup TotalMix OSC](/docs/images/OSC_setup1.png) ![Enable OSC](/docs/images/OSC_setup2.png)
 
 No additional software is needed. In theory this should also be able to control a TotalMix instance running on a different computer than the StreamDeck is attached to - as long as you can reach this machine on the given port with UDP packets. 
 
 Note: if you're using a (software) firewall on your PC and/or any firewall between the StreamDeck and the target PC - make sure to allow the plugin to communicate with the TotalMix port as well as allow TotalMix to listen to it. 
+
+## de.shells.totalmix.exe.config
+Windows: %appdata%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin
+contains the file de.shells.totalmix.exe.config (which is created with default values during the first start of the plugin and read during every start)
+
+```xml
+  <appSettings>
+    <add key="interfaceIp" value="127.0.0.1" />
+    <add key="interfacePort" value="7001" />
+    <add key="interfaceSendPort" value="9001" />
+    <add key="interfaceBackgroundPort" value="7002" />
+    <add key="interfaceBackgroundSendPort" value="9002" />
+  </appSettings>
+```
+where you can configure non-default values or the TotalMix connection.
+Note: This had to be set on every button individually in older versions of this plugin. I decided to have a central location for these settings to unclutter the UI a bit.
 
 ## Setup for MIDI
 
@@ -99,23 +127,20 @@ If you select Input Gain as target, the acceptable values are 0 to 65, just as i
 
 ![StreamDeckPlugin_OSC](/docs/images/SD_P_OSC.png)
 
-Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use. Enabling the "Hold Mode" will only trigger the function as long as the button is pressed. Note: when selecting Snapshots, the Hold Mode will automaically engange.
+Select the function you want to use. Enabling the "Hold Mode" will only trigger the function as long as the button is pressed. Note: when selecting Snapshots, the Hold Mode will automaically engange.
 
 #### OSC: Toggle Channel Function
 
 ![StreamDeckPlugin_OSC_2](/docs/images/SD_P_OSC_2.png)
 
-Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use.
 You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 16 Faders per bank? That's partly why) for which you can each Mute or Solo.
 Select the checkbox "Mirror TotalMix" to update the button's icon when it comes into focus in StreamDeck (e.g. when you open a folder containing the button, load a profile or start StreamDeck when it's on the top screen).
-Note: due to the nature of how OSC works and I have implemented the solution this is not a permanent monitoring, it's only initialized on load of a button, if you then switch the status in TotalMix or by other means, it will not be reflected on the deck.
 
 #### OSC: Control Channel
 
 ![StreamDeckPlugin_OSC_3](/docs/images/SD_P_OSC_3.png)
 
-Enter the IP of the TotalMix instance to control (127.0.0.1 is fine when it runs on the same PC as StreamDeck), the port you set in TotalMix (labelled as "port incoming" in TotalMix) and select the function you want to use.
-You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 12 Faders per bank? That's partly why) plus Master, for which you can trigger functions.
+You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 16 Faders per bank? That's partly why) plus Master, for which you can trigger functions.
 Select the functions to use in the drop-down field below. If the function requires a value to send, for example Volume, enter the "Value" field with the value. Not all functions work on all channels. You can't, for example, set Gain on a channel that has no preamp. The acceptable values are:
 * Volume: 0-100. 0 is &#8734;, 82 is 0dB, 100 is +6dB. _Available in all channels._
 * Pan: L100 to R100. Enter 0 for center. _Available in all channels._
@@ -128,8 +153,6 @@ Select the functions to use in the drop-down field below. If the function requir
 
 # Limitations
 
-- **Windows 10** with .NET Framework is required to run this plugin.
-- As per user reports, the mirror functionality might not work with Windows 11.
 - MIDI: I developed this on Windows, using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
 - There is no MacOS support. It would mean a total rewrite of the plugin in Xcode to have it work on MacOS natively, for which I don't have the time.
 - MIDI: It needs a virtual MIDI port, writing my own drivers and have them signed is definitely above my skillset, so you'll have to install a driver for that additionally. (e.g. [virtualMidi][], [loopBe][])
@@ -152,6 +175,20 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.0.0] - 2022-12-02
+### General
+- Partial rewrite of the plugin with lots of improvements, not necessarily every little change will be represented here
+- This update might not be completely compatible with existing actions/buttons made with earlier versions. You might have to redo your buttons. It's annoying, I know, but I can't keep multiple code-bases to cover all eventualities active in the same plugin to keep full compatibility.
+### Updated
+- Mirror function reworked. Switched the library and how it's implemented to make it more robust, quicker, less ressource intensive and compatible with Windows 11
+- added multiple additional icons to make actions more clear (less using default "Mixer"-style logo which made different actions look the same)
+- Track names (channel names) as set in TotalMix are reflected on the StreamDeck to make it easier to distinguish buttons.
+- Phantom Power is now able to be mirrored too and moved to Trigger Channel Functions
+- overall more beautification ;)
+### Fixed
+- Windows 11 issues should be fixed now.
+- Plugin (or at least mirroring) stopping working after it ran a while should be fixed now.
+- Some less common actions have been sending a wrong value and never worked - fixed now.
 ## [2.2.1] - 2022-05-14
 ### Updated
 - updated readme.md to reflect potential issues with Windows 11 and mirror channel
