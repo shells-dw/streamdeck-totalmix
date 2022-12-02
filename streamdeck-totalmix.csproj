@@ -89,18 +89,6 @@
     <None Include="Release\de.shells.totalmix.streamDeckPlugin" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="docs\images\GH_SocPic.png" />
-    <Content Include="docs\images\OSC_setup1.png" />
-    <Content Include="docs\images\OSC_setup2.png" />
-    <Content Include="docs\images\SD_P_Cat.png" />
-    <Content Include="docs\images\SD_P_CC.png" />
-    <Content Include="docs\images\SD_P_OSC.png" />
-    <Content Include="docs\images\SD_P_OSC_2.png" />
-    <Content Include="docs\images\SD_P_OSC_3.png" />
-    <Content Include="docs\images\SD_P_T.png" />
-    <Content Include="docs\images\TM_MIDI_en.png" />
-    <Content Include="docs\images\TM_MIDI_setup.png" />
-    <Content Include="docs\images\TM_OSC_en.png" />
     <Content Include="Images\actionIcon%402x.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
