@@ -169,7 +169,9 @@ Currently the OSC documentation looks way better than what's there for MIDI. One
 If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) or use Ko-Fi [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
 
 
-# Changelog
+# Changelog## [3.1.1] - 2022-12-05
+### Improved
+- Made track/channel name display optional but default for all actions 
 ## [3.1.0] - 2022-12-05
 ### Improved
 - Support for more/less than 16 channels!
