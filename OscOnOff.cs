@@ -4,9 +4,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Threading.Tasks;
 using System.Drawing;
-using System.Threading;
 using BarRaider.SdTools.Wrappers;
-using RtMidi.Core.Enums;
 
 namespace streamdeck_totalmix
 {
@@ -25,7 +23,8 @@ namespace streamdeck_totalmix
                     MuteSolo = String.Empty,
                     SettingValue = 1.0f,
                     MirrorTotalMix = false,
-                    DisplayChannelName = true
+                    DisplayChannelName = true,
+                    ChannelCount = Globals.channelCount
                 };
                 return instance;
             }
@@ -51,6 +50,9 @@ namespace streamdeck_totalmix
 
             [JsonProperty(PropertyName = "DisplayChannelName")]
             public bool DisplayChannelName { get; set; }
+
+            [JsonProperty(PropertyName = "ChannelCount")]
+            public Int32 ChannelCount { get; set; }
         }
 
         #region Private Members
@@ -84,23 +86,11 @@ namespace streamdeck_totalmix
             char channel = this.settings.Name[this.settings.Name.Length - 1];
             Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Key Pressed");
-            if (this.settings.Bus == "Input")
-            {
-                Task.Run(() => HelperFunctions.SendOscCommand("/1/busInput", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
-            }
-            else if (this.settings.Bus == "Playback")
-            {
-                Task.Run(() => HelperFunctions.SendOscCommand("/1/busPlayback", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
-            }
-            else if (this.settings.Bus == "Output")
-            {
-                Task.Run(() => HelperFunctions.SendOscCommand("/1/busOutput", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
-            }
+            Task.Run(() => HelperFunctions.SendOscCommand($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
             if (payload.State == 1)
             {
                 Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
                 DrawImage(trackname, "Images/actionDefaultImage.png");
-
             }
             else
             {
@@ -109,11 +99,11 @@ namespace streamdeck_totalmix
                 {
                     DrawImage(trackname, "Images/soloOn.png");
                 }
-                if (settings.Name.Contains("phantom"))
+                else if (settings.Name.Contains("phantom"))
                 {
                     DrawImage(trackname, "Images/phantomOn.png");
                 }
-                else
+                else if (settings.Name.Contains("mute"))
                 {
                     DrawImage(trackname, "Images/muteOn.png");
                 }
@@ -225,10 +215,6 @@ namespace streamdeck_totalmix
 
         #region Private Methods
 
-        private Task SaveSettings()
-        {
-            return Connection.SetSettingsAsync(JObject.FromObject(settings));
-        }
 
         #endregion
 

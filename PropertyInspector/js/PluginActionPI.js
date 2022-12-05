@@ -36,12 +36,14 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
         MuteSolo = actionInfo.payload.settings.MuteSolo;
         MirrorTotalMix = actionInfo.payload.settings.MirrorTotalMix;
         DisplayChannelName = actionInfo.payload.settings.DisplayChannelName;
+        ChannelCount = actionInfo.payload.settings.ChannelCount;
     } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
         Name = actionInfo.payload.settings.Name;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
         Bus = actionInfo.payload.settings.Bus;
         SelectedValue = actionInfo.payload.settings.SelectedValue;
         SelectedFunction = actionInfo.payload.settings.SelectedFunction;
+        ChannelCount = actionInfo.payload.settings.ChannelCount;
     } else if (actionInfo.action === "de.shells.totalmix.midinote.action") {
         Channel = actionInfo.payload.settings.Channel;
         SelectedMidiAction = actionInfo.payload.settings.SelectedMidiAction;
@@ -123,6 +125,7 @@ function setSettings(value, param) {
     if (param === "ControlValue") { ControlValue = payload.ControlValue }
     if (param === "MirrorTotalMix") { MirrorTotalMix = payload.MirrorTotalMix }
     if (param === "DisplayChannelName") { DisplayChannelName = payload.DisplayChannelName }
+    if (param === "ChannelCount") { ChannelCount = payload.ChannelCount }
     if (actionInfo.action === "de.shells.totalmix.osctoggle.action") {
         settings = {
             Name: Name,
@@ -137,7 +140,8 @@ function setSettings(value, param) {
             SelectedValue: SelectedValue,
             MuteSolo: MuteSolo,
             MirrorTotalMix: MirrorTotalMix,
-            DisplayChannelName: DisplayChannelName
+            DisplayChannelName: DisplayChannelName,
+            ChannelCount: ChannelCount
         }
     } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
         settings = {
@@ -145,7 +149,8 @@ function setSettings(value, param) {
             SelectedAction: SelectedAction,
             Bus: Bus,
             SelectedValue: SelectedValue,
-            SelectedFunction: SelectedFunction
+            SelectedFunction: SelectedFunction,
+            ChannelCount: ChannelCount
         }
     } else if (actionInfo.action === "de.shells.totalmix.midinote.action") {
         settings = {
@@ -245,10 +250,10 @@ function initPropertyInspector() {
 }
 
 function updateUI(pl, settings) {
-    // console.log("updateUI pl:");
-    // console.log(pl);
-    // console.log("updateUI settings:");
-    // console.log(settings);
+  //  console.log("updateUI pl:");
+  //  console.log(pl);
+  //  console.log("updateUI settings:");
+  //  console.log(settings);
     if (pl === "de.shells.totalmix.midinote.action") {
         let x = ['<div class="sdpi-item" id="devices">',
             '<div class="sdpi-item-label">Midi Device</div>',
@@ -556,66 +561,18 @@ function updateUI(pl, settings) {
             '     </span>',
             '     <span class="sdpi-item-child">',
             '         <input id="rdio3" type="radio" value="phantom" name="rdio" onchange="selectedOscToggleCommand(document.getElementById(\'OscOnOffSelect\').value)">',
-            '         <label for="rdio3" class="sdpi-item-label"><span></span>phantom power</label>',
+            '         <label for="rdio3" class="sdpi-item-label"><span></span>phantom</label>',
             '     </span>',
             '  </div>',
             '</div>',
             '<div class="sdpi-item" id="select_single">',
             '    <div class="sdpi-item-label">Select Function</div>',
             '    <select class="sdpi-item-value select" id="OscOnOffSelect" onchange="selectedOscToggleCommand(event.target.value)">',
-            '    <optgroup label="Inputs">',
-            '        <option value="1">Input Channel 1</option>',
-            '        <option value="2">Input Channel 2</option>',
-            '        <option value="3">Input Channel 3</option>',
-            '        <option value="4">Input Channel 4</option>',
-            '        <option value="5">Input Channel 5</option>',
-            '        <option value="6">Input Channel 6</option>',
-            '        <option value="7">Input Channel 7</option>',
-            '        <option value="8">Input Channel 8</option>',
-            '        <option value="9">Input Channel 9</option>',
-            '        <option value="10">Input Channel 10</option>',
-            '        <option value="11">Input Channel 11</option>',
-            '        <option value="12">Input Channel 12</option>',
-            '        <option value="13">Input Channel 13</option>',
-            '        <option value="14">Input Channel 14</option>',
-            '        <option value="15">Input Channel 15</option>',
-            '        <option value="16">Input Channel 16</option>',
+            '    <optgroup label="Inputs" id="Inputs">',
             '    </optgroup>',
-            '    <optgroup label="Software">',
-            '        <option value="17">Playback Channel 1</option>',
-            '        <option value="18">Playback Channel 2</option>',
-            '        <option value="19">Playback Channel 3</option>',
-            '        <option value="20">Playback Channel 4</option>',
-            '        <option value="21">Playback Channel 5</option>',
-            '        <option value="22">Playback Channel 6</option>',
-            '        <option value="23">Playback Channel 7</option>',
-            '        <option value="24">Playback Channel 8</option>',
-            '        <option value="25">Playback Channel 9</option>',
-            '        <option value="26">Playback Channel 10</option>',
-            '        <option value="27">Playback Channel 11</option>',
-            '        <option value="28">Playback Channel 12</option>',
-            '        <option value="29">Playback Channel 13</option>',
-            '        <option value="30">Playback Channel 14</option>',
-            '        <option value="31">Playback Channel 15</option>',
-            '        <option value="32">Playback Channel 16</option>',
+            '    <optgroup label="Software" id="Playbacks">',
             '    </optgroup>',
-            '    <optgroup label="Outputs">',
-            '        <option value="33">Output Channel 1</option>',
-            '        <option value="34">Output Channel 2</option>',
-            '        <option value="35">Output Channel 3</option>',
-            '        <option value="36">Output Channel 4</option>',
-            '        <option value="37">Output Channel 5</option>',
-            '        <option value="38">Output Channel 6</option>',
-            '        <option value="39">Output Channel 7</option>',
-            '        <option value="40">Output Channel 8</option>',
-            '        <option value="41">Output Channel 9</option>',
-            '        <option value="42">Output Channel 10</option>',
-            '        <option value="43">Output Channel 11</option>',
-            '        <option value="44">Output Channel 12</option>',
-            '        <option value="45">Output Channel 13</option>',
-            '        <option value="46">Output Channel 14</option>',
-            '        <option value="47">Output Channel 15</option>',
-            '        <option value="48">Output Channel 16</option>',
+            '    <optgroup label="Outputs" id="Outputs">',
             '    </optgroup></select>',
             '</div>',
             '<div type="checkbox" class="sdpi-item">',
@@ -643,6 +600,24 @@ function updateUI(pl, settings) {
             '    </details>',
             '</div>'].join('');
         document.getElementById('placeholder').innerHTML = x;
+        for (var i = 1; i < settings.ChannelCount + 1; i++) {
+            var elem = document.createElement("option");
+            elem.value = i;
+            elem.innerText = "Input Channel " + i;
+            document.getElementById("Inputs").appendChild(elem);
+        }
+        for (var i = 1; i < settings.ChannelCount + 1; i++) {
+            var elem = document.createElement("option");
+            elem.value = i + settings.ChannelCount;
+            elem.innerText = "Playback Channel " + i;
+            document.getElementById("Playbacks").appendChild(elem);
+        }
+        for (var i = 1; i < settings.ChannelCount + 1; i++) {
+            var elem = document.createElement("option");
+            elem.value = i + (settings.ChannelCount * 2);
+            elem.innerText = "Output Channel " + i;
+            document.getElementById("Outputs").appendChild(elem);
+        }
         if (settings.SelectedAction === undefined) {
             document.getElementById('OscOnOffSelect').value = "1";
         } else {
@@ -671,62 +646,11 @@ function updateUI(pl, settings) {
             '<div class="sdpi-item" id="select_single"></div>',
             '    <div class="sdpi-item-label">Select Channel</div>',
             '    <select class="sdpi-item-value select" id="OscChannelSelect" onchange="setSettings(event.target.value, \'SelectedAction\');selectedOscChannelFunction(document.getElementById(\'OscChannelSelectCommand\').value,event.target.value)">',
-            '    <optgroup label="Inputs">',
-            '        <option value="1">Input Channel 1</option>',
-            '        <option value="2">Input Channel 2</option>',
-            '        <option value="3">Input Channel 3</option>',
-            '        <option value="4">Input Channel 4</option>',
-            '        <option value="5">Input Channel 5</option>',
-            '        <option value="6">Input Channel 6</option>',
-            '        <option value="7">Input Channel 7</option>',
-            '        <option value="8">Input Channel 8</option>',
-            '        <option value="9">Input Channel 9</option>',
-            '        <option value="10">Input Channel 10</option>',
-            '        <option value="11">Input Channel 11</option>',
-            '        <option value="12">Input Channel 12</option>',
-            '        <option value="13">Input Channel 13</option>',
-            '        <option value="14">Input Channel 14</option>',
-            '        <option value="15">Input Channel 15</option>',
-            '        <option value="16">Input Channel 16</option>',
+            '    <optgroup label="Inputs" id="Inputs">',
             '    </optgroup>',
-            '    <optgroup label="Software">',
-            '        <option value="17">Playback Channel 1</option>',
-            '        <option value="18">Playback Channel 2</option>',
-            '        <option value="19">Playback Channel 3</option>',
-            '        <option value="20">Playback Channel 4</option>',
-            '        <option value="21">Playback Channel 5</option>',
-            '        <option value="22">Playback Channel 6</option>',
-            '        <option value="23">Playback Channel 7</option>',
-            '        <option value="24">Playback Channel 8</option>',
-            '        <option value="25">Playback Channel 9</option>',
-            '        <option value="26">Playback Channel 10</option>',
-            '        <option value="27">Playback Channel 11</option>',
-            '        <option value="28">Playback Channel 12</option>',
-            '        <option value="29">Playback Channel 13</option>',
-            '        <option value="30">Playback Channel 14</option>',
-            '        <option value="31">Playback Channel 15</option>',
-            '        <option value="32">Playback Channel 16</option>',
+            '    <optgroup label="Software" id="Playbacks">',
             '    </optgroup>',
-            '    <optgroup label="Outputs">',
-            '        <option value="33">Output Channel 1</option>',
-            '        <option value="34">Output Channel 2</option>',
-            '        <option value="35">Output Channel 3</option>',
-            '        <option value="36">Output Channel 4</option>',
-            '        <option value="37">Output Channel 5</option>',
-            '        <option value="38">Output Channel 6</option>',
-            '        <option value="39">Output Channel 7</option>',
-            '        <option value="40">Output Channel 8</option>',
-            '        <option value="41">Output Channel 9</option>',
-            '        <option value="42">Output Channel 10</option>',
-            '        <option value="43">Output Channel 11</option>',
-            '        <option value="44">Output Channel 12</option>',
-            '        <option value="45">Output Channel 13</option>',
-            '        <option value="46">Output Channel 14</option>',
-            '        <option value="47">Output Channel 15</option>',
-            '        <option value="48">Output Channel 16</option>',
-            '    </optgroup>',
-            '    <optgroup label="Master">',
-            '        <option value="37">Master</option>',
+            '    <optgroup label="Outputs" id="Outputs">',
             '    </optgroup></select>',
             '</div>', '<div class="sdpi-item" id="select_single">',
             '    <div class="sdpi-item-label">Select Function</div>',
@@ -776,6 +700,24 @@ function updateUI(pl, settings) {
             '    </details>',
             '</div>'].join('');
         document.getElementById('placeholder').innerHTML = x;
+        for (var i = 1; i < settings.ChannelCount + 1; i++) {
+            var elem = document.createElement("option");
+            elem.value = i;
+            elem.innerText = "Input Channel " + i;
+            document.getElementById("Inputs").appendChild(elem);
+        }
+        for (var i = 1; i < settings.ChannelCount + 1; i++) {
+            var elem = document.createElement("option");
+            elem.value = i + settings.ChannelCount;
+            elem.innerText = "Playback Channel " + i;
+            document.getElementById("Playbacks").appendChild(elem);
+        }
+        for (var i = 1; i < settings.ChannelCount + 1; i++) {
+            var elem = document.createElement("option");
+            elem.value = i + (settings.ChannelCount * 2);
+            elem.innerText = "Output Channel " + i;
+            document.getElementById("Outputs").appendChild(elem);
+        }
         if (settings.SelectedAction === undefined) {
             document.getElementById('OscChannelSelect').value = "1";
         } else {
@@ -874,30 +816,30 @@ function fadeColor(col, amt) {
 
 function mirrorTotalMix(state) {
     if (state.checked == true) {
-        console.log("checkbox checked");
+    //    console.log("checkbox checked");
         setSettings(true, 'MirrorTotalMix');
     } else {
-        console.log("checkbox unchecked");
+     //   console.log("checkbox unchecked");
         setSettings(false, 'MirrorTotalMix');
     }
 }
 
 function displayChannelName(state) {
     if (state.checked == true) {
-        console.log("checkbox checked");
+    //    console.log("checkbox checked");
         setSettings(true, 'DisplayChannelName');
     } else {
-        console.log("checkbox unchecked");
+    //    console.log("checkbox unchecked");
         setSettings(false, 'DisplayChannelName');
     }
 }
 
 function latch(state) {
     if (state.checked == true) {
-        console.log("checkbox checked");
+    //    console.log("checkbox checked");
         setSettings(true, 'Latch');
     } else {
-        console.log("checkbox unchecked");
+    //    console.log("checkbox unchecked");
         setSettings(false, 'Latch');
     }
 }
@@ -1029,646 +971,188 @@ function selectedOscToggleCommand(selectedOscToggleCommand) {
             break;
         }
     }
-    switch (selectedOscToggleCommand) {
-        case "1":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/1";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/1";
-            } else {
-                name = "/1/phantom/1/1";
-            }
-            bus = "Input";
-            break;
-        case "2":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/2";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/2";
-            } else {
-                name = "/1/phantom/1/2";
-            }
-            bus = "Input";
-            break;
-        case "3":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/3";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/3";
-            } else {
-                name = "/1/phantom/1/3";
-            }
-            bus = "Input";
-            break;
-        case "4":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/4";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/4";
-            } else {
-                name = "/1/phantom/1/4";
-            }
-            bus = "Input";
-            break;
-        case "5":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/5";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/5";
-            } else {
-                name = "/1/phantom/1/5";
-            }
-            bus = "Input";
-            break;
-        case "6":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/6";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/6";
-            } else {
-                name = "/1/phantom/1/6";
-            }
-            bus = "Input";
-            break;
-        case "7":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/7";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/7";
-            } else {
-                name = "/1/phantom/1/7";
-            }
-            bus = "Input";
-            break;
-        case "8":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/8";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/8";
-            } else {
-                name = "/1/phantom/1/8";
-            }
-            bus = "Input";
-            break;
-        case "9":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/9";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/9";
-            } else {
-                name = "/1/phantom/1/9";
-            }
-            bus = "Input";
-            break;
-        case "10":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/10";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/10";
-            } else {
-                name = "/1/phantom/1/10";
-            }
-            bus = "Input";
-            break;
-        case "11":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/11";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/11";
-            } else {
-                name = "/1/phantom/1/11";
-            }
-            bus = "Input";
-            break;
-        case "12":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/12";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/12";
-            } else {
-                name = "/1/phantom/1/12";
-            }
-            bus = "Input";
-            break;
-        case "13":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/13";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/13";
-            } else {
-                name = "/1/phantom/1/13";
-            }
-            bus = "Input";
-            break;
-        case "14":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/14";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/14";
-            } else {
-                name = "/1/phantom/1/14";
-            }
-            bus = "Input";
-            break;
-        case "15":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/15";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/15";
-            } else {
-                name = "/1/phantom/1/15";
-            }
-            bus = "Input";
-            break;
-        case "16":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/16";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/16";
-            } else {
-                name = "/1/phantom/1/16";
-            }
-            bus = "Input";
-            break;
-        case "17":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/1";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/1";
-            } else {
-                name = "/1/phantom/1/1";
-            }
-            bus = "Playback";
-            break;
-        case "18":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/2";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/2";
-            } else {
-                name = "/1/phantom/1/2";
-            }
-            bus = "Playback";
-            break;
-        case "19":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/3";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/3";
-            } else {
-                name = "/1/phantom/1/3";
-            }
-            bus = "Playback";
-            break;
-        case "20":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/4";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/4";
-            } else {
-                name = "/1/phantom/1/4";
-            }
-            bus = "Playback";
-            break;
-        case "21":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/5";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/5";
-            } else {;
-                name = "/1/phantom/1/5";
-            }
-            bus = "Playback";
-            break;
-        case "22":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/6";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/6";
-            } else {
-                name = "/1/phantom/1/6";
-            }
-            bus = "Playback";
-            break;
-        case "23":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/7";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/7";
-            } else {
-                name = "/1/phantom/1/7";
-            }
-            bus = "Playback";
-            break;
-        case "24":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/8";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/8";
-            } else {
-                name = "/1/phantom/1/8";
-            }
-            bus = "Playback";
-            break;
-        case "25":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/9";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/9";
-            } else {
-                name = "/1/phantom/1/9";
-            }
-            bus = "Playback";
-            break;
-        case "26":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/10";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/10";
-            } else {
-                name = "/1/phantom/1/10";
-            }
-            bus = "Playback";
-            break;
-        case "27":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/11";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/11";
-            } else {
-                name = "/1/phantom/1/11";
-            }
-            bus = "Playback";
-            break;
-        case "28":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/12";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/12";
-            } else {
-                name = "/1/phantom/1/12";
-            }
-            bus = "Playback";
-            break;
-        case "29":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/13";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/13";
-            } else {
-                name = "/1/phantom/1/13";
-            }
-            bus = "Playback";
-            break;
-        case "30":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/14";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/14";
-            } else {
-                name = "/1/phantom/1/14";
-            }
-            bus = "Playback";
-            break;
-        case "31":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/15";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/15";
-            } else {
-                name = "/1/phantom/1/15";
-            }
-            bus = "Playback";
-            break;
-        case "32":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/16";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/16";
-            } else {
-                name = "/1/phantom/1/16";
-            }
-            bus = "Playback";
-            break;
-        case "33":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/1";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/1";
-            } else {
-                name = "/1/phantom/1/1";
-            }
-            bus = "Output";
-            break;
-        case "34":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/2";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/2";
-            } else {
-                name = "/1/phantom/1/2";
-            }
-            bus = "Output";
-            break;
-        case "35":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/3";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/3";
-            } else {
-                name = "/1/phantom/1/3";
-            }
-            bus = "Output";
-            break;
-        case "36":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/4";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/4";
-            } else {
-                name = "/1/phantom/1/4";
-            }
-            bus = "Output";
-            break;
-        case "37":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/5";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/5";
-            } else {
-                name = "/1/phantom/1/5";
-            }
-            bus = "Output";
-            break;
-        case "38":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/6";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/6";
-            } else {
-                name = "/1/phantom/1/6";
-            }
-            bus = "Output";
-            break;
-        case "39":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/7";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/7";
-            } else {
-                name = "/1/phantom/1/7";
-            }
-            bus = "Output";
-            break;
-        case "40":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/8";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/8";
-            } else {
-                name = "/1/phantom/1/8";
-            }
-            bus = "Output";
-            break;
-        case "41":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/9";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/9";
-            } else {
-                name = "/1/phantom/1/9";
-            }
-            bus = "Output";
-            break;
-        case "42":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/10";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/10";
-            } else {
-                name = "/1/phantom/1/10";
-            }
-            bus = "Output";
-            break;
-        case "43":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/11";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/11";
-            } else {
-                name = "/1/phantom/1/11";
-            }
-            bus = "Output";
-            break;
-        case "44":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/12";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/12";
-            } else {
-                name = "/1/phantom/1/12";
-            }
-            bus = "Output";
-            break;
-        case "45":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/13";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/13";
-            } else {
-                name = "/1/phantom/1/13";
-            }
-            bus = "Output";
-            break;
-        case "46":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/14";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/14";
-            } else {
-                name = "/1/phantom/1/14";
-            }
-            bus = "Output";
-            break;
-        case "47":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/15";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/15";
-            } else {
-                name = "/1/phantom/1/15";
-            }
-            bus = "Output";
-            break;
-        case "48":
-            if (selectedRadio == "mute") {
-                name = "/1/mute/1/16";
-            } else if (selectedRadio == "solo") {
-                name = "/1/solo/1/16";
-            } else {
-                name = "/1/phantom/1/16";
-            }
-            bus = "Output";
-            break;
-        default:
-            break;
+    const channelCount = actionInfo.payload.settings.ChannelCount
+    const selectedCommand = parseInt(selectedOscToggleCommand);
+
+    if (selectedCommand <= channelCount) {
+        if (selectedRadio == "mute") {
+            name = "/1/mute/1/" + selectedCommand;
+        } else if (selectedRadio == "solo") {
+            name = "/1/solo/1/" + selectedCommand;
+        } else {
+            name = "/1/phantom/1/" + selectedCommand;
+        }
+        bus = "Input";
+    } else if (selectedCommand > channelCount && selectedCommand <= channelCount * 2) {
+        if (selectedRadio == "mute") {
+            name = "/1/mute/1/" + (selectedCommand - channelCount);
+        } else if (selectedRadio == "solo") {
+            name = "/1/solo/1/" + (selectedCommand - channelCount);
+        } else {
+            name = "/1/phantom/1/" + (selectedCommand - channelCount);
+        }
+        bus = "Playback";
+    } else {
+        if (selectedRadio == "mute") {
+            name = "/1/mute/1/" + (selectedCommand - (channelCount * 2));
+        } else if (selectedRadio == "solo") {
+            name = "/1/solo/1/" + (selectedCommand - (channelCount * 2));
+        } else {
+            name = "/1/phantom/1/" + (selectedCommand - (channelCount * 2));
+        }
+        bus = "Output";
     }
+
     setSettings(name, 'Name');
     setSettings(bus, 'Bus');
     setSettings(selectedRadio, 'MuteSolo');
 }
 
 function selectedOscChannelFunction(selectedOscChannelFunction, oscChannelSelect) {
-    // console.log("oscChannelSelect in selectedOscChannelFunction: " + oscChannelSelect);
     if (oscChannelSelect == undefined) {
-        oscChannelSelect = actionInfo.payload.settings.SelectedAction;
+        oscChannelSelect = parseInt(actionInfo.payload.settings.SelectedAction);
     }
-    // console.log("selectedOscChannelFunction: " + selectedOscChannelFunction);
-    // console.log("entry: actionInfo.payload.settings.SelectedAction " + actionInfo.payload.settings.SelectedAction);
-    // console.log("entry: oscChannelSelect: " + oscChannelSelect);
+    const channelCount = actionInfo.payload.settings.ChannelCount
     switch (selectedOscChannelFunction) {
         case "1":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/1/volume" + oscChannelSelect;
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
-                name = "/1/volume" + (parseInt(oscChannelSelect) - 12);
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
+                name = "/1/volume" + (oscChannelSelect - channelCount);
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
-                name = "/1/volume" + (parseInt(oscChannelSelect) - 24);
-                bus = "Output";
-            } else if (parseInt(oscChannelSelect) === 37) {
-                name = "/1/mastervolume";
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
+                name = "/1/volume" + (oscChannelSelect - channelCount * 2);
                 bus = "Output";
             }
             break;
         case "2":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/1/pan" + oscChannelSelect;
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
-                name = "/1/pan" + (parseInt(oscChannelSelect) - 12);
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
+                name = "/1/pan" + (oscChannelSelect - channelCount);
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
-                name = "/1/pan" + (parseInt(oscChannelSelect) - 24);
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
+                name = "/1/pan" + (oscChannelSelect - channelCount * 2);
                 bus = "Output";
             }
             break;
         case "3":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/phase";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/phase";
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/phase";
                 bus = "Output";
             }
             break;
         case "4":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/phaseRight";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/phaseRight";
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/phaseRight";
                 bus = "Output";
             }
             break;
         case "5":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/phantom";
                 bus = "Input";
             }
             break;
         case "6":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/autoset";
                 bus = "Input";
             }
             break;
         case "7":
-            if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/loopback";
                 bus = "Output";
             }
             break;
         case "8":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/stereo";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/stereo";
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/stereo";
                 bus = "Output";
             }
             break;
         case "9":
-            if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/cue";
                 bus = "Output";
             }
             break;
         case "10":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/gain";
                 bus = "Input";
             }
             break;
         case "11":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/gainRight";
                 bus = "Input";
             }
             break;
         case "12":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/width";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/width";
                 bus = "Playback";
             }
             break;
         case "13":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/eqEnable";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/eqEnable";
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/eqEnable";
                 bus = "Output";
             }
 
             break;
         case "14":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/compexpEnable";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/compexpEnable";
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/compexpEnable";
                 bus = "Output";
             }
 
             break;
         case "15":
-            if (parseInt(oscChannelSelect) >= 1 && parseInt(oscChannelSelect) <= 12) {
+            if (oscChannelSelect <= channelCount) {
                 name = "/2/alevEnable";
                 bus = "Input";
-            } else if (parseInt(oscChannelSelect) >= 13 && parseInt(oscChannelSelect) <= 24) {
+            } else if (oscChannelSelect > channelCount && oscChannelSelect <= channelCount * 2) {
                 name = "/2/alevEnable";
                 bus = "Playback";
-            } else if (parseInt(oscChannelSelect) >= 25 && parseInt(oscChannelSelect) <= 36) {
+            } else if (oscChannelSelect > channelCount * 2 && oscChannelSelect <= channelCount * 3) {
                 name = "/2/alevEnable";
                 bus = "Output";
             }

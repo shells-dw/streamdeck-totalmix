@@ -22,7 +22,8 @@ namespace streamdeck_totalmix
                 PluginSettings instance = new PluginSettings
                 {
                     Name = "/3/snapshots/8/1",
-                    SelectedAction = "1"
+                    SelectedAction = "1",
+                    ChannelCount = Globals.channelCount
                 };
                 return instance;
             }
@@ -34,8 +35,11 @@ namespace streamdeck_totalmix
             [JsonProperty(PropertyName = "SelectedAction")]
             public string SelectedAction { get; set; }
 
+            [JsonProperty(PropertyName = "ChannelCount")]
+            public Int32 ChannelCount { get; set; }
+
             [JsonProperty(PropertyName = "Latch")]
-            public bool Latch { get; set; }
+            public Boolean Latch { get; set; }
         }
 
         #region Private Members

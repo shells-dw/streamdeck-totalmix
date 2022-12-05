@@ -1,8 +1,6 @@
 ﻿using BarRaider.SdTools;
 using streamdeck_totalmix;
-using System.Threading;
 using System;
-using streamdeck_totalmix.Models;
 using System.Threading.Tasks;
 
 namespace de.shells.totalmix
@@ -21,13 +19,14 @@ namespace de.shells.totalmix
             Globals.interfaceBackgroundPort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfaceBackgroundPort"]);
             Globals.interfaceBackgroundSendPort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfaceBackgroundSendPort"]);
 
-
-
             Listener listener = new Listener();
             Task.Run(() => listener.Listen("Input", $"/1/busInput", 1)).GetAwaiter().GetResult();
             Task.Run(() => listener.Listen("Output", $"/1/busOutput", 1)).GetAwaiter().GetResult();
             Task.Run(() => listener.Listen("Playback", $"/1/busPlayback", 1)).GetAwaiter().GetResult();
-    
+
+            var helper = new HelperFunctions();
+            helper.GetChannelCount();
+
             SDWrapper.Run(args);
         }
 

@@ -27,10 +27,7 @@ Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for
 
 - Open "Options" -> "Settings..." in TotalMix, then open the tab "OSC".
 - Make sure Remote Controller 1 has a checkmark next to "In Use". By default TotalMix will use the ports 7001 and 9001.
-
-Note: on MacOS, you'll have to enter "127.0.0.1" in the Remote Controller Address textbox, otherwise it will not work.
-
-- Please also set the "Number of faders per bank" to 16, or it will not fully work.
+- In the bottom, set the "Number of faders per bank" setting to reflect the amount of channels your interface offers (the plugin will offer channels based on that value).
 - Then, do the same for Remote Controller 2. It will default to 7002 and 9002.
 
 If you (have to) change these ports, make sure updating them in the plugin config as well!
@@ -133,14 +130,12 @@ Select the function you want to use. Enabling the "Hold Mode" will only trigger 
 
 ![StreamDeckPlugin_OSC_2](/docs/images/SD_P_OSC_2.png)
 
-You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 16 Faders per bank? That's partly why) for which you can each Mute or Solo.
 Select the checkbox "Mirror TotalMix" to update the button's icon when it comes into focus in StreamDeck (e.g. when you open a folder containing the button, load a profile or start StreamDeck when it's on the top screen).
 
 #### OSC: Control Channel
 
 ![StreamDeckPlugin_OSC_3](/docs/images/SD_P_OSC_3.png)
 
-You have 16 Input, 16 Playback and 16 Output channels available (remember when I said you should set TotalMix to have 16 Faders per bank? That's partly why) plus Master, for which you can trigger functions.
 Select the functions to use in the drop-down field below. If the function requires a value to send, for example Volume, enter the "Value" field with the value. Not all functions work on all channels. You can't, for example, set Gain on a channel that has no preamp. The acceptable values are:
 * Volume: 0-100. 0 is &#8734;, 82 is 0dB, 100 is +6dB. _Available in all channels._
 * Pan: L100 to R100. Enter 0 for center. _Available in all channels._
@@ -153,8 +148,8 @@ Select the functions to use in the drop-down field below. If the function requir
 
 # Limitations
 
+- There is no MacOS support currently. I started looking into it, but no promises, this is all free-time hobby coding...
 - MIDI: I developed this on Windows, using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
-- There is no MacOS support. It would mean a total rewrite of the plugin in Xcode to have it work on MacOS natively, for which I don't have the time.
 - MIDI: It needs a virtual MIDI port, writing my own drivers and have them signed is definitely above my skillset, so you'll have to install a driver for that additionally. (e.g. [virtualMidi][], [loopBe][])
 
 # I have an issue or miss a feature?
@@ -175,6 +170,11 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.1.0] - 2022-12-05
+### Improved
+- Support for more/less than 16 channels!
+    - During button load the plugin now tries to determine how many channels your interface offers (which is rather what the user set in "faders per bank" setting in TotalMix OSC setup) and offers these channels now in the plugin
+    -> which allows interfaces with more (or less) channels to be fully supported as well now :)
 ## [3.0.0] - 2022-12-02
 ### General
 - Partial rewrite of the plugin with lots of improvements, not necessarily every little change will be represented here
