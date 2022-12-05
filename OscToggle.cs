@@ -23,6 +23,7 @@ namespace streamdeck_totalmix
                 {
                     Name = "/3/snapshots/8/1",
                     SelectedAction = "1",
+                    DisplayChannelName = true,
                     ChannelCount = Globals.channelCount
                 };
                 return instance;
@@ -40,6 +41,9 @@ namespace streamdeck_totalmix
 
             [JsonProperty(PropertyName = "Latch")]
             public Boolean Latch { get; set; }
+
+            [JsonProperty(PropertyName = "DisplayChannelName")]
+            public bool DisplayChannelName { get; set; }
         }
 
         #region Private Members
@@ -364,7 +368,10 @@ namespace streamdeck_totalmix
             {
                 Image actionImage = Image.FromFile(@imagePath);
                 graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
-                graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                if (settings.DisplayChannelName)
+                {
+                    graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                }
                 Connection.SetImageAsync(image);
                 graphics.Dispose();
             }

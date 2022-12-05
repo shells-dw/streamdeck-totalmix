@@ -27,6 +27,7 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
     if (actionInfo.action === "de.shells.totalmix.osctoggle.action") {
         Name = actionInfo.payload.settings.Name;
         SelectedAction = actionInfo.payload.settings.SelectedAction;
+        DisplayChannelName = actionInfo.payload.settings.DisplayChannelName;
         Latch = actionInfo.payload.settings.Latch;
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
         Name = actionInfo.payload.settings.Name;
@@ -43,6 +44,7 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
         Bus = actionInfo.payload.settings.Bus;
         SelectedValue = actionInfo.payload.settings.SelectedValue;
         SelectedFunction = actionInfo.payload.settings.SelectedFunction;
+        DisplayChannelName = actionInfo.payload.settings.DisplayChannelName;
         ChannelCount = actionInfo.payload.settings.ChannelCount;
     } else if (actionInfo.action === "de.shells.totalmix.midinote.action") {
         Channel = actionInfo.payload.settings.Channel;
@@ -130,6 +132,7 @@ function setSettings(value, param) {
         settings = {
             Name: Name,
             SelectedAction: SelectedAction,
+            DisplayChannelName: DisplayChannelName,
             Latch: Latch
         }
     } else if (actionInfo.action === "de.shells.totalmix.osconoff.action") {
@@ -150,6 +153,7 @@ function setSettings(value, param) {
             Bus: Bus,
             SelectedValue: SelectedValue,
             SelectedFunction: SelectedFunction,
+            DisplayChannelName: DisplayChannelName,
             ChannelCount: ChannelCount
         }
     } else if (actionInfo.action === "de.shells.totalmix.midinote.action") {
@@ -526,6 +530,11 @@ function updateUI(pl, settings) {
             '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="nolatch" onclick="latch(this);setSettings(document.getElementById(\'chk0\').value, \'nolatch\')""">',
             '       <label for="chk0"><span></span></label>',
             '</div>',
+            '<div type="checkbox" class="sdpi-item">',
+            '       <div class="sdpi-item-label">Display Channel Name</div>',
+            '       <input class="sdpi-item-value" id="chk1" type="checkbox" value="displayChannelName" onclick="displayChannelName(this)">',
+            '       <label for="chk1"><span></span></label>',
+            '</div>',
             '<div class="sdpi-item">',
             '    <div class="sdpi-item-label">Details</div>',
             '    <details class="sdpi-item-value">',
@@ -545,6 +554,11 @@ function updateUI(pl, settings) {
             document.getElementById("chk0").checked = true;
         } else {
             document.getElementById("chk0").checked = false;
+        }
+        if (settings.DisplayChannelName == true) {
+            document.getElementById("chk1").checked = true;
+        } else {
+            document.getElementById("chk1").checked = false;
         }
     } else if (pl === "de.shells.totalmix.osconoff.action") {
         let x = ['<div class="sdpi-item" id="required_text">',
@@ -677,6 +691,11 @@ function updateUI(pl, settings) {
             '    <div class="sdpi-item-label">Value</div>',
             '    <input class="sdpi-item-value" id="selectedValue" value="" placeholder="Enter value if applicable" onchange="setSettings(event.target.value, \'SelectedValue\')">',
             '</div>',
+            '<div type="checkbox" class="sdpi-item">',
+            '       <div class="sdpi-item-label">Display Channel Name</div>',
+            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="displayChannelName" onclick="displayChannelName(this)">',
+            '       <label for="chk0"><span></span></label>',
+            '</div>',
             '<div class="sdpi-item">',
             '    <div class="sdpi-item-label">Help</div>',
             '    <details class="sdpi-item-value">',
@@ -732,6 +751,11 @@ function updateUI(pl, settings) {
             document.getElementById('selectedValue').value = "";
         } else {
             document.getElementById('selectedValue').value = settings.SelectedValue;
+        }
+        if (settings.DisplayChannelName == true) {
+            document.getElementById("chk0").checked = true;
+        } else {
+            document.getElementById("chk0").checked = false;
         }
     }
 }
