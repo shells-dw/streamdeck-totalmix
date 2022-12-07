@@ -5,17 +5,49 @@ namespace streamdeck_totalmix
     using BarRaider.SdTools;
     using System;
     using System.Linq;
+    using System.Net.NetworkInformation;
+    using System.Net;
+    using System.Threading.Tasks;
 
     internal class HelperFunctions
     {
-        // here the magic happens (imagine the sparkles and rainbows yourself) - kidding, just taking the address and value from the call, combining it with the Global variables and send that all to the interface
-        public static void SendOscCommand(String name, Single value, String interfaceIp, Int32 interfacePort)
+        public static void UpdateDeviceSettingDict()
         {
-            Sender.Send(name, value, interfaceIp, interfacePort);
+            if (Globals.backgroundConnection)
+            {
+                if (!Globals.listeningActive)
+                {
+                    Globals.listeningActive = true;
+                    while (true)
+                    {
+                        Listener.Listen("Input", $"/1/busInput", 1).Wait();
+                        Listener.Listen("Output", $"/1/busOutput", 1).Wait();
+                        Listener.Listen("Playback", $"/1/busPlayback", 1).Wait();
+                    }
+                }
+            }
+        }
+        public static Boolean CheckForTotalMix()
+        {
+            IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+            IPEndPoint[] endPoints = properties.GetActiveUdpListeners();
+            foreach (IPEndPoint e in endPoints)
+            {
+                if (e.Port == Globals.interfacePort)
+                {
+                    Globals.commandConnection = true;
+                }
+                if (e.Port == Globals.interfaceBackgroundPort)
+                {
+                    Globals.backgroundConnection = true;
+                }
+                if (Globals.commandConnection && Globals.backgroundConnection) return true;
+            }
+            return false;
         }
 
         // get channel count by counting how man /1/panx there are (could have used any value, but pan is nice and short...)
-        public void GetChannelCount()
+        public static void GetChannelCount()
         {
             try
             {

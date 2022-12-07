@@ -23,7 +23,9 @@ Inside the Release-folder you can find the precompiled plugin. Download and open
 
 ## Setup for OSC
 
-Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for ease of typing) and have it listen to OSC commands. Note that there are 4 OSC Remote Controllers available. If you already use one, set up two for the plugin specifically. This plugin uses 2 of them, 1 and 2. 1 is used for the main actions, 2 is used for the background thread that mirrors TotalMix changes to the Loupedeck.
+Enable OSC in RME TotalMix FX' settings (let's call it TotalMix from here on for ease of typing) and have it listen to OSC commands. Note that there are 4 OSC Remote Controllers available. If you already use one, set up two for the plugin specifically. This plugin uses 2 of them, 1 and 2. 1 is used for the main actions, 2 is used for the background thread that mirrors TotalMix changes to the StreamDeck.
+
+Note: if you don't want/need the mirroring-function, you _can_ just not use listener #2. The plugin will detect it not being present and act accordingly.
 
 - Open "Options" -> "Settings..." in TotalMix, then open the tab "OSC".
 - Make sure Remote Controller 1 has a checkmark next to "In Use". By default TotalMix will use the ports 7001 and 9001.
@@ -169,7 +171,15 @@ Currently the OSC documentation looks way better than what's there for MIDI. One
 If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) or use Ko-Fi [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
 
 
-# Changelog## [3.1.1] - 2022-12-05
+# Changelog
+## [3.1.2] - 2022-12-07
+### Fixed
+- Background task updating the device wasn't as sync as it should be
+### Improved
+- Added checks for TotalMix being unreachable or just having the command OSC listener running and act accrordingly
+### Misc
+- misc cleanup
+## [3.1.1] - 2022-12-05
 ### Improved
 - Made track/channel name display optional but default for all actions 
 ## [3.1.0] - 2022-12-05

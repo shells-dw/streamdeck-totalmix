@@ -78,7 +78,6 @@ namespace streamdeck_totalmix
         private IntPtr hWnd;
         private IntPtr hWndCache;
         private int hWndId;
-        private int counter;
 
         delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
 
@@ -123,19 +122,13 @@ namespace streamdeck_totalmix
             }
             if (this.settings.Name != "showhideui")
             {
-                Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
+                Sender.Send(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort);
             }
-            this.counter++;
             if (this.settings.Latch == true)
             {
                 Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
             }
             DrawImage("Global Mute", "Images/mixerOn.png");
-
-            if (this.counter % 2 == 0)
-            {
-                DrawImage("Global Mute", "Images/actionDefaultImage.png");
-            }
         }
 
         public override void KeyReleased(KeyPayload payload)
@@ -146,232 +139,283 @@ namespace streamdeck_totalmix
                 Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Released");
                 if (this.settings.Name != "showhideui")
                 {
-                    Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
+                    Sender.Send(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort);
                 }
                 DrawImage("Global Mute", "Images/actionDefaultImage.png");
                 Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                this.counter--;
             }
         }
 
         public override void OnTick()
         {
-            TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - Globals.lastQuery.Ticks);
-            if (Globals.bankSettings["Input"].Count != 0 || elapsedSpan.TotalSeconds > 10)
+            if (!Globals.commandConnection)
             {
-                if (elapsedSpan.TotalSeconds > 1)
-                {
-                    Globals.lastQuery = DateTime.Now;
-                    Listener listener = new Listener();
-                    listener.Listen("Input", "/1/busInput", 1);
-                }
+                DrawImage("No connection", "Images/mixerOff.png", 9);
             }
-            try
+            else
             {
-                switch (this.settings.SelectedAction)
+                if (Globals.backgroundConnection)
                 {
-                    case "9":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/globalMute"))
+                    try
+                    {
+                        switch (this.settings.SelectedAction)
                         {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/globalMute", out string result))
-                            {
-                                if (result == "1")
+                            case "9":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/globalMute"))
                                 {
-                                    DrawImage("Global Mute", "Images/muteOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/globalMute", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Global Mute", "Images/muteOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Global Mute", "Images/muteOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "10":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/globalSolo"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/globalSolo", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Global Solo", "Images/soloOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Global Solo", "Images/soloOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "11":
+                                DrawImage("Reverb", "Images/actionDefaultImage.png");
+                                break;
+                            case "12":
+                                DrawImage("Echo", "Images/actionDefaultImage.png");
+                                break;
+                            case "13":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/trim"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/trim", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Trim", "Images/trimOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Trim", "Images/trimOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "14":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/mainDim"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/mainDim", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Main Dim", "Images/dimOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Main Dim", "Images/dimOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "15":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/mainSpeakerB"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/mainSpeakerB", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Speaker B", "Images/speakerBOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Speaker B", "Images/speakerBOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "16":
+                                DrawImage("Recall", "Images/recall.png");
+                                break;
+                            case "17":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/mainMuteFx"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/mainMuteFx", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Main Mute FX", "Images/muteFXOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Main Mute FX", "Images/muteFXOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "18":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/mainMono"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/mainMono", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Main Mono", "Images/monoOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Main Mono", "Images/monoOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "19":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/mainExtIn"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/mainExtIn", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Ext In", "Images/extInOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Ext In", "Images/extInOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "20":
+                                if (Globals.bankSettings["Input"].ContainsKey("/1/mainTalkback"))
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue("/1/mainTalkback", out string result))
+                                    {
+                                        if (result == "1")
+                                        {
+                                            DrawImage("Talkback", "Images/talkbackOn.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                                        }
+                                        else
+                                        {
+                                            DrawImage("Talkback", "Images/talkbackOff.png");
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        }
+                                    }
+                                }
+                                break;
+                            case "33":
+                                DrawImage("Show/hide UI", "Images/actionDefaultImage.png");
+                                break;
+                            default:
+                                if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)
+                                {
+                                    DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
                                 }
                                 else
                                 {
-                                    DrawImage("Global Mute", "Images/muteOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                    DrawImage("", "Images/actionDefaultImage.png");
                                 }
-                            }
+                                break;
                         }
-                        break;
-                    case "10":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/globalSolo"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/globalSolo", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Global Solo", "Images/soloOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Global Solo", "Images/soloOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "11":
-                        DrawImage("Reverb", "Images/actionDefaultImage.png");
-                        break;
-                    case "12":
-                        DrawImage("Echo", "Images/actionDefaultImage.png");
-                        break;
-                    case "13":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/trim"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/trim", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Trim", "Images/trimOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Trim", "Images/trimOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "14":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainDim"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainDim", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Main Dim", "Images/dimOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Main Dim", "Images/dimOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "15":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainSpeakerB"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainSpeakerB", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Speaker B", "Images/speakerBOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Speaker B", "Images/speakerBOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "16":
-                        DrawImage("Recall", "Images/recall.png");
-                        break;
-                    case "17":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainMuteFx"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainMuteFx", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Main Mute FX", "Images/muteFXOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Main Mute FX", "Images/muteFXOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "18":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainMono"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainMono", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Main Mono", "Images/monoOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Main Mono", "Images/monoOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "19":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainExtIn"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainExtIn", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Ext In", "Images/extInOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Ext In", "Images/extInOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "20":
-                        if (Globals.bankSettings["Input"].ContainsKey("/1/mainTalkback"))
-                        {
-                            if (Globals.bankSettings["Input"].TryGetValue("/1/mainTalkback", out string result))
-                            {
-                                if (result == "1")
-                                {
-                                    DrawImage("Talkback", "Images/talkbackOn.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
-                                }
-                                else
-                                {
-                                    DrawImage("Talkback", "Images/talkbackOff.png");
-                                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
-                                }
-                            }
-                        }
-                        break;
-                    case "33":
-                        DrawImage("Show/hide UI", "Images/actionDefaultImage.png");
-                        break;
-                    default:
-                        if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)
-                        {
-                            DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
-                        }
-                        else
-                        {
-                            DrawImage("", "Images/actionDefaultImage.png");
-                        }
-                        break;
+                    }
+                    catch
+                    {
+                        //
+                    }
                 }
-            }
-            catch
-            {
-                //
+                if (!Globals.backgroundConnection)
+                {
+                    switch (this.settings.SelectedAction)
+                    {
+                        case "9":
+                            DrawImage("Global Mute", "Images/muteOff.png");
+                            break;
+                        case "10":
+                            DrawImage("Global Solo", "Images/soloOff.png");
+                            break;
+                        case "11":
+                            DrawImage("Reverb", "Images/actionDefaultImage.png");
+                            break;
+                        case "12":
+                            DrawImage("Echo", "Images/actionDefaultImage.png");
+                            break;
+                        case "13":
+                            DrawImage("Trim", "Images/trimOff.png");
+                            break;
+                        case "14":
+                            DrawImage("Main Dim", "Images/dimOff.png");
+                            break;
+                        case "15":
+                            DrawImage("Speaker B", "Images/speakerBOff.png");
+                            break;
+                        case "16":
+                            DrawImage("Recall", "Images/recall.png");
+                            break;
+                        case "17":
+                            DrawImage("Main Mute FX", "Images/muteFXOff.png");
+                            break;
+                        case "18":
+                            DrawImage("Main Mono", "Images/monoOff.png");
+                            break;
+                        case "19":
+                            DrawImage("Ext In", "Images/extInOff.png");
+                            break;
+                        case "20":
+                            DrawImage("Talkback", "Images/talkbackOff.png");
+                            break;
+                        case "33":
+                            DrawImage("Show/hide UI", "Images/actionDefaultImage.png");
+                            break;
+                        default:
+                            if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)
+                            {
+                                DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
+                            }
+                            else
+                            {
+                                DrawImage("", "Images/actionDefaultImage.png");
+                            }
+                            break;
+                    }
+                }
             }
         }
-        private void DrawImage(String trackname, String imagePath)
+        private void DrawImage(String trackname, String imagePath, Int32 size = 11)
         {
-            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, 11, Color.White, false, TitleVerticalAlignment.Bottom);
+            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, size, Color.White, false, TitleVerticalAlignment.Bottom);
             using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
             {
                 Image actionImage = Image.FromFile(@imagePath);
                 graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
-                if (settings.DisplayChannelName)
-                {
-                    graphics.AddTextPath(tp, image.Width, image.Height, trackname);
-                }
+                graphics.AddTextPath(tp, image.Width, image.Height, trackname);
                 Connection.SetImageAsync(image);
                 graphics.Dispose();
             }

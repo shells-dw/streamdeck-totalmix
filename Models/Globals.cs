@@ -20,7 +20,9 @@ namespace streamdeck_totalmix
         public static Int32 interfaceBackgroundPort;
         public static Int32 interfaceBackgroundSendPort;
         public static String mirroringRequested;
-        public static Boolean listeningActive;
+        public static Boolean listeningActive = false;
+        public static Boolean commandConnection = false;
+        public static Boolean backgroundConnection = false;
 
         // throttle queries
         public static DateTime lastQuery = DateTime.Now;

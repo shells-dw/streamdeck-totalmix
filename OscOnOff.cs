@@ -82,33 +82,69 @@ namespace streamdeck_totalmix
         }
         public override void KeyPressed(KeyPayload payload)
         {
-            Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string address);
-            char channel = this.settings.Name[this.settings.Name.Length - 1];
-            Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Key Pressed");
-            Task.Run(() => HelperFunctions.SendOscCommand($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
-            if (payload.State == 1)
+            if (Globals.backgroundConnection && Globals.commandConnection)
             {
-                Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
-                DrawImage(trackname, "Images/actionDefaultImage.png");
+                Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: both connections present");
+                char channel = this.settings.Name[this.settings.Name.Length - 1];
+                Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
+                Sender.Send($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort);
+                if (payload.State == 1)
+                {
+                    Sender.Send(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort);
+                    DrawImage(trackname, "Images/actionDefaultImage.png");
+                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                }
+                else
+                {
+                    Sender.Send(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort);
+                    if (settings.Name.Contains("solo"))
+                    {
+                        DrawImage(trackname, "Images/soloOn.png");
+                    }
+                    else if (settings.Name.Contains("phantom"))
+                    {
+                        DrawImage(trackname, "Images/phantomOn.png");
+                    }
+                    else if (settings.Name.Contains("mute"))
+                    {
+                        DrawImage(trackname, "Images/muteOn.png");
+                    }
+                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                }
+            } 
+            if (!Globals.backgroundConnection && Globals.commandConnection)
+            {
+                Sender.Send($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort).Wait();
+                if (payload.State == 1)
+                {
+                    Sender.Send(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort);
+                    DrawImage("", "Images/actionDefaultImage.png");
+                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                }
+                else
+                {
+                    Sender.Send(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort);
+                    if (settings.Name.Contains("solo"))
+                    {
+                        DrawImage("", "Images/soloOn.png");
+                    }
+                    else if (settings.Name.Contains("phantom"))
+                    {
+                        DrawImage("", "Images/phantomOn.png");
+                    }
+                    else if (settings.Name.Contains("mute"))
+                    {
+                        DrawImage("", "Images/muteOn.png");
+                    }
+                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                }
             }
             else
             {
-                Task.Run(() => HelperFunctions.SendOscCommand(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort)).GetAwaiter().GetResult();
-                if (settings.Name.Contains("solo"))
-                {
-                    DrawImage(trackname, "Images/soloOn.png");
-                }
-                else if (settings.Name.Contains("phantom"))
-                {
-                    DrawImage(trackname, "Images/phantomOn.png");
-                }
-                else if (settings.Name.Contains("mute"))
-                {
-                    DrawImage(trackname, "Images/muteOn.png");
-                }
-                Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
+                //
             }
+            
         }
 
         public override void KeyReleased(KeyPayload payload)
@@ -117,74 +153,103 @@ namespace streamdeck_totalmix
         }
         public override void OnTick()
         {
-            if (this.settings.MirrorTotalMix == true && this.settings.Name != null && this.settings.Bus != null)
+            if (!Globals.commandConnection)
             {
-                TimeSpan elapsedSpan = new TimeSpan(DateTime.Now.Ticks - Globals.lastQuery.Ticks);
-                if (Globals.bankSettings[$"{this.settings.Bus}"].Count != 0 || elapsedSpan.TotalSeconds > 10)
+                DrawImage("No connection", "Images/mixerOff.png", 9);
+            }
+            else
+            {
+                if (this.settings.MirrorTotalMix == true && Globals.backgroundConnection == true && this.settings.Name != null && this.settings.Bus != null)
                 {
-                    if (elapsedSpan.TotalSeconds > 1)
+                    try
                     {
-                        Globals.lastQuery = DateTime.Now;
-                        Listener listener = new Listener();
-                        listener.Listen(this.settings.Bus, $"/1/bus{this.settings.Bus}", 1);
-                    }
-                }
-                try
-                {
-                    if (Globals.bankSettings[$"{this.settings.Bus}"].ContainsKey(this.settings.Name))
-                    {
-                        if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue("/1/bus" + this.settings.Bus, out string busValue))
+                        if (Globals.bankSettings[$"{this.settings.Bus}"].ContainsKey(this.settings.Name))
                         {
-                            if (busValue == "1")
+                            if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue("/1/bus" + this.settings.Bus, out string busValue))
                             {
-                                if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string result))
+                                if (busValue == "1")
                                 {
-                                    char channel = this.settings.Name[this.settings.Name.Length - 1];
-                                    Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
-                                    if (result == "1")
+                                    if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string result))
                                     {
-                                        if (settings.Name.Contains("solo"))
+                                        char channel = this.settings.Name[this.settings.Name.Length - 1];
+                                        Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
+                                        if (result == "1")
                                         {
-                                            DrawImage(trackname, "Images/soloOn.png");
+                                            if (settings.Name.Contains("solo"))
+                                            {
+                                                DrawImage(trackname, "Images/soloOn.png");
+                                            }
+                                            if (settings.Name.Contains("phantom"))
+                                            {
+                                                DrawImage(trackname, "Images/phantomOn.png");
+                                            }
+                                            if (settings.Name.Contains("mute"))
+                                            {
+                                                DrawImage(trackname, "Images/muteOn.png");
+                                            }
+                                            Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
                                         }
-                                        if (settings.Name.Contains("phantom"))
+                                        else
                                         {
-                                            DrawImage(trackname, "Images/phantomOn.png");
+                                            if (settings.Name.Contains("solo"))
+                                            {
+                                                DrawImage(trackname, "Images/soloOff.png");
+                                            }
+                                            if (settings.Name.Contains("phantom"))
+                                            {
+                                                DrawImage(trackname, "Images/phantomOff.png");
+                                            }
+                                            if (settings.Name.Contains("mute"))
+                                            {
+                                                DrawImage(trackname, "Images/muteOff.png");
+                                            }
+                                            Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
                                         }
-                                        if (settings.Name.Contains("mute"))
-                                        {
-                                            DrawImage(trackname, "Images/muteOn.png");
-                                        }
-                                        Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
                                     }
                                     else
                                     {
-                                        if (settings.Name.Contains("solo"))
-                                        {
-                                            DrawImage(trackname, "Images/soloOff.png");
-                                        }
-                                        if (settings.Name.Contains("phantom"))
-                                        {
-                                            DrawImage(trackname, "Images/phantomOff.png");
-                                        }
-                                        if (settings.Name.Contains("mute"))
-                                        {
-                                            DrawImage(trackname, "Images/muteOff.png");
-                                        }
-                                        Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                                        Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Could not find the specific key in bankSetting dict");
                                     }
-                                }
-                                else
-                                {
-                                    Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: Could not find the specific key in bankSetting dict");
                                 }
                             }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: OnTick, mirror, try catch => {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
+                if (this.settings.MirrorTotalMix == false && this.settings.Name != null && this.settings.Bus != null)
                 {
-                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: OnTick, try catch => {ex.Message}");
+                    String trackname = "";
+                    try
+                    {
+                        char channel = this.settings.Name[this.settings.Name.Length - 1];
+                        Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out trackname);
+                    }
+                    catch
+                    {
+                        //
+                    }
+                    finally
+                    {
+                        if (settings.Name.Contains("solo"))
+                        {
+                            DrawImage(trackname, "Images/soloOff.png");
+                        }
+                        if (settings.Name.Contains("phantom"))
+                        {
+                            DrawImage(trackname, "Images/phantomOff.png");
+                        }
+                        if (settings.Name.Contains("mute"))
+                        {
+                            DrawImage(trackname, "Images/muteOff.png");
+                        }
+                    }
+                }
+                if (!Globals.backgroundConnection && this.settings.MirrorTotalMix == true)
+                {
+                    DrawImage("⚠ mirror error", "Images/actionDefaultImage.png", 8);
                 }
             }
         }
@@ -195,9 +260,9 @@ namespace streamdeck_totalmix
             Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: Settings loaded: {payload.Settings}");
         }
 
-        private void DrawImage(String trackname, String imagePath)
+        private void DrawImage(String trackname, String imagePath, Int32 size = 12)
         {
-            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, 12, Color.White, false, TitleVerticalAlignment.Bottom);
+            TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, size, Color.White, false, TitleVerticalAlignment.Bottom);
             using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
             {
                 Image actionImage = Image.FromFile(@imagePath);

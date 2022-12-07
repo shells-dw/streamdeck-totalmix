@@ -72,7 +72,6 @@
     <Compile Include="Models\Events\TotalMixUpdatedSetting.cs" />
     <Compile Include="Models\Globals.cs" />
     <Compile Include="Models\HelperFunctions.cs" />
-    <Compile Include="Models\OSCCommunicator\CheckDevice.cs" />
     <Compile Include="Models\OSCCommunicator\Listener.cs" />
     <Compile Include="Models\OSCCommunicator\Sender.cs" />
     <Compile Include="OscOnOff.cs" />

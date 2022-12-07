@@ -13,7 +13,7 @@ namespace streamdeck_totalmix
         static OscReceiver receiver;
 
         // main listener Task
-        public async Task<Task> Listen(String bus, String address, Single value)
+        public static Task Listen(String bus, String address, Single value)
         {
 
             // Create the receiver
@@ -23,16 +23,15 @@ namespace streamdeck_totalmix
             receiver.Connect();
 
             // Start the listen thread
-            await Sender.Send(address, value, Globals.interfaceIp, Globals.interfaceBackgroundPort);
+            Sender.Send(address, value, Globals.interfaceIp, Globals.interfaceBackgroundPort).Wait();
 
-            Task.Run(() => ListenLoop(bus)).Wait(1000);
-            //     await ListenLoop(bus);
+            Task.Run(() => ListenLoop(bus)).Wait();
             // close the Reciver 
             receiver.Close();
             return Task.CompletedTask;
         }
 
-        private Task ListenLoop(object bus)
+        private static Task ListenLoop(object bus)
         {
             try
             {
@@ -64,26 +63,26 @@ namespace streamdeck_totalmix
                             // add every received bundle to the Global Dict
                             for (var i = 0; i < bundle.Count; i++)
                             {
-                //                if (Globals.bankSettings[$"{bus}"].ContainsKey(((Rug.Osc.OscMessage)bundle[i]).Address))
-                 //               {
-                                    //    Globals.bankSettings[$"{bus}"].Remove(((Rug.Osc.OscMessage)bundle[i]).Address);
+                                Match interestingValues = Regex.Match(((Rug.Osc.OscMessage)bundle[i]).Address.ToString(), "^.{3}(?>label|select)");
+                                if (interestingValues.Success == false)
+                                {
                                     Globals.bankSettings[$"{bus}"][$"{((Rug.Osc.OscMessage)bundle[i]).Address}"] = ((Rug.Osc.OscMessage)bundle[i])[0].ToString();
-                                    if (((Rug.Osc.OscMessage)bundle[i]).Address == "/1/micgain16Val") {
+                                    if (((Rug.Osc.OscMessage)bundle[i]).Address == $"/1/micgain{Globals.channelCount}Val")
+                                    {
                                         return Task.CompletedTask;
-                                     }
-                //                }
-                 //       Globals.bankSettings[$"{bus}"].Add(((Rug.Osc.OscMessage)bundle[i]).Address, ((Rug.Osc.OscMessage)bundle[i])[0].ToString());
-                    }
+                                    }
+                                }
+                            }
 
-                    // matched
-                    if (m.Success)
-                    {
-                        return Task.CompletedTask;
+                            // matched
+                            if (m.Success)
+                            {
+                                return Task.CompletedTask;
+                            }
+                        }
                     }
                 }
             }
-                }
-    }
 
             // TODO
             catch
