@@ -172,6 +172,9 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.1.4] - 2022-12-12
+### Added
+- Snapshot names will be read from local TotalMix config file as they are not transmitted via OSC
 ## [3.1.3] - 2022-12-12
 ### Fixed
 - Global Functions Display Channel Name checkbox was not functional

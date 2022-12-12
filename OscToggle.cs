@@ -9,6 +9,12 @@ using System.Drawing;
 using System.Collections.Generic;
 using System.Linq;
 using BarRaider.SdTools.Wrappers;
+using System.IO;
+using System.Xml.Linq;
+using System.Runtime.InteropServices.ComTypes;
+using System.Xml;
+using System.Xml.Serialization;
+using System.Text.RegularExpressions;
 
 namespace streamdeck_totalmix
 {
@@ -337,7 +343,31 @@ namespace streamdeck_totalmix
                             default:
                                 if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)
                                 {
-                                    DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
+                                    var totalMixDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\TotalMixFx";
+                                    if (Directory.Exists(totalMixDir))
+                                    {
+                                        FileInfo[] totalMixConfig = Directory.GetFiles(totalMixDir, "last.*.xml").Select(x => new FileInfo(x)).ToArray();
+                                        var curentConfig = totalMixConfig.OrderByDescending(f => f.LastWriteTime).FirstOrDefault();
+
+                                        List<string> current = null;
+                                        current = new List<string>();
+                                        foreach (var line in File.ReadAllLines(curentConfig.ToString()))
+                                        {
+                                            if (line.Contains("SnapshotName"))
+                                            {
+                                                Match snapshotNames = Regex.Match(line, "v\\=\\\"(.*\\b)");
+                                                if (snapshotNames.Success == true)
+                                                {
+                                                    current.Add(snapshotNames.Groups[1].Value);
+                                                }
+                                            }
+                                        }
+                                        DrawImage(current[Int32.Parse(this.settings.SelectedAction) - 1], "Images/actionDefaultImage.png");
+                                    }
+                                    else
+                                    {
+                                        DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
+                                    }
                                 }
                                 else
                                 {
@@ -423,6 +453,7 @@ namespace streamdeck_totalmix
                 graphics.Dispose();
             }
         }
+
         public override void ReceivedSettings(ReceivedSettingsPayload payload)
         {
             Tools.AutoPopulateSettings(settings, payload.Settings);
