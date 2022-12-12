@@ -172,6 +172,14 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.1.3] - 2022-12-12
+### Fixed
+- Global Functions Display Channel Name checkbox was not functional
+- Global Functions skipped over default "Global Mute" making it flicker the wrong icon/name
+### Added
+- a *load of try/catch logging on the receiving/sending parts
+### Notes
+- listener thread ocassionally throws an exception (safe handle closed in UDP receiver somewhere), investigating if that's caused by the lib or .NET. It's been an elusive one... StreamDeck detects the plugin going down and restarts it, so impact is... meh. It's not great, but for now it'll be that way.
 ## [3.1.2] - 2022-12-07
 ### Fixed
 - Background task updating the device wasn't as sync as it should be

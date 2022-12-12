@@ -11,7 +11,7 @@ namespace streamdeck_totalmix
 
     internal class HelperFunctions
     {
-        public static void UpdateDeviceSettingDict()
+        public static async void UpdateDeviceSettingDict()
         {
             if (Globals.backgroundConnection)
             {
@@ -20,9 +20,19 @@ namespace streamdeck_totalmix
                     Globals.listeningActive = true;
                     while (true)
                     {
-                        Listener.Listen("Input", $"/1/busInput", 1).Wait();
-                        Listener.Listen("Output", $"/1/busOutput", 1).Wait();
-                        Listener.Listen("Playback", $"/1/busPlayback", 1).Wait();
+                        try
+                        {
+                            await Listener.Listen("Input", $"/1/busInput", 1);
+                            await Task.Delay(100);
+                            await Listener.Listen("Output", $"/1/busOutput", 1);
+                            await Task.Delay(100);
+                            await Listener.Listen("Playback", $"/1/busPlayback", 1);
+                            await Task.Delay(100);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Instance.LogMessage(TracingLevel.INFO, "UpdateDeviceSettingDict: " + ex.Message);
+                        }
                     }
                 }
             }

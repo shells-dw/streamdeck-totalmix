@@ -128,7 +128,7 @@ namespace streamdeck_totalmix
             {
                 Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
             }
-            DrawImage("Global Mute", "Images/mixerOn.png");
+            DrawImage("", "Images/mixerOn.png");
         }
 
         public override void KeyReleased(KeyPayload payload)
@@ -141,7 +141,7 @@ namespace streamdeck_totalmix
                 {
                     Sender.Send(this.settings.Name, 1, Globals.interfaceIp, Globals.interfacePort);
                 }
-                DrawImage("Global Mute", "Images/actionDefaultImage.png");
+                DrawImage("", "Images/actionDefaultImage.png");
                 Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
             }
         }
@@ -415,7 +415,10 @@ namespace streamdeck_totalmix
             {
                 Image actionImage = Image.FromFile(@imagePath);
                 graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
-                graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                if (settings.DisplayChannelName)
+                {
+                    graphics.AddTextPath(tp, image.Width, image.Height, trackname);
+                }
                 Connection.SetImageAsync(image);
                 graphics.Dispose();
             }

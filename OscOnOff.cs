@@ -2,7 +2,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Threading.Tasks;
 using System.Drawing;
 using BarRaider.SdTools.Wrappers;
 
@@ -260,7 +259,7 @@ namespace streamdeck_totalmix
             Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: Settings loaded: {payload.Settings}");
         }
 
-        private void DrawImage(String trackname, String imagePath, Int32 size = 12)
+        private async void DrawImage(String trackname, String imagePath, Int32 size = 12)
         {
             TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, size, Color.White, false, TitleVerticalAlignment.Bottom);
             using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
@@ -271,7 +270,7 @@ namespace streamdeck_totalmix
                 {
                     graphics.AddTextPath(tp, image.Width, image.Height, trackname);
                 }
-                Connection.SetImageAsync(image);
+                await Connection.SetImageAsync(image);
                 graphics.Dispose();
             }
         }

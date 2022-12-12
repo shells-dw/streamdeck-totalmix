@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{4635D874-69C0-4010-BE46-77EF92EB1553}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <RootNamespace>streamdeck_totalmix</RootNamespace>
     <AssemblyName>de.shells.totalmix</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
@@ -43,10 +43,13 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\com.streamdeck_totalmix.sdPlugin\</OutputPath>
+    <OutputPath>bin\Release\de.shells.totalmix.sdPlugin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="PresentationCore" />
@@ -67,13 +70,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helper\OSCCommunicator\Listener.cs" />
     <Compile Include="MidiCc.cs" />
     <Compile Include="MidiNote.cs" />
     <Compile Include="Models\Events\TotalMixUpdatedSetting.cs" />
-    <Compile Include="Models\Globals.cs" />
-    <Compile Include="Models\HelperFunctions.cs" />
-    <Compile Include="Models\OSCCommunicator\Listener.cs" />
-    <Compile Include="Models\OSCCommunicator\Sender.cs" />
+    <Compile Include="Helper\Globals.cs" />
+    <Compile Include="Helper\HelperFunctions.cs" />
+    <Compile Include="Helper\OSCCommunicator\Sender.cs" />
     <Compile Include="OscOnOff.cs" />
     <Compile Include="OscChannel.cs" />
     <Compile Include="OscToggle.cs" />

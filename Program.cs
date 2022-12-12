@@ -11,7 +11,7 @@ namespace de.shells.totalmix
         static void Main(string[] args)
         {
             // Uncomment this line of code to allow for debugging
-            // while (!System.Diagnostics.Debugger.IsAttached) { System.Threading.Thread.Sleep(100); }
+        //     while (!System.Diagnostics.Debugger.IsAttached) { System.Threading.Thread.Sleep(100); }
 
             Globals.interfaceIp = System.Configuration.ConfigurationManager.AppSettings["interfaceIp"];
             Globals.interfacePort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfacePort"]);
@@ -20,7 +20,7 @@ namespace de.shells.totalmix
             Globals.interfaceBackgroundSendPort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfaceBackgroundSendPort"]);
 
             HelperFunctions.CheckForTotalMix();
-            Task.Run(() => HelperFunctions.UpdateDeviceSettingDict()).Wait(1000);
+            Task.Run(() => HelperFunctions.UpdateDeviceSettingDict());
             HelperFunctions.GetChannelCount();
 
             SDWrapper.Run(args);
