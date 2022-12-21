@@ -65,7 +65,14 @@ namespace streamdeck_totalmix
                 this.settings = PluginSettings.CreateDefaultSettings();
                 Connection.SetSettingsAsync(JObject.FromObject(settings));
 
-                Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: Settings initially set: {this.settings}");
+                Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Settings initially set: {this.settings}");
+            }
+            if (this.settings.ChannelCount != Globals.channelCount)
+            {
+                this.settings.ChannelCount = Globals.channelCount;
+                Connection.SetSettingsAsync(JObject.FromObject(settings));
+
+                Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Channel Count differed to OSC, set to: {Globals.channelCount}");
             }
             else
             {

@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Drawing;
 using BarRaider.SdTools.Wrappers;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace streamdeck_totalmix
 {
@@ -72,6 +73,13 @@ namespace streamdeck_totalmix
             {
                 this.settings = payload.Settings.ToObject<PluginSettings>();
             }
+            if (this.settings.ChannelCount != Globals.channelCount)
+            {
+                this.settings.ChannelCount = Globals.channelCount;
+                Connection.SetSettingsAsync(JObject.FromObject(settings));
+
+                Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: Channel Count differed to OSC, set to: {Globals.channelCount}");
+            }
         }
 
 
@@ -85,7 +93,7 @@ namespace streamdeck_totalmix
             if (Globals.backgroundConnection && Globals.commandConnection)
             {
                 Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: both connections present");
-                char channel = this.settings.Name[this.settings.Name.Length - 1];
+                Int32 channel = Int32.Parse(this.settings.Name.Substring(this.settings.Name.LastIndexOf('/') + 1));
                 Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
                 Sender.Send($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort);
                 if (payload.State == 1)
@@ -170,7 +178,7 @@ namespace streamdeck_totalmix
                                 {
                                     if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string result))
                                     {
-                                        char channel = this.settings.Name[this.settings.Name.Length - 1];
+                                        Int32 channel = Int32.Parse(this.settings.Name.Substring(this.settings.Name.LastIndexOf('/') + 1));
                                         Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out string trackname);
                                         if (result == "1")
                                         {
@@ -223,7 +231,7 @@ namespace streamdeck_totalmix
                     String trackname = "";
                     try
                     {
-                        char channel = this.settings.Name[this.settings.Name.Length - 1];
+                        Int32 channel = Int32.Parse(this.settings.Name.Substring(this.settings.Name.LastIndexOf('/') + 1));
                         Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out trackname);
                     }
                     catch
@@ -262,9 +270,9 @@ namespace streamdeck_totalmix
         private async void DrawImage(String trackname, String imagePath, Int32 size = 12)
         {
             TitleParameters tp = new TitleParameters(new FontFamily("Arial"), System.Drawing.FontStyle.Bold, size, Color.White, false, TitleVerticalAlignment.Bottom);
-            using (Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
+            using (System.Drawing.Image image = Tools.GenerateGenericKeyImage(out Graphics graphics))
             {
-                Image actionImage = Image.FromFile(@imagePath);
+                System.Drawing.Image actionImage = System.Drawing.Image.FromFile(@imagePath);
                 graphics.DrawImage(actionImage, 0, 0, image.Width, image.Height);
                 if (settings.DisplayChannelName)
                 {

@@ -4,16 +4,11 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using System.Drawing;
 using System.Collections.Generic;
 using System.Linq;
 using BarRaider.SdTools.Wrappers;
 using System.IO;
-using System.Xml.Linq;
-using System.Runtime.InteropServices.ComTypes;
-using System.Xml;
-using System.Xml.Serialization;
 using System.Text.RegularExpressions;
 
 namespace streamdeck_totalmix
@@ -360,6 +355,10 @@ namespace streamdeck_totalmix
                                                 {
                                                     current.Add(snapshotNames.Groups[1].Value);
                                                 }
+                                            }
+                                            if (line.Contains("<Inputs>"))
+                                            {
+                                                break;
                                             }
                                         }
                                         DrawImage(current[Int32.Parse(this.settings.SelectedAction) - 1], "Images/actionDefaultImage.png");
