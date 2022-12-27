@@ -67,16 +67,28 @@ namespace streamdeck_totalmix
 
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Settings initially set: {this.settings}");
             }
-            if (this.settings.ChannelCount != Globals.channelCount)
-            {
-                this.settings.ChannelCount = Globals.channelCount;
-                Connection.SetSettingsAsync(JObject.FromObject(settings));
-
-                Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Channel Count differed to OSC, set to: {Globals.channelCount}");
-            }
             else
             {
                 this.settings = payload.Settings.ToObject<PluginSettings>();
+                if (!payload.Settings.ContainsKey("DisplayChannelName"))
+                {
+                    this.settings.DisplayChannelName = true;
+                    Connection.SetSettingsAsync(JObject.FromObject(settings));
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: !payload.Settings.ContainsKey(\"DisplayChannelName\")");
+                }
+                if (!payload.Settings.ContainsKey("ChannelCount"))
+                {
+                    this.settings.ChannelCount = Globals.channelCount;
+                    Connection.SetSettingsAsync(JObject.FromObject(settings));
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: !payload.Settings.ContainsKey(\"ChannelCount\")");
+                }
+                if (this.settings.ChannelCount != Globals.channelCount)
+                {
+                    this.settings.ChannelCount = Globals.channelCount;
+                    Connection.SetSettingsAsync(JObject.FromObject(settings));
+
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Channel Count differed to OSC, set to: {Globals.channelCount}");
+                }
             }
         }
 

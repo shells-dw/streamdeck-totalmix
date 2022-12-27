@@ -35,7 +35,6 @@ function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, 
         Bus = actionInfo.payload.settings.Bus;
         SelectedValue = actionInfo.payload.settings.SelectedValue;
         MuteSolo = actionInfo.payload.settings.MuteSolo;
-        MirrorTotalMix = actionInfo.payload.settings.MirrorTotalMix;
         DisplayChannelName = actionInfo.payload.settings.DisplayChannelName;
         ChannelCount = actionInfo.payload.settings.ChannelCount;
     } else if (actionInfo.action === "de.shells.totalmix.oscchannel.action") {
@@ -125,7 +124,6 @@ function setSettings(value, param) {
     if (param === "Devices") { Devices = payload.Devices }
     if (param === "Control") { Control = payload.Control }
     if (param === "ControlValue") { ControlValue = payload.ControlValue }
-    if (param === "MirrorTotalMix") { MirrorTotalMix = payload.MirrorTotalMix }
     if (param === "DisplayChannelName") { DisplayChannelName = payload.DisplayChannelName }
     if (param === "ChannelCount") { ChannelCount = payload.ChannelCount }
     if (actionInfo.action === "de.shells.totalmix.osctoggle.action") {
@@ -142,7 +140,6 @@ function setSettings(value, param) {
             Bus: Bus,
             SelectedValue: SelectedValue,
             MuteSolo: MuteSolo,
-            MirrorTotalMix: MirrorTotalMix,
             DisplayChannelName: DisplayChannelName,
             ChannelCount: ChannelCount
         }
@@ -227,7 +224,7 @@ function openWebsite() {
         const json = {
             'event': 'openUrl',
             'payload': {
-                'url': 'https://github.com/shells-dw/streamdeck-totalmix'
+                'url': 'https://github.com/shells-dw/streamdeck-totalmix#setup-for-osc'
             }
         };
         websocket.send(JSON.stringify(json));
@@ -590,11 +587,6 @@ function updateUI(pl, settings) {
             '    </optgroup></select>',
             '</div>',
             '<div type="checkbox" class="sdpi-item">',
-            '       <div class="sdpi-item-label">Mirror TotalMix Settings</div>',
-            '       <input class="sdpi-item-value" id="chk0" type="checkbox" value="includeInInitialize" onclick="mirrorTotalMix(this)">',
-            '       <label for="chk0"><span></span></label>',
-            '</div>',
-            '<div type="checkbox" class="sdpi-item">',
             '       <div class="sdpi-item-label">Display Channel Name</div>',
             '       <input class="sdpi-item-value" id="chk1" type="checkbox" value="displayChannelName" onclick="displayChannelName(this)">',
             '       <label for="chk1"><span></span></label>',
@@ -643,12 +635,6 @@ function updateUI(pl, settings) {
             document.getElementById("rdio2").checked = true;
         } else if (settings.MuteSolo === "phantom") {
             document.getElementById("rdio3").checked = true;
-        }
-        //   console.log("includeInInitialize: " + settings.MirrorTotalMix);
-        if (settings.MirrorTotalMix == true) {
-            document.getElementById("chk0").checked = true;
-        } else {
-            document.getElementById("chk0").checked = false;
         }
         if (settings.DisplayChannelName == true) {
             document.getElementById("chk1").checked = true;
@@ -836,16 +822,6 @@ function fadeColor(col, amt) {
     const g = min(255, max((num & 0x0000FF) + amt, 0));
     const b = min(255, max(((num >> 8) & 0x00FF) + amt, 0));
     return '#' + (g | (b << 8) | (r << 16)).toString(16).padStart(6, 0);
-}
-
-function mirrorTotalMix(state) {
-    if (state.checked == true) {
-    //    console.log("checkbox checked");
-        setSettings(true, 'MirrorTotalMix');
-    } else {
-     //   console.log("checkbox unchecked");
-        setSettings(false, 'MirrorTotalMix');
-    }
 }
 
 function displayChannelName(state) {

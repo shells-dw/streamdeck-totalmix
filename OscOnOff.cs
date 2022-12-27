@@ -5,6 +5,7 @@ using System;
 using System.Drawing;
 using BarRaider.SdTools.Wrappers;
 using static System.Net.Mime.MediaTypeNames;
+using System.Collections.Generic;
 
 namespace streamdeck_totalmix
 {
@@ -22,7 +23,6 @@ namespace streamdeck_totalmix
                     Bus = String.Empty,
                     MuteSolo = String.Empty,
                     SettingValue = 1.0f,
-                    MirrorTotalMix = false,
                     DisplayChannelName = true,
                     ChannelCount = Globals.channelCount
                 };
@@ -45,9 +45,6 @@ namespace streamdeck_totalmix
             [JsonProperty(PropertyName = "SettingValue")]
             public float SettingValue { get; set; }
 
-            [JsonProperty(PropertyName = "MirrorTotalMix")]
-            public bool MirrorTotalMix { get; set; }
-
             [JsonProperty(PropertyName = "DisplayChannelName")]
             public bool DisplayChannelName { get; set; }
 
@@ -60,7 +57,7 @@ namespace streamdeck_totalmix
         private PluginSettings settings;
 
         #endregion
-        public OscOnOff(SDConnection connection, InitialPayload payload) : base(connection, payload)
+        public OscOnOff(ISDConnection connection, InitialPayload payload) : base(connection, payload)
         {
             if (payload.Settings == null || payload.Settings.Count == 0)
             {
@@ -72,13 +69,25 @@ namespace streamdeck_totalmix
             else
             {
                 this.settings = payload.Settings.ToObject<PluginSettings>();
-            }
-            if (this.settings.ChannelCount != Globals.channelCount)
-            {
-                this.settings.ChannelCount = Globals.channelCount;
-                Connection.SetSettingsAsync(JObject.FromObject(settings));
+                if (!payload.Settings.ContainsKey("DisplayChannelName"))
+                {
+                    this.settings.DisplayChannelName = true;
+                    Connection.SetSettingsAsync(JObject.FromObject(settings));
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: !payload.Settings.ContainsKey(\"DisplayChannelName\")");
+                }
+                if (!payload.Settings.ContainsKey("ChannelCount"))
+                {
+                    this.settings.ChannelCount = Globals.channelCount;
+                    Connection.SetSettingsAsync(JObject.FromObject(settings));
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: !payload.Settings.ContainsKey(\"ChannelCount\")");
+                }
+                if (this.settings.ChannelCount != Globals.channelCount)
+                {
+                    this.settings.ChannelCount = Globals.channelCount;
+                    Connection.SetSettingsAsync(JObject.FromObject(settings));
 
-                Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: Channel Count differed to OSC, set to: {Globals.channelCount}");
+                    Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Channel Count differed to OSC, set to: {Globals.channelCount}");
+                }
             }
         }
 
@@ -99,8 +108,6 @@ namespace streamdeck_totalmix
                 if (payload.State == 1)
                 {
                     Sender.Send(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort);
-                    DrawImage(trackname, "Images/actionDefaultImage.png");
-                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
                 }
                 else
                 {
@@ -117,17 +124,28 @@ namespace streamdeck_totalmix
                     {
                         DrawImage(trackname, "Images/muteOn.png");
                     }
-                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
                 }
             } 
             if (!Globals.backgroundConnection && Globals.commandConnection)
             {
+                Logger.Instance.LogMessage(TracingLevel.INFO, "OscOnOff: only command connection present");
                 Sender.Send($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort).Wait();
+
                 if (payload.State == 1)
                 {
                     Sender.Send(this.settings.Name, 0, Globals.interfaceIp, Globals.interfacePort);
-                    DrawImage("", "Images/actionDefaultImage.png");
-                    Connection.StreamDeckConnection.SetStateAsync(0, Connection.ContextId);
+                    if (settings.Name.Contains("solo"))
+                    {
+                        DrawImage("", "Images/soloOff.png");
+                    }
+                    if (settings.Name.Contains("phantom"))
+                    {
+                        DrawImage("", "Images/phantomOff.png");
+                    }
+                    if (settings.Name.Contains("mute"))
+                    {
+                        DrawImage("", "Images/muteOff.png");
+                    }
                 }
                 else
                 {
@@ -144,7 +162,6 @@ namespace streamdeck_totalmix
                     {
                         DrawImage("", "Images/muteOn.png");
                     }
-                    Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
                 }
             }
             else
@@ -166,7 +183,7 @@ namespace streamdeck_totalmix
             }
             else
             {
-                if (this.settings.MirrorTotalMix == true && Globals.backgroundConnection == true && this.settings.Name != null && this.settings.Bus != null)
+                if (Globals.mirroringRequested && Globals.backgroundConnection && this.settings.Name != null && this.settings.Bus != null)
                 {
                     try
                     {
@@ -226,37 +243,10 @@ namespace streamdeck_totalmix
                         Logger.Instance.LogMessage(TracingLevel.INFO, $"OscOnOff: OnTick, mirror, try catch => {ex.Message}");
                     }
                 }
-                if (this.settings.MirrorTotalMix == false && this.settings.Name != null && this.settings.Bus != null)
+               
+                if (!Globals.backgroundConnection && !Globals.mirroringRequested)
                 {
-                    String trackname = "";
-                    try
-                    {
-                        Int32 channel = Int32.Parse(this.settings.Name.Substring(this.settings.Name.LastIndexOf('/') + 1));
-                        Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{channel}", out trackname);
-                    }
-                    catch
-                    {
-                        //
-                    }
-                    finally
-                    {
-                        if (settings.Name.Contains("solo"))
-                        {
-                            DrawImage(trackname, "Images/soloOff.png");
-                        }
-                        if (settings.Name.Contains("phantom"))
-                        {
-                            DrawImage(trackname, "Images/phantomOff.png");
-                        }
-                        if (settings.Name.Contains("mute"))
-                        {
-                            DrawImage(trackname, "Images/muteOff.png");
-                        }
-                    }
-                }
-                if (!Globals.backgroundConnection && this.settings.MirrorTotalMix == true)
-                {
-                    DrawImage("⚠ mirror error", "Images/actionDefaultImage.png", 8);
+                    DrawImage("⚠ mirror error", "Images/mixerOff.png", 10);
                 }
             }
         }

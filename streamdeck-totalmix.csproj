@@ -98,9 +98,7 @@
     <Content Include="dll\Rug.Osc.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="dll\Rug.Osc.pdb">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="dll\Rug.Osc.pdb" />
     <Content Include="dll\Rug.Osc.XML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

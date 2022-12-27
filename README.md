@@ -7,7 +7,7 @@
 
 ## What Is This (and what does it do?)
 
-It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers actions as well as individual channel actions on the [RME TotalMix FX][] application.
+It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers actions as well as individual channel actions on the [RME TotalMix FX][] application. Note: a RME audio interface/card is needed or TotalMix FX to work.
 
 It supports OSC protocol support which offers more functionality than MIDI commands (at least I implemented more in my plugin), is more solid than MIDI and doesn't interfere with your already existing MIDI setup.
 The plugin however also supports MIDI wiht a limited feature set in case you don't want to use OSC.
@@ -20,6 +20,12 @@ It also doesn't run on MacOS. Bummer, I know.
 ## Release / Installation
 
 Inside the Release-folder you can find the precompiled plugin. Download and open it, your computer should already recognize this as a StreamDeck file and offer to open it with StreamDeck - which will have the plugin available in the list then.
+
+## Updating from older versions
+
+Starting with v3.0.0 the plugin requires two OSC endpoints being activated in TotalMix FX to make mirroring of settings more robust and quicker. Refer to the next chapter to learn how to set it up correctly.
+
+With both OSC listeneners active, most buttons/actions should continue to function after an update. As there are many versions out there now, broken button actions are possible however. If you encounter issues with an action, delete and replace the button on your StreamDeck. This will reset its individual settings.
 
 ## Setup for OSC
 
@@ -43,16 +49,18 @@ No additional software is needed. In theory this should also be able to control 
 Note: if you're using a (software) firewall on your PC and/or any firewall between the StreamDeck and the target PC - make sure to allow the plugin to communicate with the TotalMix port as well as allow TotalMix to listen to it. 
 
 ## de.shells.totalmix.exe.config
-Windows: %appdata%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin
-contains the file de.shells.totalmix.exe.config (which is created with default values during the first start of the plugin and read during every start)
+`%appdata%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin`
+contains the file `de.shells.totalmix.exe.config` (which is created with default values during the first start of the plugin and read during every start)
 
 ```xml
   <appSettings>
     <add key="interfaceIp" value="127.0.0.1" />
-    <add key="interfacePort" value="7001" />
-    <add key="interfaceSendPort" value="9001" />
-    <add key="interfaceBackgroundPort" value="7002" />
-    <add key="interfaceBackgroundSendPort" value="9002" />
+    <add key="interfacePort" value="7001" />    <!-- OSC remote controller #1 "Port incoming" -->
+    <add key="interfaceSendPort" value="9001" />    <!-- OSC remote controller #2 "Port incoming" -->
+    <add key="interfaceBackgroundPort" value="7002" />    <!-- OSC remote controller #1 "Port outgoing" -->
+    <add key="interfaceBackgroundSendPort" value="9002" />    <!-- OSC remote controller #2 "Port outgoing" -->
+    <add key="mirroringRequested" value="true" />    <!-- set to "true" to disable mirroring (not recommended) -->
+    <add key="channelCount" value="16" />    <!--Only relevant if disableMirroring is true = mirroring disabled, otherwise this is read from TotalMix; change to required channelCount if you decide to not use mirroring -->
   </appSettings>
 ```
 where you can configure non-default values or the TotalMix connection.
@@ -132,7 +140,6 @@ Select the function you want to use. Enabling the "Hold Mode" will only trigger 
 
 ![StreamDeckPlugin_OSC_2](/docs/images/SD_P_OSC_2.png)
 
-Select the checkbox "Mirror TotalMix" to update the button's icon when it comes into focus in StreamDeck (e.g. when you open a folder containing the button, load a profile or start StreamDeck when it's on the top screen).
 
 #### OSC: Control Channel
 
@@ -150,34 +157,47 @@ Select the functions to use in the drop-down field below. If the function requir
 
 # Limitations
 
-- There is no MacOS support currently. I started looking into it, but no promises, this is all free-time hobby coding...
-- MIDI: I developed this on Windows, using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
+- There is no MacOS support at this time. I started looking into it, but no promises, this is all free-time hobby coding...
+- MIDI: I developed this using virtualMidi with a RME Fireface UC (which was the only device I currently have access to). It should theoretically work with most other RME interfaces too, as long as they support TotalMix FX.
 - MIDI: It needs a virtual MIDI port, writing my own drivers and have them signed is definitely above my skillset, so you'll have to install a driver for that additionally. (e.g. [virtualMidi][], [loopBe][])
+- MIDI: I basically stopped supporting MIDI, still leave it in for anyone who wants to go through the pain using it.
 
 # I have an issue or miss a feature?
 
-You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in %APPDATA%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin, and will be named pluginlog.log.
+You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in `%APPDATA%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin`, the file is named `pluginlog.log`.
 As described above I developed this with a Fireface UC which is the only device I have at home and with that constant access to so debugging/developing for any other RME device might not be the the easiest task, but I'll see what I can do.
 
 # Contribute
 
 If you're interested in using this plugin but something you really need is missing, let me know. I naturally don't have access to all RME devices, so I can't really try things on the boxes themselves, but eventually we might find a way to work something out.
 
-If you happen to have a working and proper MIDI implementation sheet for RME devices, I'd be happy to implement them in the plugin.
-Currently the OSC documentation looks way better than what's there for MIDI. One could think they don't want people to develop these kind of things...
-
 # Support
 
-If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2) or use Ko-Fi [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
+If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](https://img.shields.io/badge/Donate-PayPal-green.svg)]( https://www.paypal.com/donate?hosted_button_id=8KXD334CCEEC2), sponsor me on [GitHub](https://github.com/sponsors/shells-dw) or use Ko-Fi [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y4CE9LH)
+
 
 
 # Changelog
+## [3.2.1] - 2022-12-27
+### Changed
+- Mirroring is globally on for the plugin by default now. Removed option to mirror single buttons from the UI to unclutter the menu. Instead there is now a [global setting](https://github.com/shells-dw/streamdeck-totalmix#deshellstotalmixexeconfig) to disable mirroring completely. Once mirroring is set up and working, there should not be a need to mirror or not mirror single buttons.
+### Fixed
+- Channel Toggle functions wouldn't work with mirroring disabled
+- Channel selection list would be empty with mirroring disabled
+- Updating from Marketplace version (or any other old version for that matter) would break existing buttons. While it is not impossible for existing buttons to break, this should be happening only occassionally, not for sure.
+- Clarified in README.MD that updating requires to enable the second OSC endpoint.
+### Added
+- Global settings to disable mirroring and - if set - configure channel amount.
+
+<details><summary>Change History</summary><p>
+
 ## [3.2.0] - 2022-12-21
 ### Fixed
 - Channel names >9 are now displayed correctly
 - Actions now update the current channel count automatically in the drop down list (before, the channel count was only checked when adding a button, then saved in the corresponding action settings and never reevaluated again)
 ### Fix attempt
 - Crash caused by waiting for a callback on async reading a socket that was already disposed. I call it fix attempt as I did not yet find the reason why this happens in the first place, it has been a b[...] to track down as it could happen after several hours of plugin runtime on my machine, so for now the exception is caught and the plugin shouldn't crash from it anymore. Depending the actual root cause this may or may not lead to the mirroring getting stuck. Please report issues if it does. As said, I had a hard time to actually get that crash on my machine with my interface.
+
 ## [3.1.4] - 2022-12-12
 ### Added
 - Snapshot names will be read from local TotalMix config file as they are not transmitted via OSC
@@ -248,6 +268,9 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 - Real time updates for channel mute/solo. StreamDeck should now (with a slight delay at times for technical reasons) update the button state if a channel is muted or solo-ed inside TotalMix or by other means (if you enable the mirror-checkbox on that button)
 - Option to hide/restore the TotalMix window (using Windows techniques, haven't found out how RME does that with ARC, probably not exposed for third parties)
 - Support for up to 48 channels (3x 16) _pending testing, I don't have access to a 16 channel RME interface myself at the moment_
+- 
+</p></details>
+
 
 # Disclaimer
 I'm in no way affiliated with RME or Elgato. I wrote this plugin out of personal interest.

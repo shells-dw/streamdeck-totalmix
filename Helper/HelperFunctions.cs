@@ -45,22 +45,36 @@ namespace streamdeck_totalmix
         }
         public static Boolean CheckForTotalMix()
         {
-            Logger.Instance.LogMessage(TracingLevel.INFO, "CheckForTotalMix()");
-            IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
-            IPEndPoint[] endPoints = properties.GetActiveUdpListeners();
-            foreach (IPEndPoint e in endPoints)
+            while (!Globals.commandConnection && !Globals.backgroundConnection)
             {
-                if (e.Port == Globals.interfacePort)
+                Logger.Instance.LogMessage(TracingLevel.INFO, "CheckForTotalMix()");
+                IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+                IPEndPoint[] endPoints = properties.GetActiveUdpListeners();
+
+                foreach (IPEndPoint e in endPoints)
                 {
-                    Globals.commandConnection = true;
-                    Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.commandConnection = true");
+                    if (e.Port == Globals.interfacePort)
+                    {
+                        Globals.commandConnection = true;
+                        Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.commandConnection = true");
+                        if (!Globals.mirroringRequested)
+                        {
+                            GetChannelCount();
+                            return false; }
+                    }
+                    if (e.Port == Globals.interfaceBackgroundPort)
+                    {
+                        Globals.backgroundConnection = true;
+                        Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.backgroundConnection = true");
+                    }
+                    if (Globals.commandConnection && Globals.backgroundConnection)
+                    {
+                        Task.Run(() => UpdateDeviceSettingDict());
+                        GetChannelCount();
+                        return true;
+                    }
                 }
-                if (e.Port == Globals.interfaceBackgroundPort)
-                {
-                    Globals.backgroundConnection = true;
-                    Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.backgroundConnection = true");
-                }
-                if (Globals.commandConnection && Globals.backgroundConnection) return true;
+                Task.Run(() => Task.Delay(1000)).Wait();
             }
             Logger.Instance.LogMessage(TracingLevel.INFO, "CheckForTotalMix() = false");
             return false;
@@ -69,26 +83,33 @@ namespace streamdeck_totalmix
         // get channel count by counting how man /1/panx there are (could have used any value, but pan is nice and short...)
         public static void GetChannelCount()
         {
-            try
+            if (Globals.backgroundConnection)
             {
-                Int32 counter = 0;
-                while (!Globals.bankSettings.ContainsKey("Input") && counter < 20)
+                try
                 {
-                    Thread.Sleep(100);
-                    counter++;
+                    Int32 counter = 0;
+                    while (!Globals.bankSettings.ContainsKey("Input") && counter < 20)
+                    {
+                        Thread.Sleep(100);
+                        counter++;
+                    }
+                    counter = 0;
+                    while (!Globals.bankSettings["Input"].ContainsKey("/1/pan1") && counter < 20)
+                    {
+                        Thread.Sleep(100);
+                        counter++;
+                    }
+                    Dictionary<string, string> TempDict = new Dictionary<string, string>(Globals.bankSettings["Input"]);
+                    Globals.channelCount = TempDict.Where(d => d.Key.Contains("/1/pan")).ToDictionary(d => d.Key, d => d.Value).Count;
                 }
-                counter = 0;
-                while (!Globals.bankSettings["Input"].ContainsKey("/1/pan1") && counter < 20)
+                catch
                 {
-                    Thread.Sleep(100);
-                    counter++;
+                    Globals.channelCount = 16;
                 }
-                Dictionary<string, string> TempDict = new Dictionary<string, string>(Globals.bankSettings["Input"]);
-                Globals.channelCount = TempDict.Where(d => d.Key.Contains("/1/pan")).ToDictionary(d => d.Key, d => d.Value).Count;
             }
-            catch
+            if (Globals.commandConnection && !Globals.backgroundConnection)
             {
-                Globals.channelCount = 16;
+                Globals.channelCount = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["channelCount"]);
             }
         }
 
