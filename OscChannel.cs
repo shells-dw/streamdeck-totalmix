@@ -333,6 +333,18 @@ namespace streamdeck_totalmix
                     case "11":
                         DrawImage(trackname, "Images/gain.png");
                         break;
+                    case "12":
+                        DrawImage(trackname, "Images/actionDefaultImage.png");
+                        break;
+                    case "13":
+                        DrawImage(trackname, "Images/EqOn.png");
+                        break;
+                    case "14":
+                        DrawImage(trackname, "Images/CompOn.png");
+                        break;
+                    case "15":
+                        DrawImage(trackname, "Images/AutoLevOn.png");
+                        break;
                     default:
                         break;
                 }

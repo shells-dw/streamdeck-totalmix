@@ -178,6 +178,12 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.2.2] - 2022-12-29
+### Added
+- Added images for EQ, Comp, Autolevel instead of default mixer.
+
+<details><summary>Change History</summary><p>
+
 ## [3.2.1] - 2022-12-27
 ### Changed
 - Mirroring is globally on for the plugin by default now. Removed option to mirror single buttons from the UI to unclutter the menu. Instead there is now a [global setting](https://github.com/shells-dw/streamdeck-totalmix#deshellstotalmixexeconfig) to disable mirroring completely. Once mirroring is set up and working, there should not be a need to mirror or not mirror single buttons.
@@ -188,16 +194,12 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 - Clarified in README.MD that updating requires to enable the second OSC endpoint.
 ### Added
 - Global settings to disable mirroring and - if set - configure channel amount.
-
-<details><summary>Change History</summary><p>
-
 ## [3.2.0] - 2022-12-21
 ### Fixed
 - Channel names >9 are now displayed correctly
 - Actions now update the current channel count automatically in the drop down list (before, the channel count was only checked when adding a button, then saved in the corresponding action settings and never reevaluated again)
 ### Fix attempt
 - Crash caused by waiting for a callback on async reading a socket that was already disposed. I call it fix attempt as I did not yet find the reason why this happens in the first place, it has been a b[...] to track down as it could happen after several hours of plugin runtime on my machine, so for now the exception is caught and the plugin shouldn't crash from it anymore. Depending the actual root cause this may or may not lead to the mirroring getting stuck. Please report issues if it does. As said, I had a hard time to actually get that crash on my machine with my interface.
-
 ## [3.1.4] - 2022-12-12
 ### Added
 - Snapshot names will be read from local TotalMix config file as they are not transmitted via OSC
