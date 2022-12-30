@@ -178,12 +178,15 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
-## [3.2.2] - 2022-12-29
-### Added
-- Added images for EQ, Comp, Autolevel instead of default mixer.
+## [3.2.3] - 2022-12-30
+### Fixed
+- Some icons could flicker between normal and "no connection" icons when TotalMix was not available.
 
 <details><summary>Change History</summary><p>
 
+## [3.2.2] - 2022-12-29
+### Added
+- Added images for EQ, Comp, Autolevel instead of default mixer.
 ## [3.2.1] - 2022-12-27
 ### Changed
 - Mirroring is globally on for the plugin by default now. Removed option to mirror single buttons from the UI to unclutter the menu. Instead there is now a [global setting](https://github.com/shells-dw/streamdeck-totalmix#deshellstotalmixexeconfig) to disable mirroring completely. Once mirroring is set up and working, there should not be a need to mirror or not mirror single buttons.

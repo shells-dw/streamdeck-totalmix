@@ -287,66 +287,69 @@ namespace streamdeck_totalmix
             {
                 DrawImage("No connection", "Images/mixerOff.png");
             }
-            var trackname = "";
-            try
+            else
             {
-                Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{ChannelNumber()}", out trackname);
-            }
-            catch
-            {
-                //
-            }
-            finally
-            {
-                switch (this.settings.SelectedFunction)
+                var trackname = "";
+                try
                 {
-                    case "1":
-                        DrawImage(trackname, "Images/volume.png");
-                        break;
-                    case "2":
-                        DrawImage(trackname, "Images/pan.png");
-                        break;
-                    case "3":
-                        DrawImage(trackname, "Images/phaseOff.png");
-                        break;
-                    case "4":
-                        DrawImage(trackname, "Images/phaseRightOff.png");
-                        break;
-                    case "5":
-                        DrawImage(trackname, "Images/phantomOff.png");
-                        break;
-                    case "6":
-                        DrawImage(trackname, "Images/autoset.png");
-                        break;
-                    case "7":
-                        DrawImage(trackname, "Images/loopback.png");
-                        break;
-                    case "8":
-                        DrawImage(trackname, "Images/stereo.png");
-                        break;
-                    case "9":
-                        DrawImage(trackname, "Images/cueOff.png");
-                        break;
-                    case "10":
-                        DrawImage(trackname, "Images/gain.png");
-                        break;
-                    case "11":
-                        DrawImage(trackname, "Images/gain.png");
-                        break;
-                    case "12":
-                        DrawImage(trackname, "Images/actionDefaultImage.png");
-                        break;
-                    case "13":
-                        DrawImage(trackname, "Images/EqOn.png");
-                        break;
-                    case "14":
-                        DrawImage(trackname, "Images/CompOn.png");
-                        break;
-                    case "15":
-                        DrawImage(trackname, "Images/AutoLevOn.png");
-                        break;
-                    default:
-                        break;
+                    Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue($"/1/trackname{ChannelNumber()}", out trackname);
+                }
+                catch
+                {
+                    //
+                }
+                finally
+                {
+                    switch (this.settings.SelectedFunction)
+                    {
+                        case "1":
+                            DrawImage(trackname, "Images/volume.png");
+                            break;
+                        case "2":
+                            DrawImage(trackname, "Images/pan.png");
+                            break;
+                        case "3":
+                            DrawImage(trackname, "Images/phaseOff.png");
+                            break;
+                        case "4":
+                            DrawImage(trackname, "Images/phaseRightOff.png");
+                            break;
+                        case "5":
+                            DrawImage(trackname, "Images/phantomOff.png");
+                            break;
+                        case "6":
+                            DrawImage(trackname, "Images/autoset.png");
+                            break;
+                        case "7":
+                            DrawImage(trackname, "Images/loopback.png");
+                            break;
+                        case "8":
+                            DrawImage(trackname, "Images/stereo.png");
+                            break;
+                        case "9":
+                            DrawImage(trackname, "Images/cueOff.png");
+                            break;
+                        case "10":
+                            DrawImage(trackname, "Images/gain.png");
+                            break;
+                        case "11":
+                            DrawImage(trackname, "Images/gain.png");
+                            break;
+                        case "12":
+                            DrawImage(trackname, "Images/actionDefaultImage.png");
+                            break;
+                        case "13":
+                            DrawImage(trackname, "Images/EqOn.png");
+                            break;
+                        case "14":
+                            DrawImage(trackname, "Images/CompOn.png");
+                            break;
+                        case "15":
+                            DrawImage(trackname, "Images/AutoLevOn.png");
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
         }
