@@ -148,6 +148,38 @@ namespace streamdeck_totalmix
             {
                 Connection.StreamDeckConnection.SetStateAsync(1, Connection.ContextId);
             }
+            if (settings.SelectedAction == "34" || settings.SelectedAction == "35")
+            {
+                if (Globals.mirroringRequested && Globals.backgroundConnection && this.settings.Name != null)
+                {
+                    try
+                    {
+                        if (Globals.bankSettings["Input"].ContainsKey(this.settings.Name))
+                        {
+                            if (Globals.bankSettings["Input"].TryGetValue("/1/busInput", out string busValue))
+                            {
+                                if (busValue == "1")
+                                {
+                                    if (Globals.bankSettings["Input"].TryGetValue(this.settings.Name, out string result))
+                                    {
+                                        var dresult = decimal.Parse(result);
+                                        Decimal step = 0.02M;
+                                        var newValue = settings.SelectedAction == "35" ? dresult - step : dresult + step;
+                                        if (newValue < 0) newValue = 0;
+                                        Sender.Send(settings.Name, (Single)newValue, Globals.interfaceIp, Globals.interfacePort);
+                                        Globals.bankSettings["Input"]["/1/mastervolume"] = newValue.ToString();
+                                        Logger.Instance.LogMessage(TracingLevel.INFO, $"OscToggle: Set Volume: {settings.Name} {(Single)newValue}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Volume Raise/Lower => {ex.Message}");
+                    }
+                }
+            }
             DrawImage("", "Images/mixerOn.png");
         }
 
@@ -353,6 +385,12 @@ namespace streamdeck_totalmix
                                 break;
                             case "33":
                                 DrawImage("Show/hide UI", "Images/actionDefaultImage.png");
+                                break;
+                            case "34":
+                                DrawImage("Main Volume", "Images/volumeRaise.png");
+                                break;
+                            case "35":
+                                DrawImage("Main Volume", "Images/volumeLower.png");
                                 break;
                             default:
                                 if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)

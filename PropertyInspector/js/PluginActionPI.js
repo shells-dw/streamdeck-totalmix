@@ -503,6 +503,8 @@ function updateUI(pl, settings) {
             '        <option value="18">Mono</option>',
             '        <option value="19">External In</option>',
             '        <option value="20">Talkback</option>',
+            '        <option value="34">Incrementally Raise Master Volume</option>',
+            '        <option value="35">Incrementally Lower Master Volume</option>',
             '    </optgroup>',
             '    <optgroup label="Control Groups">',
             '        <option value="21">Mute Groups 1</option>',
@@ -656,7 +658,7 @@ function updateUI(pl, settings) {
             '    <div class="sdpi-item-label">Select Function</div>',
             '    <select class="sdpi-item-value select" id="OscChannelSelectCommand" onchange="selectedOscChannelFunction(event.target.value);document.getElementById(\'OscChannelSelect\').value">',
             '    <optgroup label="Inputs">',
-            '        <option value="1">Volume</option>',
+            '        <option value="1">Set Volume</option>',
             '        <option value="2">Pan</option>',
             '        <option value="3">Phase</option>',
             '        <option value="4">Phase Right</option>',
@@ -671,6 +673,8 @@ function updateUI(pl, settings) {
             '        <option value="13">EQ Enable</option>',
             '        <option value="14">Comp Enable</option>',
             '        <option value="15">AutoLevel Enable</option>',
+            '        <option value="16">Incrementally Raise Volume</option>', ,
+            '        <option value="17">Incrementally Lower Volume</option>',
             '    </optgroup></select>',
             '</div>',
             '<div class="sdpi-item">',
@@ -691,7 +695,8 @@ function updateUI(pl, settings) {
             '        <p><font style="font-weight:bold">Gain/Gain Right</font>: 0-65.<br><font style="font-style: italic">Available: All Input Channels with Preamp - Gain Right only available on Stereo Channels</font></p>',
             '        <p><font style="font-weight:bold">Width</font>: -1.00 to 1.00.<br><font style="font-style: italic">Available: All Input Channels without Preamp and all Playback Channels</font></p>',
             '        <p><font style="font-weight:bold">Phantom Power, Autoset</font>: no value<br><font style="font-style: italic">Available: All Input Channels with Preamp</font></p>',
-            '        <p><font style="font-weight:bold">Loopback, Cue</font>: no value<br><font style="font-style: italic">Available: All Output Channels</font></p>',
+            '        <p><font style="font-weight:bold">Loopback, Cue</font>: no value<br><font style="font-style: italic">Available: All Output Channels</font></p>', ,
+            '        <p><font style="font-weight:bold">Incrementally Lower/Raise Volume</font>: (only available with mirroring!) Multiplier for the steps. Use full numbers! 2 will make twice as big steps, 5 will make 5 times as big steps, negative numbers will decrease the step size, so -2 will make half as big steps, etc.<br><font style="font-style: italic">Available: All Channels</font></p>',
             '        <p><font style="font-weight:bold">Phase, Phase Right, Stereo, Cue, EQ, Comp, AutoLevel Enable</font>: no value<br><font style="font-style: italic">Available: All Channels / Phase Right only on Stereo Channels</font></p>',
             '    </details>',
             '</div>',
@@ -955,6 +960,9 @@ function selectedOscTriggerCommand(selectedOscTriggerCommand) {
             name = "showhideui";
             setSettings(true, 'Latch');
             break;
+        case "34": case "35":
+            name = "/1/mastervolume";
+            break;
         default:
             break;
     }
@@ -1014,7 +1022,7 @@ function selectedOscChannelFunction(selectedOscChannelFunction, oscChannelSelect
     }
     const channelCount = actionInfo.payload.settings.ChannelCount
     switch (selectedOscChannelFunction) {
-        case "1":
+        case "1": case "16": case "17":
             if (oscChannelSelect <= channelCount) {
                 name = "/1/volume" + oscChannelSelect;
                 bus = "Input";

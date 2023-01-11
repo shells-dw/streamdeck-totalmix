@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Drawing;
-using System.Threading.Tasks;
 
 namespace streamdeck_totalmix
 {
@@ -113,6 +112,50 @@ namespace streamdeck_totalmix
                 Sender.Send($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort);
                 Sender.Send(settings.Name, dBInFloat, Globals.interfaceIp, Globals.interfacePort);
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set Volume: {settings.Name} {dBInFloat}");
+            }
+            else if (settings.SelectedFunction == "16" || settings.SelectedFunction == "17")
+            {
+                Sender.Send($"/1/bus{this.settings.Bus}", 1, Globals.interfaceIp, Globals.interfacePort);
+                if (Globals.mirroringRequested && Globals.backgroundConnection && this.settings.Name != null && this.settings.Bus != null)
+                {
+                    try
+                    {
+                        if (Globals.bankSettings[$"{this.settings.Bus}"].ContainsKey(this.settings.Name))
+                        {
+                            if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue("/1/bus" + this.settings.Bus, out string busValue))
+                            {
+                                if (busValue == "1")
+                                {
+                                    if (Globals.bankSettings[$"{this.settings.Bus}"].TryGetValue(this.settings.Name, out string result))
+                                    {
+                                        var dresult = decimal.Parse(result);
+                                        Decimal step = 0.02M;
+                                        if (this.settings.SelectedValue != "" && Int32.TryParse(this.settings.SelectedValue, out var value))
+                                        {
+                                            if (value > 0)
+                                            {
+                                                step *= Convert.ToDecimal(value);
+                                            }
+                                            else
+                                            {
+                                                step /= Convert.ToDecimal(value *= -1);
+                                            }
+                                        }
+                                        var newValue = settings.SelectedFunction == "17" ? dresult - step : dresult + step;
+                                        if (newValue < 0) newValue = 0;
+                                        Sender.Send(settings.Name, (Single)newValue, Globals.interfaceIp, Globals.interfacePort);
+                                        Globals.bankSettings[$"{this.settings.Bus}"][$"{settings.Name}"] = newValue.ToString();
+                                        Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Set Volume: {settings.Name} {(Single)newValue}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogMessage(TracingLevel.INFO, $"OscChannel: Volume Raise/Lower => {ex.Message}");
+                    }
+                }
             }
             // gain/gainRight
             else if (settings.SelectedFunction == "10" || settings.SelectedFunction == "11")
@@ -278,7 +321,6 @@ namespace streamdeck_totalmix
 
         public override void KeyReleased(KeyPayload payload)
         {
-
         }
 
         public override void OnTick()
@@ -346,6 +388,12 @@ namespace streamdeck_totalmix
                             break;
                         case "15":
                             DrawImage(trackname, "Images/AutoLevOn.png");
+                            break;
+                        case "16":
+                            DrawImage(trackname, "Images/volumeRaise.png");
+                            break;
+                        case "17":
+                            DrawImage(trackname, "Images/volumeLower.png");
                             break;
                         default:
                             break;

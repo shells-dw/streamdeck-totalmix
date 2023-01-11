@@ -9,9 +9,7 @@ namespace streamdeck_totalmix
     using System.Net;
     using System.Threading.Tasks;
     using System.Threading;
-    using Newtonsoft.Json.Linq;
     using System.Collections.Generic;
-    using System.Security.Policy;
 
     internal class HelperFunctions
     {

@@ -354,6 +354,18 @@
     <Content Include="Images\volume.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Images\volumeLower%402x.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\volumeLower.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\volumeRaise%402x.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\volumeRaise.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="PropertyInspector\css\.gitattributes" />
     <Content Include="PropertyInspector\css\caret.svg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

@@ -4,8 +4,6 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Drawing;
 using BarRaider.SdTools.Wrappers;
-using static System.Net.Mime.MediaTypeNames;
-using System.Collections.Generic;
 
 namespace streamdeck_totalmix
 {
