@@ -178,7 +178,10 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
-## [3.3.0] - 2023-01-10
+## [3.3.1] - 2023-01-12
+### Added
+- PI bug that could lead to channel selection reverting back to Input channel 1 without reflecting that on the UI if function was selected shortly after channel, hence rendering button functions ending up acting on the wrong channel
+## [3.3.0] - 2023-01-11
 ### Added
 - Control Channel now has the option to incrementally lower or raise volume levels (including the option to set a multiplier for the step size)
 - Trigger Global Function now has the option to incrementally lower or raise Main volume levels
