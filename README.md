@@ -59,7 +59,7 @@ contains the file `de.shells.totalmix.exe.config` (which is created with default
     <add key="interfaceSendPort" value="9001" />    <!-- OSC remote controller #2 "Port incoming" -->
     <add key="interfaceBackgroundPort" value="7002" />    <!-- OSC remote controller #1 "Port outgoing" -->
     <add key="interfaceBackgroundSendPort" value="9002" />    <!-- OSC remote controller #2 "Port outgoing" -->
-    <add key="mirroringRequested" value="true" />    <!-- set to "true" to disable mirroring (not recommended) -->
+    <add key="mirroringRequested" value="true" />    <!-- set to "false" to disable mirroring (not recommended) -->
     <add key="channelCount" value="16" />    <!--Only relevant if disableMirroring is true = mirroring disabled, otherwise this is read from TotalMix; change to required channelCount if you decide to not use mirroring -->
   </appSettings>
 ```
@@ -178,16 +178,19 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.3.2] - 2023-01-14
+### Fixed
+- Toggle Channel Function would display the wrong icon when mirroring is willingly disabled in the config
+
+<details><summary>Change History</summary><p>
+
 ## [3.3.1] - 2023-01-12
-### Added
+### Fixed
 - PI bug that could lead to channel selection reverting back to Input channel 1 without reflecting that on the UI if function was selected shortly after channel, hence rendering button functions ending up acting on the wrong channel
 ## [3.3.0] - 2023-01-11
 ### Added
 - Control Channel now has the option to incrementally lower or raise volume levels (including the option to set a multiplier for the step size)
 - Trigger Global Function now has the option to incrementally lower or raise Main volume levels
-
-<details><summary>Change History</summary><p>
-
 ## [3.2.3] - 2022-12-30
 ### Fixed
 - Some icons could flicker between normal and "no connection" icons when TotalMix was not available.

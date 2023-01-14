@@ -10,6 +10,8 @@ namespace streamdeck_totalmix
     using System.Threading.Tasks;
     using System.Threading;
     using System.Collections.Generic;
+    using System.IO;
+    using System.Text.RegularExpressions;
 
     internal class HelperFunctions
     {
@@ -58,7 +60,8 @@ namespace streamdeck_totalmix
                         if (!Globals.mirroringRequested)
                         {
                             GetChannelCount();
-                            return false; }
+                            return false;
+                        }
                     }
                     if (e.Port == Globals.interfaceBackgroundPort)
                     {
@@ -110,6 +113,41 @@ namespace streamdeck_totalmix
                 Globals.channelCount = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["channelCount"]);
             }
         }
+
+        
+
+        public static List<String> GetTotalMixConfig(String setting)
+        {
+            var totalMixDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\TotalMixFx";
+            List<string> current = null;
+            current = new List<string>();
+            if (Directory.Exists(totalMixDir))
+            {
+                FileInfo[] totalMixConfig = Directory.GetFiles(totalMixDir, "last.*.xml").Select(x => new FileInfo(x)).ToArray();
+                var currentConfig = totalMixConfig.OrderByDescending(f => f.LastWriteTime).FirstOrDefault();
+                if (setting == "SnapshotName")
+                {
+                    foreach (var line in File.ReadAllLines(currentConfig.ToString()))
+                    {
+                        if (line.Contains("SnapshotName"))
+                        {
+                            Match snapshotNames = Regex.Match(line, "v\\=\\\"(.*\\b)");
+                            if (snapshotNames.Success == true)
+                            {
+                                current.Add(snapshotNames.Groups[1].Value);
+                            }
+                        }
+                        if (line.Contains("<Inputs>"))
+                        {
+                            return current;
+                        }
+                    }
+                }
+            }
+            return current;
+        }
+
+ 
 
         // needed that for something... hmm
         public class SelectableEnumItem

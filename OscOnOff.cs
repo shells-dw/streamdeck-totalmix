@@ -242,9 +242,24 @@ namespace streamdeck_totalmix
                     }
                 }
                
-                if (!Globals.backgroundConnection && !Globals.mirroringRequested)
+                if (!Globals.backgroundConnection && Globals.mirroringRequested)
                 {
                     DrawImage("⚠ mirror error", "Images/mixerOff.png", 10);
+                }
+                if (!Globals.backgroundConnection)
+                {
+                    if (settings.Name.Contains("solo"))
+                    {
+                        DrawImage("Solo", "Images/soloOff.png");
+                    }
+                    if (settings.Name.Contains("phantom"))
+                    {
+                        DrawImage("Phantom", "Images/phantomOff.png");
+                    }
+                    if (settings.Name.Contains("mute"))
+                    {
+                        DrawImage("mute", "Images/muteOff.png");
+                    }
                 }
             }
         }

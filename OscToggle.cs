@@ -395,35 +395,7 @@ namespace streamdeck_totalmix
                             default:
                                 if (1 <= Int32.Parse(this.settings.SelectedAction) && Int32.Parse(this.settings.SelectedAction) <= 8)
                                 {
-                                    var totalMixDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\TotalMixFx";
-                                    if (Directory.Exists(totalMixDir))
-                                    {
-                                        FileInfo[] totalMixConfig = Directory.GetFiles(totalMixDir, "last.*.xml").Select(x => new FileInfo(x)).ToArray();
-                                        var curentConfig = totalMixConfig.OrderByDescending(f => f.LastWriteTime).FirstOrDefault();
-
-                                        List<string> current = null;
-                                        current = new List<string>();
-                                        foreach (var line in File.ReadAllLines(curentConfig.ToString()))
-                                        {
-                                            if (line.Contains("SnapshotName"))
-                                            {
-                                                Match snapshotNames = Regex.Match(line, "v\\=\\\"(.*\\b)");
-                                                if (snapshotNames.Success == true)
-                                                {
-                                                    current.Add(snapshotNames.Groups[1].Value);
-                                                }
-                                            }
-                                            if (line.Contains("<Inputs>"))
-                                            {
-                                                break;
-                                            }
-                                        }
-                                        DrawImage(current[Int32.Parse(this.settings.SelectedAction) - 1], "Images/actionDefaultImage.png");
-                                    }
-                                    else
-                                    {
-                                        DrawImage($"Snapshot {this.settings.SelectedAction}", "Images/actionDefaultImage.png");
-                                    }
+                                    DrawImage(HelperFunctions.GetTotalMixConfig("SnapshotName")[Int32.Parse(this.settings.SelectedAction) - 1], "Images/actionDefaultImage.png");
                                 }
                                 else
                                 {
