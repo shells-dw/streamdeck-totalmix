@@ -258,7 +258,7 @@ namespace streamdeck_totalmix
                     }
                     if (settings.Name.Contains("mute"))
                     {
-                        DrawImage("mute", "Images/muteOff.png");
+                        DrawImage("Mute", "Images/muteOff.png");
                     }
                 }
             }

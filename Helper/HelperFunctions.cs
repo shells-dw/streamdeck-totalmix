@@ -15,16 +15,18 @@ namespace streamdeck_totalmix
 
     internal class HelperFunctions
     {
+        private static CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         public static async void UpdateDeviceSettingDict()
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "UpdateDeviceSettingDict()");
+            _cancellationTokenSource = new CancellationTokenSource();
             if (Globals.backgroundConnection)
             {
                 if (!Globals.listeningActive)
                 {
                     Globals.listeningActive = true;
                     Logger.Instance.LogMessage(TracingLevel.INFO, "UpdateDeviceSettingDict() _ start endless loop");
-                    while (true)
+                    while (true && !_cancellationTokenSource.IsCancellationRequested)
                     {
                         try
                         {
@@ -34,6 +36,7 @@ namespace streamdeck_totalmix
                             await Task.Delay(100);
                             await Listener.Listen("Playback", "/1/busPlayback", 1);
                             await Task.Delay(100);
+                            CheckForTotalMix();
                         }
                         catch (Exception ex)
                         {
@@ -45,12 +48,13 @@ namespace streamdeck_totalmix
         }
         public static Boolean CheckForTotalMix()
         {
+            Globals.commandConnection = false;
+            Globals.backgroundConnection = false;
             while (!Globals.commandConnection && !Globals.backgroundConnection)
             {
                 Logger.Instance.LogMessage(TracingLevel.INFO, "CheckForTotalMix()");
                 IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
                 IPEndPoint[] endPoints = properties.GetActiveUdpListeners();
-
                 foreach (IPEndPoint e in endPoints)
                 {
                     if (e.Port == Globals.interfacePort)
@@ -73,6 +77,16 @@ namespace streamdeck_totalmix
                         Task.Run(() => UpdateDeviceSettingDict());
                         GetChannelCount();
                         return true;
+                    }
+                }
+                if (!Globals.backgroundConnection)
+                {
+                    _cancellationTokenSource.Cancel();
+                    while (Globals.commandConnection && !Globals.backgroundConnection)
+                    {
+                        Task.Run(() => Task.Delay(5000)).Wait();
+                        CheckForTotalMix();
+
                     }
                 }
                 Task.Run(() => Task.Delay(1000)).Wait();

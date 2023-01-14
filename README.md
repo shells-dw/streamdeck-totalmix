@@ -178,6 +178,10 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.3.3] - 2023-01-14
+### Added/Improved
+- Added a check for the background mirroring task if the OSC listener is still active or not after the plugin has successfully started, preventing an infinite loop that would occur otherwise. Now, the mirroring task will stop until the background OSC listener is available again, then resume (and the icons will flash briefly to let the user know something's up).
+
 ## [3.3.2] - 2023-01-14
 ### Fixed
 - Toggle Channel Function would display the wrong icon when mirroring is willingly disabled in the config
