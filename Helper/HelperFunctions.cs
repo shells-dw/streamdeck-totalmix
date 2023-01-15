@@ -12,6 +12,8 @@ namespace streamdeck_totalmix
     using System.Collections.Generic;
     using System.IO;
     using System.Text.RegularExpressions;
+    using System.Diagnostics;
+    using System.Runtime.InteropServices;
 
     internal class HelperFunctions
     {
@@ -79,14 +81,28 @@ namespace streamdeck_totalmix
                         return true;
                     }
                 }
-                if (!Globals.backgroundConnection)
+                if (!Globals.backgroundConnection && Globals.mirroringRequested)
                 {
                     _cancellationTokenSource.Cancel();
                     while (Globals.commandConnection && !Globals.backgroundConnection)
                     {
+                        if (Globals.killAndRestartOnStuck)
+                        {
+                            foreach (Process process in Process.GetProcessesByName("TotalMixFX"))
+                            {
+                                process.Kill();
+                            }
+                            Task.Run(() => Task.Delay(3000)).Wait();
+                            var startProc = new Process();
+                            startProc.StartInfo.FileName = "TotalMixFX.exe";
+                            startProc.Start();
+                            Task.Run(() => Task.Delay(2000)).Wait();
+                            HelperFunctions _helper = new HelperFunctions();
+                            _helper.ShowHideUi();
+
+                        }
                         Task.Run(() => Task.Delay(5000)).Wait();
                         CheckForTotalMix();
-
                     }
                 }
                 Task.Run(() => Task.Delay(1000)).Wait();
@@ -128,7 +144,7 @@ namespace streamdeck_totalmix
             }
         }
 
-        
+
 
         public static List<String> GetTotalMixConfig(String setting)
         {
@@ -161,13 +177,58 @@ namespace streamdeck_totalmix
             return current;
         }
 
- 
-
         // needed that for something... hmm
         public class SelectableEnumItem
         {
             public String Key { get; set; }
             public String Value { get; set; }
+        }
+
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+        private const int SW_HIDE = 0;
+        private const int SW_RESTORE = 5;
+        private IntPtr hWnd;
+        private IntPtr hWndCache;
+        private int hWndId;
+
+        delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        static extern bool EnumThreadWindows(int dwThreadId, EnumThreadDelegate lpfn,
+            IntPtr lParam);
+
+        static IEnumerable<IntPtr> EnumerateProcessWindowHandles(int processId)
+        {
+            var handles = new List<IntPtr>();
+
+            foreach (ProcessThread thread in Process.GetProcessById(processId).Threads)
+                EnumThreadWindows(thread.Id,
+                    (hWnd, lParam) => { handles.Add(hWnd); return true; }, IntPtr.Zero);
+
+            return handles;
+        }
+        public void ShowHideUi()
+        {
+
+            Process[] p = Process.GetProcessesByName("TotalMixFX");
+            //  hWnd = (int)p[0].MainWindowHandle;
+            hWnd = p[0].MainWindowHandle;
+            IntPtr WindowHandle = EnumerateProcessWindowHandles(p[0].Id).First();
+            if (hWndCache == IntPtr.Zero)
+            {
+                //    hWndCache = hWnd;
+                hWndCache = WindowHandle;
+            }
+            hWndId = (int)p[0].Id;
+            if (hWnd == (IntPtr)0)
+            {
+                ShowWindowAsync(hWndCache, SW_RESTORE);
+            }
+            else
+            {
+                ShowWindowAsync(hWnd, SW_HIDE);
+            }
         }
     }
 }

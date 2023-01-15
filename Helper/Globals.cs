@@ -23,6 +23,7 @@ namespace streamdeck_totalmix
         public static Boolean listeningActive = false;
         public static Boolean commandConnection = false;
         public static Boolean backgroundConnection = false;
+        public static Boolean killAndRestartOnStuck = false;
 
         // throttle queries
         public static DateTime lastQuery = DateTime.Now;

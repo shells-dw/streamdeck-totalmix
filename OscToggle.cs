@@ -2,14 +2,8 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
 using System.Drawing;
-using System.Collections.Generic;
-using System.Linq;
 using BarRaider.SdTools.Wrappers;
-using System.IO;
-using System.Text.RegularExpressions;
 
 namespace streamdeck_totalmix
 {
@@ -91,54 +85,15 @@ namespace streamdeck_totalmix
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Destructor called");
         }
 
-        [DllImport("user32.dll")]
-        public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-        private const int SW_HIDE = 0;
-        private const int SW_RESTORE = 5;
-        private IntPtr hWnd;
-        private IntPtr hWndCache;
-        private int hWndId;
-
-        delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        static extern bool EnumThreadWindows(int dwThreadId, EnumThreadDelegate lpfn,
-            IntPtr lParam);
-
-        static IEnumerable<IntPtr> EnumerateProcessWindowHandles(int processId)
-        {
-            var handles = new List<IntPtr>();
-
-            foreach (ProcessThread thread in Process.GetProcessById(processId).Threads)
-                EnumThreadWindows(thread.Id,
-                    (hWnd, lParam) => { handles.Add(hWnd); return true; }, IntPtr.Zero);
-
-            return handles;
-        }
+        
 
         public override void KeyPressed(KeyPayload payload)
         {
             Logger.Instance.LogMessage(TracingLevel.INFO, "OscToggle: Key Pressed");
             if (this.settings.Name == "showhideui")
             {
-                Process[] p = Process.GetProcessesByName("TotalMixFX");
-                //  hWnd = (int)p[0].MainWindowHandle;
-                hWnd = p[0].MainWindowHandle;
-                IntPtr WindowHandle = EnumerateProcessWindowHandles(p[0].Id).First();
-                if (hWndCache == IntPtr.Zero)
-                {
-                    //    hWndCache = hWnd;
-                    hWndCache = WindowHandle;
-                }
-                hWndId = (int)p[0].Id;
-                if (hWnd == (IntPtr)0)
-                {
-                    ShowWindowAsync(hWndCache, SW_RESTORE);
-                }
-                else
-                {
-                    ShowWindowAsync(hWnd, SW_HIDE);
-                }
+                HelperFunctions _helper = new HelperFunctions();
+                _helper.ShowHideUi();
             }
             if (this.settings.Name != "showhideui")
             {

@@ -61,10 +61,40 @@ contains the file `de.shells.totalmix.exe.config` (which is created with default
     <add key="interfaceBackgroundSendPort" value="9002" />    <!-- OSC remote controller #2 "Port outgoing" -->
     <add key="mirroringRequested" value="true" />    <!-- set to "false" to disable mirroring (not recommended) -->
     <add key="channelCount" value="16" />    <!--Only relevant if disableMirroring is true = mirroring disabled, otherwise this is read from TotalMix; change to required channelCount if you decide to not use mirroring -->
+    <add key="killAndRestartOnStuck" value="false" />    <!-- set to "true" to kill and restart TotalMix in case it doesn't respond anymore (not recommended / use only if that's actually an issue for you!) -->
   </appSettings>
 ```
 where you can configure non-default values or the TotalMix connection.
 Note: This had to be set on every button individually in older versions of this plugin. I decided to have a central location for these settings to unclutter the UI a bit.
+
+<details><summary><b>Detailed information about the config settings</b></summary><p>
+
+- `<add key="interfaceIp" value="127.0.0.1" />`
+    - the IP of the PC TotalMix runs on, if it's the machine the StreamDeck is connected to, the default value will work fine.
+- `<add key="interfacePort" value="7001" />`
+    - the port labeled "Port incoming" in the TotalMix Settings windows for OSC Remote Controller #1
+- `<add key="interfaceSendPort" value="9001" />`
+    - the port labeled "Port outgoing" in the TotalMix Settings windows for OSC Remote Controller #1
+- `<add key="interfaceBackgroundPort" value="7002" />`
+    - the port labeled "Port incoming" in the TotalMix Settings windows for OSC Remote Controller #2
+    - Needed for mirroring to work. If you do not intent to use mirroring, set `mirroringRequested` to `false` (see further below)
+- `<add key="interfaceBackgroundSendPort" value="9002" />`
+    - the port labeled "Port outgoing" in the TotalMix Settings windows for OSC Remote Controller #2
+    - Needed for mirroring to work. If you do not intent to use mirroring, set `mirroringRequested` to `false` (see below)
+- `<add key="mirroringRequested" value="true" />`
+    - this flag tells the plugin it should communicate to TotalMix with the second listener and try to mirror settings that can be mirrored.
+    - for this to work, the OSC Remote Controller #2 must be set and activated by ticking the "in Use" checkbox
+    - as TotalMix appears to use OSC as it uses MIDI, the implementaion of this was/is a bit tricky. I spare you the details, but enabling mirroring causes a bit of CPU load and isn't instant (but still quite quick :wink:). I tried to find a good middle ground between performance and load, but if your PC can't handle the load the plugin causes, you can disable mirroring. The plugin will still function, just with the lack of the comfort-features of having actual track names and button status shown.
+- `<add key="channelCount" value="16" />`
+    - as mirroring also reads out the channel count set for the OSC Remote Controller to reflect the actual amount of channels your interface has (and improve performance of the plugin/mirroing if you don't need all of the channels and set it lower) - without mirroring you can use this config setting to tell the plugin how many channels your interface supports (and you intend to use)
+- `<add key="killAndRestartOnStuck" value="false" />`
+    - Config flag which does exactly that (or tries to at least) and should resolve the issue with TotalMix not responding to OSC requests after the PC went to sleep (which is not an issue of this plugin, but TotalMix) or for other reasons.
+Note that there's a snag to it (as with everything concerning TotalMix :roll_eyes:) - TotalMix appears to store everything you set, do, toggle, or otherwise interact with the UI in a config file, however it does this only when it exits gracefully. When it's killed, nothing is saved. Brilliant, isn't it.
+That means that if the plugin kills TotalMix and restarts it, to reenable the OSC Remote Controllers, changes you made during the runtime of the TotalMix UI will most likely not have been saved. Keep that in mind when enabling this setting.
+
+
+</p></details>
+
 
 ## Setup for MIDI
 
@@ -178,6 +208,17 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.3.4] - 2023-01-15
+### Added
+- Config flag "killAndRestartOnStuck" (default off) which does exactly that (or tries to at least) and should resolve the issue with TotalMix not responding to OSC requests after the PC went to sleep (which is not an issue of this plugin, but TotalMix) or for other reasons.
+Note that there's a snag to it (as with everything concerning TotalMix :roll_eyes:) - TotalMix stores everything you set, do, toggle, or otherwise interact with the UI in a config file, however it does this only when it exits gracefully. When it's killed, nothing is saved. Brilliant, isn't it.
+That means that if the plugin kills TotalMix and restarts it, to reenable the OSC servers, changes you made during the runtime of the TotalMix UI will not have been saved. Keep that in mind.
+
+### Improved
+- Readme now has a more detailed explanation about the config parameters hidden behind a dropdown in the respective section.
+
+<details><summary>Change History</summary><p>
+
 ## [3.3.3] - 2023-01-14
 ### Added/Improved
 - Added a check for the background mirroring task if the OSC listener is still active or not after the plugin has successfully started, preventing an infinite loop that would occur otherwise. Now, the mirroring task will stop until the background OSC listener is available again, then resume (and the icons will flash briefly to let the user know something's up).
@@ -185,9 +226,6 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 ## [3.3.2] - 2023-01-14
 ### Fixed
 - Toggle Channel Function would display the wrong icon when mirroring is willingly disabled in the config
-
-<details><summary>Change History</summary><p>
-
 ## [3.3.1] - 2023-01-12
 ### Fixed
 - PI bug that could lead to channel selection reverting back to Input channel 1 without reflecting that on the UI if function was selected shortly after channel, hence rendering button functions ending up acting on the wrong channel
