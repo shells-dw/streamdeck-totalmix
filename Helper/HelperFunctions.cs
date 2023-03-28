@@ -55,31 +55,51 @@ namespace streamdeck_totalmix
             while (!Globals.commandConnection && !Globals.backgroundConnection)
             {
                 Logger.Instance.LogMessage(TracingLevel.INFO, "CheckForTotalMix()");
-                IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
-                IPEndPoint[] endPoints = properties.GetActiveUdpListeners();
-                foreach (IPEndPoint e in endPoints)
+
+                if (IPAddress.IsLoopback(Globals.interfaceIp) == true)
                 {
-                    if (e.Port == Globals.interfacePort)
+
+                    IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+                    IPEndPoint[] endPoints = properties.GetActiveUdpListeners();
+                    foreach (IPEndPoint e in endPoints)
                     {
+                        if (e.Port == Globals.interfacePort && IPAddress.IsLoopback(e.Address) == false)
+                        {
+                            Globals.commandConnection = true;
+                            Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.commandConnection = true");
+                            if (!Globals.mirroringRequested)
+                            {
+                                GetChannelCount();
+                                return false;
+                            }
+                        }
+                        if (e.Port == Globals.interfaceBackgroundPort && IPAddress.IsLoopback(e.Address) == false)
+                        {
+                            Globals.backgroundConnection = true;
+                            Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.backgroundConnection = true");
+                        }
+                    }
+                }
+                else
+                {
+                    
                         Globals.commandConnection = true;
-                        Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.commandConnection = true");
+                        Logger.Instance.LogMessage(TracingLevel.INFO, "LAN IP! Globals.commandConnection = true");
                         if (!Globals.mirroringRequested)
                         {
                             GetChannelCount();
                             return false;
                         }
-                    }
-                    if (e.Port == Globals.interfaceBackgroundPort)
-                    {
+                   
                         Globals.backgroundConnection = true;
-                        Logger.Instance.LogMessage(TracingLevel.INFO, "Globals.backgroundConnection = true");
-                    }
-                    if (Globals.commandConnection && Globals.backgroundConnection)
-                    {
-                        Task.Run(() => UpdateDeviceSettingDict());
-                        GetChannelCount();
-                        return true;
-                    }
+                        Logger.Instance.LogMessage(TracingLevel.INFO, "LAN IP! Globals.backgroundConnection = true");
+                    
+                }
+                if (Globals.commandConnection && Globals.backgroundConnection)
+                {
+                    Task.Run(() => UpdateDeviceSettingDict());
+                    GetChannelCount();
+                    return true;
                 }
                 if (!Globals.backgroundConnection && Globals.mirroringRequested)
                 {

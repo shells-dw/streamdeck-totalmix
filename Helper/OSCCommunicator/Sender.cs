@@ -10,20 +10,18 @@ namespace streamdeck_totalmix
 {
     internal class Sender
     {
-        public static Task Send(String name, Single value, String ip, Int32 port)
+        public static Task Send(String name, Single value, IPAddress ip, Int32 port)
         {
+
             OscSender sender = null;
-            try { sender = new OscSender(address: IPAddress.Loopback, localPort: 0, remotePort: port); }
+            try { sender = new OscSender(local: IPAddress.Any, localPort: 0, remote: ip, remotePort: port); }
             catch (Exception ex)
             {
                 Logger.Instance.LogMessage(TracingLevel.INFO, "Sender:  new OscSender: " + ex.Message);
                 sender.Dispose();
                 sender = null;
             }
-            finally { sender = new OscSender(address: IPAddress.Loopback, localPort: 0, remotePort: port); }
-
-            // This is the ip address we are going to send to
-            IPAddress address = IPAddress.Parse(ip);
+            finally { sender = new OscSender(local: IPAddress.Any, localPort: 0, remote: ip, remotePort: port); }
 
             try
             {

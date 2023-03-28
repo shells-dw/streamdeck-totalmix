@@ -95,6 +95,14 @@ That means that if the plugin kills TotalMix and restarts it, to reenable the OS
 
 </p></details>
 
+## Connecting to a TotalMix instance on another host
+To be able to use the plugin with another PC, three settings are mandatory:
+
+1. Set the IP of the machine the StreamDeck is connected to in the Setup for OSC part inside TotalMix as described above. Configure as described, but make sure to put the IP address (or FQDN) of the machine the StreamDeck is connected to in the "Remote Controller Address" field. This is needed so TotalMix sends its OSC responses to the computer that runs the plugin.
+2. Set the IP of the machine that runs TotalMix in the config file of this plugin (see above) in the value of interfaceIp, so the plugin knows where to send the commands.
+3. Make sure both machines have their firewall configured in a way that allows UDP communication on the ports that are set in the configuration (by default 7001 and 9001 UDP inbound to the TotalMix PC/outbound of the StreamDeck-PC, 9002 UDP inbound of the StreamDeck PC and outbound the TotalMix PC).
+
+Restart StreamDeck after changing the config file.
 
 ## Setup for MIDI
 
@@ -208,6 +216,16 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![Tip](http
 
 
 # Changelog
+## [3.3.5] - 2023-03-28
+### Fixed
+- Remote OSC instances (on another host) are working now. Please refer to the corresponding documentation, thanks for @roguedarkjedi for pointing that out and making a PR (I did not merge in the end, sorry), I totally forgot about that.
+### Improved/Changed
+- Various minor changes I came across over time, all under the hood, nothing UI facing.
+- Added documentation for remote host config.
+
+<details><summary>Change History</summary><p>
+
+
 ## [3.3.4] - 2023-01-15
 ### Added
 - Config flag "killAndRestartOnStuck" (default off) which does exactly that (or tries to at least) and should resolve the issue with TotalMix not responding to OSC requests after the PC went to sleep (which is not an issue of this plugin, but TotalMix) or for other reasons.
@@ -216,9 +234,6 @@ That means that if the plugin kills TotalMix and restarts it, to reenable the OS
 
 ### Improved
 - Readme now has a more detailed explanation about the config parameters hidden behind a dropdown in the respective section.
-
-<details><summary>Change History</summary><p>
-
 ## [3.3.3] - 2023-01-14
 ### Added/Improved
 - Added a check for the background mirroring task if the OSC listener is still active or not after the plugin has successfully started, preventing an infinite loop that would occur otherwise. Now, the mirroring task will stop until the background OSC listener is available again, then resume (and the icons will flash briefly to let the user know something's up).

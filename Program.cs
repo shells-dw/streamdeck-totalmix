@@ -1,6 +1,7 @@
 ﻿using BarRaider.SdTools;
 using streamdeck_totalmix;
 using System;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace de.shells.totalmix
@@ -11,10 +12,12 @@ namespace de.shells.totalmix
         static void Main(string[] args)
         {
             // Uncomment this line of code to allow for debugging
-            //     while (!System.Diagnostics.Debugger.IsAttached) { System.Threading.Thread.Sleep(100); }
+             //    while (!System.Diagnostics.Debugger.IsAttached) { System.Threading.Thread.Sleep(100); }
 
             Logger.Instance.LogMessage(TracingLevel.INFO, "Program Main() _ start");
-            Globals.interfaceIp = System.Configuration.ConfigurationManager.AppSettings["interfaceIp"];
+
+            IPAddress ipAddress = IPAddress.TryParse(System.Configuration.ConfigurationManager.AppSettings["interfaceIp"], out ipAddress) ? ipAddress : IPAddress.Loopback;
+            Globals.interfaceIp = ipAddress;
             Globals.interfacePort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfacePort"]);
             Globals.interfaceSendPort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfaceSendPort"]);
             Globals.interfaceBackgroundPort = Int32.Parse(System.Configuration.ConfigurationManager.AppSettings["interfaceBackgroundPort"]);

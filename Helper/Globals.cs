@@ -4,6 +4,7 @@ namespace streamdeck_totalmix
 {
     using System;
     using System.Collections.Generic;
+    using System.Net;
 
     public static class Globals
     {
@@ -14,7 +15,7 @@ namespace streamdeck_totalmix
         public static Int32 channelCount;
 
         // Globals for the device connection data, filled at start, read from then on
-        public static String interfaceIp;
+        public static IPAddress interfaceIp;
         public static Int32 interfacePort;
         public static Int32 interfaceSendPort;
         public static Int32 interfaceBackgroundPort;
