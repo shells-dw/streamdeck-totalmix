@@ -10,7 +10,7 @@
 It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers actions as well as individual channel actions on the [RME TotalMix FX][] application. Note: a RME audio interface/card is needed or TotalMix FX to work.
 
 It supports OSC protocol support which offers more functionality than MIDI commands (at least I implemented more in my plugin), is more solid than MIDI and doesn't interfere with your already existing MIDI setup.
-The plugin however also supports MIDI wiht a limited feature set in case you don't want to use OSC.
+The plugin however also supports MIDI with a limited feature set in case you don't want to use OSC.
 
 ## What Is It Not (and what can't it do?)
 
