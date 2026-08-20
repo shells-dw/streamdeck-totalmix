@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  <style>
+    .hint {
+      color: #969696;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 2px 12px 8px;
+    }
+  </style>
+</head>
+<body>
+  <sdpi-item label="Parameter">
+    <sdpi-select setting="parameter" default="mainDim">
+      <optgroup label="Main / Control Room">
+        <option value="mainDim">Dim</option>
+        <option value="mainMono">Mono</option>
+        <option value="mainMuteFx">Mute FX return</option>
+        <option value="mainSpeakerB">Speaker B</option>
+        <option value="mainTalkback">Talkback</option>
+        <option value="mainExtIn">External input</option>
+        <option value="mainRecall">Recall volume</option>
+      </optgroup>
+      <optgroup label="Global">
+        <option value="globalMute">Mute enable</option>
+        <option value="globalSolo">Solo enable</option>
+        <option value="trim">Trim mode</option>
+      </optgroup>
+      <optgroup label="Strip in current bank">
+        <option value="stripMute">Mute</option>
+        <option value="stripSolo">Solo / PFL</option>
+        <option value="stripPhantom">Phantom power</option>
+        <option value="stripCue">Cue</option>
+      </optgroup>
+      <optgroup label="Selected channel">
+        <option value="channelMute">Mute</option>
+        <option value="channelSolo">Solo / PFL</option>
+        <option value="channelPhantom">Phantom power</option>
+        <option value="channelEq">EQ enable</option>
+        <option value="channelLowcut">Low cut</option>
+        <option value="channelComp">Compressor / expander</option>
+      </optgroup>
+      <optgroup label="Groups and snapshots">
+        <option value="muteGroup">Mute group</option>
+        <option value="soloGroup">Solo group</option>
+        <option value="faderGroup">Fader group</option>
+        <option value="snapshot">Snapshot</option>
+      </optgroup>
+      <optgroup label="Effects">
+        <option value="reverb">Reverb</option>
+        <option value="echo">Echo</option>
+        <option value="roomEq">Room EQ (selected output)</option>
+      </optgroup>
+    </sdpi-select>
+  </sdpi-item>
+
+  <div id="row-strip" hidden>
+    <sdpi-item label="Channel">
+      <sdpi-select setting="strip" default="1" datasource="getStrips" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Bus">
+      <sdpi-select setting="bus" default="">
+        <option value="">Leave as is</option>
+        <option value="input">Input</option>
+        <option value="playback">Playback</option>
+        <option value="output">Output</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Pin bank start">
+      <sdpi-textfield setting="bankStart" placeholder="empty = leave as is"></sdpi-textfield>
+    </sdpi-item>
+    <p class="hint">
+      Strip = fader position in the shown bank, not a fixed channel. To pin this
+      button to one channel forever: set Bus, set Pin bank start to 0, and Strip
+      to the channel's position on that bus (a stereo pair counts as one strip).
+    </p>
+  </div>
+
+  <div id="row-index" hidden>
+    <sdpi-item label="Number" id="index-item">
+      <sdpi-range setting="index" min="1" max="8" step="1" default="1" showlabels></sdpi-range>
+    </sdpi-item>
+  </div>
+
+  <details>
+    <summary>Connection</summary>
+    <sdpi-item label="Host">
+      <sdpi-textfield setting="host" default="127.0.0.1" placeholder="127.0.0.1"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port incoming">
+      <sdpi-textfield setting="sendPort" default="7001"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port outgoing">
+      <sdpi-textfield setting="receivePort" default="9001"></sdpi-textfield>
+    </sdpi-item>
+  </details>
+
+  <script>
+    (function () {
+      // Deliberately independent of sdpi-components internals: reads the rendered
+      // control's value straight from the DOM and re-applies visibility on user
+      // input and on a slow poll (covers programmatic/late initialisation).
+      function valueOf(setting, fallback) {
+        var host = document.querySelector('[setting="' + setting + '"]');
+        if (!host) return fallback;
+        if (host.value !== undefined && host.value !== null && host.value !== "") return host.value;
+        var inner = host.querySelector("select,input");
+        return inner && inner.value ? inner.value : fallback;
+      }
+
+      function watch(apply) {
+        var run = function () { try { apply(valueOf); } catch (e) {} };
+        document.addEventListener("change", run, true);
+        document.addEventListener("input", run, true);
+        setInterval(run, 250);
+        run();
+      }
+
+      window.__watchSettings = watch;
+    })();
+  </script>
+  <script>
+    __watchSettings(function (v) {
+      var p = v("parameter", "mainDim");
+      var STRIP = { stripMute: 1, stripSolo: 1, stripPhantom: 1, stripCue: 1 };
+      var INDEXED = { muteGroup: 4, soloGroup: 4, faderGroup: 4, snapshot: 8 };
+      document.getElementById("row-strip").hidden = !(p in STRIP);
+      document.getElementById("row-index").hidden = !(p in INDEXED);
+      if (p in INDEXED) {
+        var r = document.querySelector("#row-index sdpi-range");
+        if (r && r.getAttribute("max") !== String(INDEXED[p])) r.setAttribute("max", String(INDEXED[p]));
+      }
+    });
+  </script>
+</body>
+</html>

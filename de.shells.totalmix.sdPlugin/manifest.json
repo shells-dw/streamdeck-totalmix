@@ -1,0 +1,94 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "UUID": "de.shells.totalmix",
+  "Name": "TotalMix FX",
+  "Version": "4.0.4.0",
+  "Author": "shells",
+  "Description": "Control RME TotalMix FX over OSC, with Stream Deck+ dial support.",
+  "Category": "TotalMix FX",
+  "CategoryIcon": "imgs/category/categoryIcon",
+  "Icon": "imgs/pluginIcon",
+  "URL": "https://github.com/shells-dw/streamdeck-totalmix",
+  "CodePath": "bin/plugin.js",
+  "SDKVersion": 2,
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "enabled"
+  },
+  "Software": {
+    "MinimumVersion": "6.6"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    },
+    {
+      "Platform": "mac",
+      "MinimumVersion": "13"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Volume",
+      "UUID": "de.shells.totalmix.volume",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Control a fader, input gain or FX parameter. Dial: rotate to adjust, press to mute/dim. Key: nudge up or down per press.",
+      "PropertyInspectorPath": "ui/volume.html",
+      "Controllers": [
+        "Keypad",
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "layouts/volume.json",
+        "TriggerDescription": {
+          "Rotate": "Adjust level",
+          "Push": "Dim / mute",
+          "Touch": "Dim / mute"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/volume",
+          "TitleAlignment": "bottom"
+        }
+      ]
+    },
+    {
+      "Name": "Toggle",
+      "UUID": "de.shells.totalmix.toggle",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Flip any on/off parameter: dim, mono, mute, phantom, groups, snapshots.",
+      "PropertyInspectorPath": "ui/toggle.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/muteOff",
+          "TitleAlignment": "bottom"
+        },
+        {
+          "Image": "imgs/muteOn",
+          "TitleAlignment": "bottom"
+        }
+      ]
+    },
+    {
+      "Name": "Select",
+      "UUID": "de.shells.totalmix.select",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Jump straight to a submix, bank position, bus or Quick Workspace.",
+      "PropertyInspectorPath": "ui/select.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/mixerOn",
+          "TitleAlignment": "bottom"
+        }
+      ]
+    }
+  ]
+}
