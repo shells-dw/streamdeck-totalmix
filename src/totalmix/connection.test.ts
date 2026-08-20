@@ -31,6 +31,17 @@ class FakeTotalMix {
 		});
 	}
 
+	/** Pushes a string value, e.g. a label. */
+	pushString(toPort: number, address: string, value: string): Promise<void> {
+		const addr = oscString(address);
+		const tags = oscString(",s");
+		const arg = oscString(value);
+		const buf = Buffer.concat([addr, tags, arg]);
+		return new Promise((resolve, reject) => {
+			this.socket.send(buf, toPort, "127.0.0.1", (err) => (err ? reject(err) : resolve()));
+		});
+	}
+
 	/** Pushes a parameter change, as TotalMix does for its selected page. */
 	push(toPort: number, address: string, value: number): Promise<void> {
 		return new Promise((resolve, reject) => {
@@ -46,6 +57,14 @@ class FakeTotalMix {
 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Null-terminated, 4-byte-padded OSC string. */
+function oscString(s: string): Buffer {
+	const raw = Buffer.from(s, "utf8");
+	const b = Buffer.alloc((raw.length + 1 + 3) & ~3);
+	raw.copy(b, 0);
+	return b;
+}
 
 // Ports well clear of the TotalMix defaults so a real device on the machine
 // running these tests cannot interfere.
@@ -287,5 +306,250 @@ describe("property inspector string settings", () => {
 		conn.toggle("/1/mainDim");
 		await delay(60);
 		expect(fake.received.some((m) => m.address === "/1/mainDim")).toBe(true);
+	});
+});
+
+describe("startup refresh resilience", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		// Millisecond timing so the retry behaviour is observable in a test.
+		conn = new TotalMixConnection({ refreshMs: 40, staleMs: 2000 });
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/**
+	 * The bug this guards: TotalMix heartbeats arriving while the initial page
+	 * dump was lost (plugin started before TotalMix was ready). Heartbeats must
+	 * not count as "cache populated" — the connection has to keep asking until
+	 * real data lands, then go quiet.
+	 */
+	it("keeps re-requesting while only heartbeats arrive, stops once data lands", async () => {
+		// Simulate TotalMix alive but the dump lost: heartbeats only.
+		await fake.push(PLUGIN_PORT, "/", 0);
+		await delay(150);
+		await fake.push(PLUGIN_PORT, "/", 0);
+		await delay(150);
+
+		const asksWhileEmpty = fake.received.filter((m) =>
+			String(m.address).endsWith("globalMute") || String(m.address).endsWith("/2/mute"),
+		).length;
+		expect(asksWhileEmpty).toBeGreaterThan(2); // initial + retries
+
+		// Now the "dump" arrives.
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.7);
+		await delay(60);
+		fake.received.length = 0;
+
+		// Heartbeats continue, as in normal idle — no further refreshes allowed.
+		await fake.push(PLUGIN_PORT, "/", 0);
+		await delay(150);
+
+		const asksAfterData = fake.received.filter((m) =>
+			String(m.address).endsWith("globalMute") || String(m.address).endsWith("/2/mute"),
+		).length;
+		expect(asksAfterData).toBe(0);
+	});
+});
+
+describe("positional view cache", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/**
+	 * /1/volumeN is a position, not a channel. Any view move must drop the
+	 * positional entries — reading them across a view change is how a dial ends
+	 * up stepping from another channel's fader value.
+	 */
+	it("invalidates positional entries when the bank moves", async () => {
+		await fake.push(PLUGIN_PORT, "/1/volume3", 0.7);
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		expect(conn.get("/1/volume3")).toBeDefined();
+
+		conn.send("/setBankStart", 8);
+
+		expect(conn.get("/1/volume3")).toBeUndefined();
+		// Non-positional state survives: main volume is the same fader in any view.
+		expect(conn.get("/1/mastervolume")).toBeDefined();
+	});
+
+	it("invalidates when TotalMix itself reports a bus change", async () => {
+		conn.send("/1/busOutput", 1.0); // our view: output
+		await fake.push(PLUGIN_PORT, "/1/volume1", 0.4);
+		await delay(60);
+		expect(conn.get("/1/volume1")).toBeDefined();
+
+		// Another actor's pin moved the slot; TotalMix reports input active.
+		await fake.push(PLUGIN_PORT, "/1/busInput", 1.0);
+		await delay(60);
+
+		expect(conn.get("/1/volume1")).toBeUndefined();
+		expect(conn.viewMatches({ bus: "input" })).toBe(true);
+		expect(conn.viewMatches({ bus: "output" })).toBe(false);
+	});
+
+	it("viewMatches treats an unknown view as mismatch when a requirement exists", () => {
+		expect(conn.viewMatches({})).toBe(true);
+		expect(conn.viewMatches({ bus: "input" })).toBe(false);
+	});
+});
+
+describe("submix as a view dimension", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/**
+	 * From a real capture: changing submix in the TotalMix GUI re-sends every
+	 * volumeN as that submix's send level. Same positions, different meaning — so
+	 * positional cache from the previous submix must not survive.
+	 */
+	it("invalidates positional state when the submix changes", async () => {
+		await fake.pushString(PLUGIN_PORT, "/1/labelSubmix", "Main");
+		await fake.push(PLUGIN_PORT, "/1/volume1", 0.8);
+		await delay(60);
+		expect(conn.get("/1/volume1")).toBeDefined();
+
+		await fake.pushString(PLUGIN_PORT, "/1/labelSubmix", "> Apollo C");
+		await delay(60);
+
+		expect(conn.get("/1/volume1")).toBeUndefined();
+	});
+});
+
+describe("per-view state retention", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/**
+	 * The screenshots that motivated this: switching the slot to input made
+	 * playback dials show "—" and input channel names. Positional state must be
+	 * retained per view, readable through a view requirement, and restored when
+	 * the slot returns.
+	 */
+	it("retains values and names per bus across view switches", async () => {
+		// Slot on input: real gain and input names arrive.
+		await fake.push(PLUGIN_PORT, "/1/busInput", 1.0);
+		await fake.push(PLUGIN_PORT, "/1/micgain1", 0.63);
+		await fake.pushString(PLUGIN_PORT, "/1/trackname1", "Mic 1");
+		await delay(60);
+
+		// Slot moves to playback; its own data arrives.
+		conn.send("/1/busPlayback", 1.0);
+		await fake.push(PLUGIN_PORT, "/1/busPlayback", 1.0);
+		await fake.push(PLUGIN_PORT, "/1/volume1", 0.2);
+		await fake.pushString(PLUGIN_PORT, "/1/trackname1", "AN 1/2");
+		await delay(60);
+
+		// Current view reads see playback...
+		expect(conn.getNumber("/1/volume1", -1)).toBeCloseTo(0.2, 5);
+		expect(conn.getString("/1/trackname1")).toBe("AN 1/2");
+
+		// ...while input-scoped reads still see input's retained data.
+		expect(conn.getNumber("/1/micgain1", -1, { bus: "input" })).toBeCloseTo(0.63, 5);
+		expect(conn.getString("/1/trackname1", { bus: "input" })).toBe("Mic 1");
+
+		// And moving back restores input as the current view's data.
+		conn.send("/1/busInput", 1.0);
+		expect(conn.getNumber("/1/micgain1", -1)).toBeCloseTo(0.63, 5);
+		expect(conn.getString("/1/trackname1")).toBe("Mic 1");
+	});
+
+	it("keeps non-positional state global across view switches", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.44);
+		await delay(60);
+		conn.send("/1/busInput", 1.0);
+		conn.send("/setBankStart", 8);
+		expect(conn.getNumber("/1/mastervolume", -1)).toBeCloseTo(0.44, 5);
+	});
+});
+
+describe("startup view priming", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection({ refreshMs: 40, staleMs: 2000 });
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/**
+	 * Per-view slices start empty, so every view an action requires must be
+	 * visited once at startup — bus (and bank) asserted so TotalMix dumps it —
+	 * or dials sit on "—" until first touched. Registration is deduplicated and
+	 * the visits happen without any user gesture.
+	 */
+	it("visits each required view once after the connection is primed", async () => {
+		conn.requireView({ bus: "input" });
+		conn.requireView({ bus: "input" }); // duplicate: must not cause a second visit
+		conn.requireView({ bus: "output", bank: 0 });
+
+		// The startup refresh must land first; simulate TotalMix answering it.
+		await fake.push(PLUGIN_PORT, "/1/busPlayback", 1.0);
+		await fake.push(PLUGIN_PORT, "/1/volume1", 0.5);
+		await delay(1000); // two 400ms visit slots plus slack
+
+		const busSelects = fake.received.filter((m) => String(m.address).startsWith("/1/bus"));
+		expect(busSelects.map((m) => m.address)).toEqual(["/1/busInput", "/1/busOutput"]);
+		const bankSelects = fake.received.filter((m) => m.address === "/setBankStart");
+		expect(bankSelects).toHaveLength(1);
+		expect(bankSelects[0]!.value).toBe(0);
+
+		// The dump TotalMix sends for the visited view lands in that view's slice.
+		await fake.push(PLUGIN_PORT, "/1/busOutput", 1.0);
+		await fake.push(PLUGIN_PORT, "/1/volume2", 0.9);
+		await delay(60);
+		expect(conn.getNumber("/1/volume2", -1, { bus: "output", bank: 0 })).toBeCloseTo(0.9, 5);
 	});
 });

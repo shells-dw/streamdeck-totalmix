@@ -228,7 +228,8 @@ describe("fader curve", () => {
 	});
 
 	it("formats dB sensibly", () => {
-		expect(formatDb(0)).toBe("-∞");
+		// Matches TotalMix's own rendering, verified against a real capture.
+		expect(formatDb(0)).toBe("-oo");
 		expect(formatDb(1)).toBe("+6.0 dB");
 	});
 
@@ -240,7 +241,7 @@ describe("fader curve", () => {
 });
 
 describe("gain display formatting", async () => {
-	const { formatGain } = await import("../actions/volume.js");
+	const { formatGain } = await import("./steps.js");
 
 	it.each([
 		["60.0 dB", "60"],
@@ -258,7 +259,7 @@ describe("gain display formatting", async () => {
 });
 
 describe("computeNext (key nudges and dial steps)", async () => {
-	const { computeNext } = await import("../actions/volume.js");
+	const { computeNext } = await import("./steps.js");
 	const { faderToDb } = await import("./curves.js");
 
 	it("steps faders by dB along the curve", () => {

@@ -70,7 +70,10 @@ export const isMinusInfinity = (value: number): boolean => clamp01(value) <= 0;
  * you have it — this is the fallback for when you don't.
  */
 export function formatDb(value: number): string {
-	if (isMinusInfinity(value)) return "-∞";
+	// TotalMix renders minus infinity as the ASCII string "-oo" (confirmed in a
+	// real capture). Match it so the fallback and TotalMix's own Val string never
+	// show the same state two different ways.
+	if (isMinusInfinity(value)) return "-oo";
 	const dB = faderToDb(value);
 	return `${dB >= 0 ? "+" : ""}${dB.toFixed(1)} dB`;
 }

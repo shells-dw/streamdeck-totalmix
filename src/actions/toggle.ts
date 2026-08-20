@@ -10,9 +10,9 @@ import streamDeck, {
 import { asBool } from "../osc/codec.js";
 import * as addr from "../totalmix/addresses.js";
 import { iconFor } from "../totalmix/icons.js";
-import { totalMix } from "../totalmix/connection.js";
+import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
-import { replyStripDatasource } from "../totalmix/datasource.js";
+import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
 
 export type ToggleSettings = {
 	/** Which parameter to flip. */
@@ -101,14 +101,36 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 		target: WillAppearEvent<ToggleSettings>["action"],
 		settings: ToggleSettings,
 	): Promise<void> {
-		await totalMix.connect(connectionOptions(settings));
+		const tm = totalMixFor(connectionOptions(settings));
 
 		const address = this.addressFor(settings);
 
 		const icons = iconFor(settings.parameter ?? "mainDim");
 
+		// Pinned strip toggles read from their own view's retained slice, so the
+		// light stays correct even while the slot is parked on another bus.
+		const pinnedBus =
+			settings.bus === "input" || settings.bus === "playback" || settings.bus === "output"
+				? settings.bus
+				: undefined;
+		const pinnedBank =
+			settings.bankStart !== undefined && String(settings.bankStart).trim() !== ""
+				? num(settings.bankStart, 0)
+				: undefined;
+		const isStripParam = String(settings.parameter ?? "mainDim").startsWith("strip");
+		const req = isStripParam
+			? {
+					...(pinnedBus !== undefined ? { bus: pinnedBus } : {}),
+					...(pinnedBank !== undefined ? { bank: pinnedBank } : {}),
+				}
+			: null;
+
+		if (req !== null && (req.bus !== undefined || req.bank !== undefined)) {
+			tm.requireView(req);
+		}
+
 		const render = (): void => {
-			const on = asBool(totalMix.get(address) ?? 0);
+			const on = asBool(tm.get(address, req) ?? 0);
 
 			// setState exists on keys only; a dial-placed toggle shows text instead.
 			if (target.isKey()) {
@@ -126,8 +148,8 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 		// is added, so a re-parametered button cannot be driven by both.
 		this.releaseFor(target.id);
 		this.cleanup.set(target.id, [
-			totalMix.subscribe(address, render),
-			totalMix.onConnectionChange(render),
+			tm.subscribe(address, render),
+			tm.onConnectionChange(render),
 		]);
 
 		render();
@@ -138,12 +160,15 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 	}
 
 	override async onSendToPlugin(ev: SendToPluginEvent<{ event?: string }, ToggleSettings>): Promise<void> {
-		if (ev.payload?.event !== "getStrips") return;
+		streamDeck.logger.info(`PI -> plugin: ${JSON.stringify(ev.payload).slice(0, 160)}`);
+		if (datasourceEvent(ev.payload) !== "getStrips") return;
 		const settings = await ev.action.getSettings();
-		await replyStripDatasource("getStrips", settings, false);
+		const tm = totalMixFor(connectionOptions(settings));
+		await replyStripDatasource(tm, "getStrips", settings, false);
 	}
 
 	override onKeyDown(ev: KeyDownEvent<ToggleSettings>): void {
+		const tm = totalMixFor(connectionOptions(ev.payload.settings));
 		const parameter = ev.payload.settings.parameter ?? "mainDim";
 		const address = this.addressFor(ev.payload.settings);
 
@@ -154,25 +179,35 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 		if (ONOFF_PARAMETERS.has(parameter)) {
 			const s = ev.payload.settings;
 			if (s.bus === "input" || s.bus === "playback" || s.bus === "output") {
-				totalMix.toggle(addr.bus(s.bus));
+				tm.toggle(addr.bus(s.bus));
 			}
 			if (s.bankStart !== undefined && String(s.bankStart).trim() !== "") {
-				totalMix.send(addr.SET_BANK_START, num(s.bankStart, 0));
+				tm.send(addr.SET_BANK_START, num(s.bankStart, 0));
 			}
 		}
 
 		if (ONOFF_PARAMETERS.has(parameter)) {
-			// kOSCScaleOnOff: the value IS the state. Invert what we last saw;
-			// with no cached state yet, turn on (matches user intent on a first
-			// press far more often than a silent no-op).
-			const next = asBool(totalMix.get(address) ?? 0) ? 0 : 1;
+			// kOSCScaleOnOff: the value IS the state. Invert what we last saw —
+			// read from this strip's own view slice, since the bus/bank pins above
+			// have already been sent and the write lands on that view. With no
+			// cached state yet, turn on (matches user intent on a first press).
+			const s2 = ev.payload.settings;
+			const req = {
+				...(s2.bus === "input" || s2.bus === "playback" || s2.bus === "output"
+					? { bus: s2.bus }
+					: {}),
+				...(s2.bankStart !== undefined && String(s2.bankStart).trim() !== ""
+					? { bank: num(s2.bankStart, 0) }
+					: {}),
+			};
+			const next = asBool(tm.get(address, req) ?? 0) ? 0 : 1;
 			streamDeck.logger.info(`Key press: set ${address} = ${next}`);
-			totalMix.send(address, next);
+			tm.send(address, next);
 			return;
 		}
 
 		streamDeck.logger.info(`Key press: toggle ${address}`);
-		totalMix.toggle(address);
+		tm.toggle(address);
 	}
 
 	private addressFor(settings: ToggleSettings): string {

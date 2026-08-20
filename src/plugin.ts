@@ -2,7 +2,7 @@ import streamDeck from "@elgato/streamdeck";
 import { Select } from "./actions/select.js";
 import { Toggle } from "./actions/toggle.js";
 import { Volume } from "./actions/volume.js";
-import { totalMix } from "./totalmix/connection.js";
+import { disposeAll } from "./totalmix/connection.js";
 
 streamDeck.actions.registerAction(new Volume());
 streamDeck.actions.registerAction(new Toggle());
@@ -19,6 +19,6 @@ process.on("unhandledRejection", (reason) => {
     streamDeck.logger.error(`Unhandled rejection: ${String(reason)}`);
 });
 
-process.on("exit", () => totalMix.dispose());
+process.on("exit", () => disposeAll());
 
 await streamDeck.connect();

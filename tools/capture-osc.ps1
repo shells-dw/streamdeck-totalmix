@@ -26,8 +26,31 @@
 
 param(
     [int]$Port = 9001,
-    [string]$Out = "osc-capture.log"
+    [string]$Out = "osc-capture.log",
+    # Optional: park the remote controller on a bus/page before listening, e.g.
+    #   -Send /1/busPlayback
+    # This is how you test whether TotalMix pushes changes made in the GUI on a
+    # bus the slot is NOT parked on.
+    [string]$Send = "",
+    [int]$SendPort = 7001,
+    [string]$SendHost = "127.0.0.1"
 )
+
+# Minimal OSC encoder: one address plus one float argument, 4-byte aligned.
+function New-OscMessage([string]$Address, [single]$Value) {
+    function Pad([byte[]]$b) {
+        $len = $b.Length + 1
+        $padded = [math]::Ceiling($len / 4) * 4
+        $out = New-Object byte[] $padded
+        [Array]::Copy($b, $out, $b.Length)
+        return $out
+    }
+    $addr = Pad([Text.Encoding]::ASCII.GetBytes($Address))
+    $tags = Pad([Text.Encoding]::ASCII.GetBytes(","+"f"))
+    $arg  = [BitConverter]::GetBytes($Value)
+    [Array]::Reverse($arg)   # OSC is big-endian
+    return $addr + $tags + $arg
+}
 
 $ErrorActionPreference = "Stop"
 
@@ -62,6 +85,15 @@ Write-Host "Now go poke TotalMix: switch banks, move faders, toggle mutes," -For
 Write-Host "then leave it idle a few seconds to catch heartbeats." -ForegroundColor Cyan
 Write-Host "Press Ctrl+C when done." -ForegroundColor Cyan
 Write-Host ""
+
+if ($Send -ne "") {
+    $msg = New-OscMessage $Send 1.0
+    $sender = New-Object System.Net.Sockets.UdpClient
+    [void]$sender.Send($msg, $msg.Length, $SendHost, $SendPort)
+    $sender.Close()
+    Write-Host "Sent $Send = 1.0 to ${SendHost}:${SendPort}" -ForegroundColor Yellow
+    Write-Host ""
+}
 
 $count = 0
 $lastReport = Get-Date

@@ -13,9 +13,9 @@ import streamDeck, {
 import { asBool, asNumber } from "../osc/codec.js";
 import { faderToBar, formatDb, stepDb } from "../osc/curves.js";
 import * as addr from "../totalmix/addresses.js";
-import { totalMix } from "../totalmix/connection.js";
+import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
-import { replyStripDatasource } from "../totalmix/datasource.js";
+import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
 
 export type VolumeSettings = {
 	/** What to control. "main" is the Control Room main out; "gain" is the input
@@ -124,23 +124,28 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	 * of the gesture, since rotation events arrive far faster than the view can
 	 * meaningfully change underneath them.
 	 */
-	private pinIfConfigured(id: string, settings: VolumeSettings): void {
+	private pinIfConfigured(
+		tm: TotalMixConnection,
+		id: string,
+		settings: VolumeSettings,
+		force = false,
+	): void {
 		const target = settings.target ?? "main";
 		if (target !== "strip" && target !== "gain") return; // FX targets need no pinning
 
 		const now = Date.now();
-		if (now - (this.lastPin.get(id) ?? 0) < PIN_INTERVAL_MS) return;
+		if (!force && now - (this.lastPin.get(id) ?? 0) < PIN_INTERVAL_MS) return;
 		this.lastPin.set(id, now);
 
 		if (target === "gain") {
 			// Gain only exists on the input bus — always pin it, ignoring any bus
 			// setting, so the dial cannot silently tweak a playback/output strip.
-			totalMix.toggle(addr.bus("input"));
+			tm.toggle(addr.bus("input"));
 		} else if (settings.bus === "input" || settings.bus === "playback" || settings.bus === "output") {
-			totalMix.toggle(addr.bus(settings.bus));
+			tm.toggle(addr.bus(settings.bus));
 		}
 		if (settings.bankStart !== undefined && String(settings.bankStart).trim() !== "") {
-			totalMix.send(addr.SET_BANK_START, num(settings.bankStart, 0));
+			tm.send(addr.SET_BANK_START, num(settings.bankStart, 0));
 		}
 	}
 
@@ -157,20 +162,38 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		target: WillAppearEvent<VolumeSettings>["action"],
 		settings: VolumeSettings,
 	): Promise<void> {
-		await totalMix.connect(connectionOptions(settings));
+		const tm = totalMixFor(connectionOptions(settings));
 
 		const address = this.addressFor(settings);
 		const display = addr.displayOf(address);
 
 		const render = (): void => {
-			void this.render(target, settings);
+			void this.render(tm, target, settings);
 		};
 
 		const unsubs = [
-			totalMix.subscribe(address, render),
-			totalMix.subscribe(display, render),
-			totalMix.onConnectionChange(render),
+			tm.subscribe(address, render),
+			tm.subscribe(display, render),
+			tm.onConnectionChange(render),
 		];
+
+		// The title comes from trackname/channel-name addresses that arrive in
+		// the page dump in their own order — often after this action's value.
+		// Without subscribing to them, a name landing late never triggers a
+		// re-render and the "Strip N" fallback sticks until something else moves.
+		const tgt = settings.target ?? "main";
+		if (tgt === "strip" || tgt === "gain") {
+			unsubs.push(tm.subscribe(addr.trackName(num(settings.strip, 1)), render));
+		} else if (tgt === "channel") {
+			unsubs.push(tm.subscribe(addr.CH_TRACK_NAME, render));
+		}
+
+		// Register this dial's view for startup priming. The connection visits
+		// every required view once, serially, filling each slice — so values and
+		// names are prefilled without the appear-time pin races that direct
+		// per-action pinning used to cause.
+		const startupReq = this.requiredView(settings);
+		if (startupReq !== null) tm.requireView(startupReq);
 
 		// Replace any subscriptions left over from a previous appearance or from
 		// the previous settings — old-address subscriptions must not linger.
@@ -185,34 +208,56 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	}
 
 	override async onSendToPlugin(ev: SendToPluginEvent<{ event?: string }, VolumeSettings>): Promise<void> {
-		if (ev.payload?.event !== "getStrips") return;
+		// Always log what the PI sends: whether this line appears is the fact that
+		// splits "request never arrives" from "reply is wrong" when the channel
+		// dropdown misbehaves.
+		streamDeck.logger.info(`PI -> plugin: ${JSON.stringify(ev.payload).slice(0, 160)}`);
+		if (datasourceEvent(ev.payload) !== "getStrips") return;
 		const settings = await ev.action.getSettings();
-		await replyStripDatasource("getStrips", settings, (settings.target ?? "main") === "gain");
+		const tm = totalMixFor(connectionOptions(settings));
+		await replyStripDatasource(tm, "getStrips", settings, (settings.target ?? "main") === "gain");
 	}
 
 	override onDialRotate(ev: DialRotateEvent<VolumeSettings>): void {
 		const settings = ev.payload.settings;
-		this.pinIfConfigured(ev.action.id, settings);
-		const address = this.addressFor(settings);
+		const tm = totalMixFor(connectionOptions(settings));
+		const req = this.requiredView(settings);
+		// Pin hard when the slot is parked elsewhere: the write below must land on
+		// this dial's view, and message ordering guarantees the bus/bank selects
+		// are processed first.
+		this.pinIfConfigured(tm, ev.action.id, settings, req !== null && !tm.viewMatches(req));
+
 		const target = settings.target ?? "main";
-		// Gain and FX have no step control in the PI: their ranges are device- or
-		// parameter-defined, so a user-tuned dB step would be false precision.
+		const address = this.addressFor(settings);
 		const perTick = target === "gain" ? DEFAULT_STEP_DB : num(settings.stepDb, DEFAULT_STEP_DB);
 
-		const current = totalMix.getNumber(address, 0);
+		// The value is read from THIS DIAL'S view slice — retained per bus/bank,
+		// so it is this channel's own last value even while the slot was parked
+		// elsewhere. (Verified in a capture: another bus's dump carries
+		// plausible-looking zeros for micgain, which is why a flat cache could
+		// never be trusted here.) Only a view that has never delivered data
+		// blocks the gesture.
+		if (tm.get(address, req) === undefined) {
+			streamDeck.logger.warn(`Ignoring dial move on ${address}: no data for its view yet`);
+			tm.requestFullRefresh();
+			return;
+		}
+
+		const current = tm.getNumber(address, 0, req);
 		const next = computeNext(kindOf(target), current, ev.payload.ticks, perTick, FX_STEP);
 
 		// Coalesced: rotation fires far faster than TotalMix needs telling, and only
 		// the latest position matters.
-		totalMix.sendCoalesced(address, next);
+		tm.sendCoalesced(address, next);
 
-		void this.render(ev.action, settings, next);
+		void this.render(tm, ev.action, settings, next);
 	}
 
 	/** Pressing the dial mutes — the obvious gesture for a monitor level. */
 	override onDialDown(ev: DialDownEvent<VolumeSettings>): void {
-		this.pinIfConfigured(ev.action.id, ev.payload.settings);
-		this.toggleMute(ev.payload.settings);
+		const tm = totalMixFor(connectionOptions(ev.payload.settings));
+		this.pinIfConfigured(tm, ev.action.id, ev.payload.settings);
+		this.toggleMute(tm, ev.payload.settings);
 	}
 
 	/**
@@ -223,45 +268,57 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	 */
 	override onKeyDown(ev: KeyDownEvent<VolumeSettings>): void {
 		const settings = ev.payload.settings;
-		this.pinIfConfigured(ev.action.id, settings);
+		const tm = totalMixFor(connectionOptions(settings));
+		this.pinIfConfigured(tm, ev.action.id, settings);
 
 		const target = settings.target ?? "main";
 		const address = this.addressFor(settings);
 		const ticks = (settings.nudge ?? "up") === "down" ? -1 : 1;
 		const dbStep = num(settings.stepDb, DEFAULT_STEP_DB);
 
-		const current = totalMix.getNumber(address, 0);
+		// Same view scoping as dial rotation — see the comment there.
+		const reqView = this.requiredView(settings);
+		if (reqView !== null && !tm.viewMatches(reqView)) {
+			this.pinIfConfigured(tm, ev.action.id, settings, true);
+		}
+		if (tm.get(address, reqView) === undefined) {
+			streamDeck.logger.warn(`Ignoring nudge on ${address}: no data for its view yet`);
+			tm.requestFullRefresh();
+			return;
+		}
+
+		const current = tm.getNumber(address, 0, reqView);
 		const next = computeNext(kindOf(target), current, ticks, dbStep, dbStep / 100);
 
 		streamDeck.logger.info(`Key press: nudge ${address} ${ticks > 0 ? "+" : "-"}${dbStep}`);
-		totalMix.send(address, next);
-		void this.render(ev.action, settings, next);
+		tm.send(address, next);
+		void this.render(tm, ev.action, settings, next);
 	}
 
-	private toggleMute(settings: VolumeSettings): void {
+	private toggleMute(tm: TotalMixConnection, settings: VolumeSettings): void {
 		const target = settings.target ?? "main";
 
 		if (isFx(target)) {
 			// FX dials press-toggle their parameter's natural enable.
-			totalMix.toggle(FX_TARGETS[target].press);
+			tm.toggle(FX_TARGETS[target].press);
 			return;
 		}
 
 		if (target === "main") {
 			// Main out has no plain mute; dim is the equivalent monitoring gesture.
-			totalMix.toggle(addr.MAIN_DIM);
+			tm.toggle(addr.MAIN_DIM);
 			return;
 		}
 
 		if (target === "channel") {
-			totalMix.toggle(addr.CH_MUTE);
+			tm.toggle(addr.CH_MUTE);
 			return;
 		}
 
 		// "strip" and "gain" both press-mute the strip.
 		// Per-strip mute is kOSCScaleOnOff, not a toggle: invert the cached state.
 		const address = addr.mute(num(settings.strip, 1));
-		totalMix.send(address, asBool(totalMix.get(address) ?? 0) ? 0 : 1);
+		tm.send(address, asBool(tm.get(address) ?? 0) ? 0 : 1);
 	}
 
 	private addressFor(settings: VolumeSettings): string {
@@ -285,20 +342,62 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	 * TotalMix is authoritative about how it formats a level, and matching it keeps
 	 * the Stream Deck consistent with the on-screen mixer.
 	 */
+	/** The view this action's settings require, if any. */
+	private requiredView(settings: VolumeSettings): { bus?: "input" | "playback" | "output"; bank?: number } | null {
+		const tgt = settings.target ?? "main";
+		const bank =
+			settings.bankStart !== undefined && String(settings.bankStart).trim() !== ""
+				? num(settings.bankStart, 0)
+				: undefined;
+
+		if (tgt === "gain") {
+			return bank !== undefined ? { bus: "input", bank } : { bus: "input" };
+		}
+		if (tgt === "strip") {
+			const bus =
+				settings.bus === "input" || settings.bus === "playback" || settings.bus === "output"
+					? settings.bus
+					: undefined;
+			if (bus === undefined && bank === undefined) return null;
+			return { ...(bus !== undefined ? { bus } : {}), ...(bank !== undefined ? { bank } : {}) };
+		}
+		return null;
+	}
+
 	private async render(
+		tm: TotalMixConnection,
 		target: WillAppearEvent<VolumeSettings>["action"] | DialAction<VolumeSettings>,
 		settings: VolumeSettings,
 		override?: number,
 	): Promise<void> {
 		const address = this.addressFor(settings);
-		const value = override ?? totalMix.getNumber(address, 0);
 		const tgt = settings.target ?? "main";
 		const isGain = tgt === "gain";
+
+		// Reads are scoped to the view this dial REQUIRES, not whatever view is
+		// current — retained values from its own bus keep showing (with the right
+		// channel names) while another dial has the slot parked elsewhere. The
+		// placeholder only appears when that view has never delivered data.
+		const req = this.requiredView(settings);
+		if (override === undefined && tm.get(address, req) === undefined) {
+			if (target.isDial()) {
+				await target.setFeedback({
+					title: this.labelFor(tm, settings),
+					value: "—",
+					indicator: { value: 0 },
+				});
+			} else {
+				await target.setTitle("—");
+			}
+			return;
+		}
+
+		const value = override ?? tm.getNumber(address, 0, req);
 		// The Val string is TotalMix's own formatting and, for gain, the only
 		// truthful display — our 0..1 value has no fixed dB meaning there. Gain
 		// is shown as a bare whole number ("60" not "60.0 dB"): preamps step in
 		// integers, so the decimals and unit are noise on a small screen.
-		const raw = totalMix.getString(addr.displayOf(address));
+		const raw = tm.getString(addr.displayOf(address), req);
 		const label =
 			raw !== undefined
 				? isGain
@@ -307,35 +406,36 @@ export class Volume extends SingletonAction<VolumeSettings> {
 				: isGain || isFx(tgt)
 					? `${Math.round(value * 100)} %`
 					: formatDb(value);
-		const name = this.labelFor(settings);
+		const name = this.labelFor(tm, settings);
 
 		if (target.isDial()) {
 			await target.setFeedback({
 				title: name,
-				value: totalMix.connected ? label : "—",
+				value: tm.connected ? label : "—",
 				indicator: { value: faderToBar(value) },
 			});
 			return;
 		}
 
-		await target.setTitle(totalMix.connected ? label : "—");
+		await target.setTitle(tm.connected ? label : "—");
 	}
 
-	private labelFor(settings: VolumeSettings): string {
+	private labelFor(tm: TotalMixConnection, settings: VolumeSettings): string {
+		const req = this.requiredView(settings);
 		const target = settings.target ?? "main";
 		switch (target) {
 			case "main":
 				return "Main";
 			case "channel":
-				return totalMix.getString(addr.CH_TRACK_NAME) ?? "Channel";
+				return tm.getString(addr.CH_TRACK_NAME) ?? "Channel";
 			case "strip":
 				return (
-					totalMix.getString(addr.trackName(num(settings.strip, 1))) ??
+					tm.getString(addr.trackName(num(settings.strip, 1)), req) ??
 					`Strip ${num(settings.strip, 1)}`
 				);
 			case "gain":
 				return (
-					totalMix.getString(addr.trackName(num(settings.strip, 1))) ??
+					tm.getString(addr.trackName(num(settings.strip, 1)), req) ??
 					`Gain ${num(settings.strip, 1)}`
 				);
 			default:

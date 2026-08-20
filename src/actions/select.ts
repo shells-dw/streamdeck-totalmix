@@ -7,7 +7,7 @@ import {
 	type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import * as addr from "../totalmix/addresses.js";
-import { totalMix } from "../totalmix/connection.js";
+import { totalMixFor } from "../totalmix/connection.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 
 export type SelectSettings = {
@@ -40,18 +40,18 @@ export class Select extends SingletonAction<SelectSettings> {
 		target: WillAppearEvent<SelectSettings>["action"],
 		settings: SelectSettings,
 	): Promise<void> {
-		await totalMix.connect(connectionOptions(settings));
+		const tm = totalMixFor(connectionOptions(settings));
 
 		// Submix buttons show the active submix name, which is the one piece of
 		// feedback that makes a bank of them usable at a glance.
 		const render = (): void => {
 			if ((settings.mode ?? "submix") !== "submix") return;
-			const name = totalMix.getString(addr.LABEL_SUBMIX);
+			const name = tm.getString(addr.LABEL_SUBMIX);
 			if (name !== undefined) void target.setTitle(name);
 		};
 
 		this.releaseFor(target.id);
-		this.cleanup.set(target.id, [totalMix.subscribe(addr.LABEL_SUBMIX, render)]);
+		this.cleanup.set(target.id, [tm.subscribe(addr.LABEL_SUBMIX, render)]);
 
 		render();
 	}
@@ -62,33 +62,34 @@ export class Select extends SingletonAction<SelectSettings> {
 
 	override onKeyDown(ev: KeyDownEvent<SelectSettings>): void {
 		const s = ev.payload.settings;
+		const tm = totalMixFor(connectionOptions(s));
 		const value = num(s.value, 0);
 
 		switch (s.mode ?? "submix") {
 			case "submix":
 				// Numbering starts at 0 for single channels.
-				totalMix.send(addr.SET_SUBMIX, value);
+				tm.send(addr.SET_SUBMIX, value);
 				return;
 			case "bankStart":
-				totalMix.send(addr.SET_BANK_START, value);
+				tm.send(addr.SET_BANK_START, value);
 				return;
 			case "offsetInBank":
-				totalMix.send(addr.SET_OFFSET_IN_BANK, value);
+				tm.send(addr.SET_OFFSET_IN_BANK, value);
 				return;
 			case "quickWorkspace":
 				// Valid range is 1..30.
-				totalMix.send(addr.LOAD_QUICK_WORKSPACE, Math.min(Math.max(value, 1), 30));
+				tm.send(addr.LOAD_QUICK_WORKSPACE, Math.min(Math.max(value, 1), 30));
 				return;
 			case "snapshot":
 				// Snapshots are kOSCScaleToggle: 1.0 recalls. Range 1..8; the
 				// reversed grid indexing is handled inside addr.snapshot().
-				totalMix.toggle(addr.snapshot(Math.min(Math.max(value, 1), 8)));
+				tm.toggle(addr.snapshot(Math.min(Math.max(value, 1), 8)));
 				return;
 			case "bus":
-				totalMix.toggle(addr.bus(s.bus ?? "output"));
+				tm.toggle(addr.bus(s.bus ?? "output"));
 				return;
 			case "nav":
-				totalMix.send(this.navAddress(s.nav ?? "trackNext"), 1.0);
+				tm.send(this.navAddress(s.nav ?? "trackNext"), 1.0);
 				return;
 		}
 	}
