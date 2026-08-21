@@ -2,7 +2,7 @@
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "UUID": "de.shells.totalmix",
   "Name": "TotalMix FX",
-  "Version": "4.0.7.0",
+  "Version": "4.2.1.0",
   "Author": "shells",
   "Description": "Control RME TotalMix FX over OSC, with Stream Deck+ dial support.",
   "Category": "TotalMix FX",
@@ -87,6 +87,99 @@
         {
           "Image": "imgs/mixerOn",
           "TitleAlignment": "bottom"
+        }
+      ]
+    },
+    {
+      "Name": "Volume (TotalMix 2.1+)",
+      "UUID": "de.shells.totalmix.globalvolume",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Global OSC (TotalMix FX 2.1+): control a channel fader, submix send or preamp gain by absolute channel number. Dial: rotate to adjust, press to mute/solo. Key: nudge per press.",
+      "PropertyInspectorPath": "ui/global-volume.html",
+      "Controllers": [
+        "Keypad",
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "layouts/volume.json",
+        "TriggerDescription": {
+          "Rotate": "Adjust level",
+          "Push": "Mute / solo node",
+          "Touch": "Mute / solo node"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/volume",
+          "TitleAlignment": "bottom"
+        }
+      ]
+    },
+    {
+      "Name": "Toggle (TotalMix 2.1+)",
+      "UUID": "de.shells.totalmix.globaltoggle",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Global OSC (TotalMix FX 2.1+): flip any on/off parameter by absolute channel number — mute, dim, phantom, EQ, groups and more.",
+      "PropertyInspectorPath": "ui/global-toggle.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/muteOff",
+          "TitleAlignment": "bottom"
+        },
+        {
+          "Image": "imgs/muteOn",
+          "TitleAlignment": "bottom"
+        }
+      ],
+      "DisableAutomaticStates": true
+    },
+    {
+      "Name": "Trigger (TotalMix 2.1+)",
+      "UUID": "de.shells.totalmix.globaltrigger",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Global OSC (TotalMix FX 2.1+): load snapshots (with active-state light) and layouts, undo/redo, DURec transport, show/hide the TotalMix window.",
+      "PropertyInspectorPath": "ui/global-trigger.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "States": [
+        {
+          "Image": "imgs/actionDefaultImage",
+          "TitleAlignment": "bottom"
+        },
+        {
+          "Image": "imgs/mixerOn",
+          "TitleAlignment": "bottom"
+        }
+      ],
+      "DisableAutomaticStates": true
+    },
+    {
+      "Name": "Display (TotalMix 2.1+)",
+      "UUID": "de.shells.totalmix.globaldisplay",
+      "Icon": "imgs/actionIcon",
+      "Tooltip": "Global OSC (TotalMix FX 2.1+): read-only display of channel peak levels, device status, DSP load and DURec time/state. Press to refresh.",
+      "PropertyInspectorPath": "ui/global-display.html",
+      "Controllers": [
+        "Keypad",
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "layouts/volume.json",
+        "TriggerDescription": {
+          "Rotate": "—",
+          "Push": "Refresh status",
+          "Touch": "Refresh status"
+        }
+      },
+      "DisableAutomaticStates": true,
+      "States": [
+        {
+          "Image": "imgs/blank",
+          "TitleAlignment": "middle"
         }
       ]
     }

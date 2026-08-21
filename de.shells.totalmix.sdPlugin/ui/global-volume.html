@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  <style>
+    .hint {
+      color: #969696;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 2px 12px 8px;
+    }
+  </style>
+</head>
+<body>
+  <sdpi-item label="Target">
+    <sdpi-select setting="target" default="channel">
+      <option value="main">Main Out (Control Room)</option>
+      <option value="channel">Channel fader</option>
+      <option value="mixNode">Submix send (mix node)</option>
+      <option value="gain">Input gain (preamp)</option>
+    </sdpi-select>
+  </sdpi-item>
+
+  <div id="row-channel" hidden>
+    <sdpi-item label="Bus">
+      <sdpi-select setting="bus" default="output">
+        <option value="input">Input</option>
+        <option value="playback">Playback</option>
+        <option value="output">Output</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Channel">
+      <sdpi-select setting="channel" default="0" datasource="getGlobalChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+    <div id="row-submix" hidden>
+      <sdpi-item label="Submix">
+        <sdpi-select setting="submixOut" default="auto" datasource="getGlobalSubmixChoices" loading="Reading outputs…" show-refresh></sdpi-select>
+      </sdpi-item>
+      <p class="hint">
+        Input/playback faders are per-submix (each output has its own mix of
+        them). This picks which one the dial controls; the fader shown in the
+        TotalMix window only follows when that same submix is selected there.
+        The audio changes either way.
+      </p>
+    </div>
+    <p class="hint">
+      Channels are addressed absolutely — no bank or view to pin. A stereo pair
+      is addressed by its left channel. After changing the bus, refresh the
+      channel list.
+    </p>
+  </div>
+
+  <div id="row-gain" hidden>
+    <sdpi-item label="Channel">
+      <sdpi-select setting="gainChannel" default="0" datasource="getGlobalGainChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+    <p class="hint">
+      Gain is input-bus only, steps 1 dB per detent/press within 0–75 dB. On
+      stereo pairs, left and right have separate gains — the "(R)" entries
+      address the right side.
+    </p>
+  </div>
+
+  <div id="row-main" hidden>
+    <p class="hint">
+      Follows the Control Room's Main Out assignment automatically — the dial
+      always moves whatever output is currently Main Out. Dial press toggles Dim.
+    </p>
+  </div>
+
+  <div id="row-mix" hidden>
+    <sdpi-item label="Source bus">
+      <sdpi-select setting="mixSrcBus" default="in">
+        <option value="in">Input (hardware)</option>
+        <option value="pb">Playback (software)</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Source channel">
+      <sdpi-select setting="mixSrc" default="0" datasource="getGlobalSrcChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="To output">
+      <sdpi-select setting="mixOut" default="0" datasource="getGlobalOutChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+    <p class="hint">
+      Controls one node of the mix matrix: the send level of the source into the
+      chosen output's submix. Dial press solos the node. TotalMix's "Follow
+      Submix" option should be off when using Global OSC.
+    </p>
+  </div>
+
+  <div id="row-step">
+    <sdpi-item label="Step (dB)">
+      <sdpi-range setting="stepDb" min="0.5" max="6" step="0.5" default="1.5" showlabels></sdpi-range>
+    </sdpi-item>
+  </div>
+
+  <div id="row-nudge">
+    <sdpi-item label="Key press">
+      <sdpi-select setting="nudge" default="up">
+        <option value="up">Nudge up</option>
+        <option value="down">Nudge down</option>
+      </sdpi-select>
+    </sdpi-item>
+    <p class="hint">Applies to keys only. On a Stream Deck+ dial: rotate to adjust, press to mute (or solo the mix node).</p>
+  </div>
+
+  <details>
+    <summary>Connection (Global OSC slot)</summary>
+    <sdpi-item label="Host">
+      <sdpi-textfield setting="host" default="127.0.0.1" placeholder="127.0.0.1"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port incoming">
+      <sdpi-textfield setting="sendPort" default="7002"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port outgoing">
+      <sdpi-textfield setting="receivePort" default="9002"></sdpi-textfield>
+    </sdpi-item>
+    <p class="hint">
+      Set one TotalMix Remote Controller's Compatibility (Mode) to "Global OSC".
+      Defaults match controller 2 (7002/9002); the classic actions stay on
+      controller 1 (7001/9001).
+    </p>
+  </details>
+
+  <script>
+    (function () {
+      function valueOf(setting, fallback) {
+        var host = document.querySelector('[setting="' + setting + '"]');
+        if (!host) return fallback;
+        if (host.value !== undefined && host.value !== null && host.value !== "") return host.value;
+        var inner = host.querySelector("select,input");
+        return inner && inner.value ? inner.value : fallback;
+      }
+
+      function watch(apply) {
+        var run = function () { try { apply(valueOf); } catch (e) {} };
+        document.addEventListener("change", run, true);
+        document.addEventListener("input", run, true);
+        setInterval(run, 250);
+        run();
+      }
+
+      window.__watchSettings = watch;
+    })();
+  </script>
+  <script>
+    __watchSettings(function (v) {
+      var t = v("target", "channel");
+      var bus = v("bus", "output");
+      var inpb = t === "channel" && (bus === "input" || bus === "playback");
+      document.getElementById("row-channel").hidden = t !== "channel";
+      document.getElementById("row-submix").hidden = !inpb;
+      document.getElementById("row-gain").hidden = t !== "gain";
+      document.getElementById("row-mix").hidden = t !== "mixNode";
+      document.getElementById("row-main").hidden = t !== "main";
+      document.getElementById("row-step").hidden = t === "gain";
+    });
+  </script>
+</body>
+</html>

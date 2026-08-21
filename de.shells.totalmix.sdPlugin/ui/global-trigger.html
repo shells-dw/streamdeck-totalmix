@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  <style>
+    .hint {
+      color: #969696;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 2px 12px 8px;
+    }
+  </style>
+</head>
+<body>
+  <sdpi-item label="Action">
+    <sdpi-select setting="mode" default="snapshot">
+      <optgroup label="Snapshots and layouts">
+        <option value="snapshot">Load snapshot</option>
+        <option value="layout">Load layout preset</option>
+      </optgroup>
+      <optgroup label="Mixer">
+        <option value="undo">Undo</option>
+        <option value="redo">Redo</option>
+        <option value="recall">Recall volume</option>
+      </optgroup>
+      <optgroup label="DURec">
+        <option value="durecPlay">Play</option>
+        <option value="durecPause">Pause</option>
+        <option value="durecStop">Stop</option>
+        <option value="durecRecord">Record</option>
+        <option value="durecNext">Next</option>
+        <option value="durecPrevious">Previous</option>
+      </optgroup>
+      <optgroup label="Window">
+        <option value="showWindow">Show TotalMix window</option>
+        <option value="hideWindow">Hide TotalMix window</option>
+      </optgroup>
+    </sdpi-select>
+  </sdpi-item>
+
+  <div id="row-snapshot" hidden>
+    <sdpi-item label="Snapshot">
+      <sdpi-range setting="index" min="1" max="8" step="1" default="1" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint">
+      The key lights up while its snapshot is active — TotalMix signals this
+      over Global OSC even for loads made in the mixer window.
+    </p>
+  </div>
+
+  <div id="row-layout" hidden>
+    <sdpi-item label="Layout preset">
+      <sdpi-textfield setting="index" default="1" placeholder="1"></sdpi-textfield>
+    </sdpi-item>
+  </div>
+
+  <p class="hint" id="hint-durec-stop" hidden>
+    While recording, TotalMix requires Stop to be pressed twice before it
+    actually stops — a safety against losing a take by accident.
+  </p>
+
+  <details>
+    <summary>Connection (Global OSC slot)</summary>
+    <sdpi-item label="Host">
+      <sdpi-textfield setting="host" default="127.0.0.1" placeholder="127.0.0.1"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port incoming">
+      <sdpi-textfield setting="sendPort" default="7002"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port outgoing">
+      <sdpi-textfield setting="receivePort" default="9002"></sdpi-textfield>
+    </sdpi-item>
+    <p class="hint">
+      Set one TotalMix Remote Controller's Compatibility (Mode) to "Global OSC".
+      Defaults match controller 2 (7002/9002).
+    </p>
+  </details>
+
+  <script>
+    (function () {
+      function valueOf(setting, fallback) {
+        var host = document.querySelector('[setting="' + setting + '"]');
+        if (!host) return fallback;
+        if (host.value !== undefined && host.value !== null && host.value !== "") return host.value;
+        var inner = host.querySelector("select,input");
+        return inner && inner.value ? inner.value : fallback;
+      }
+
+      function watch(apply) {
+        var run = function () { try { apply(valueOf); } catch (e) {} };
+        document.addEventListener("change", run, true);
+        document.addEventListener("input", run, true);
+        setInterval(run, 250);
+        run();
+      }
+
+      window.__watchSettings = watch;
+    })();
+  </script>
+  <script>
+    __watchSettings(function (v) {
+      var m = v("mode", "snapshot");
+      document.getElementById("row-snapshot").hidden = m !== "snapshot";
+      document.getElementById("row-layout").hidden = m !== "layout";
+      document.getElementById("hint-durec-stop").hidden = m !== "durecStop";
+    });
+  </script>
+</body>
+</html>

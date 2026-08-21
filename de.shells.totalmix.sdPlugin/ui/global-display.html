@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  <style>
+    .hint {
+      color: #969696;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 2px 12px 8px;
+    }
+  </style>
+</head>
+<body>
+  <sdpi-item label="Show">
+    <sdpi-select setting="mode" default="level">
+      <option value="level">Channel peak level</option>
+      <optgroup label="Status">
+        <option value="statusDevice">Device name</option>
+        <option value="statusConnection">Device connection</option>
+        <option value="statusDsp">DSP load</option>
+      </optgroup>
+      <optgroup label="DURec">
+        <option value="durecTime">Time in file</option>
+        <option value="durecState">Transport state</option>
+      </optgroup>
+    </sdpi-select>
+  </sdpi-item>
+
+  <div id="row-level" hidden>
+    <sdpi-item label="Bus">
+      <sdpi-select setting="bus" default="input">
+        <option value="input">Input</option>
+        <option value="playback">Playback</option>
+        <option value="output">Output</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Channel">
+      <sdpi-select setting="channel" default="0" datasource="getGlobalChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+    <p class="hint">
+      Peak level in dB, as TotalMix sends it (only changes are transmitted, so a
+      silent channel keeps its last value). Refresh the channel list after
+      changing the bus.
+    </p>
+  </div>
+
+  <p class="hint">
+    Display only. Pressing the key or dial asks TotalMix to re-send all status
+    data (/sendstate) in case the display is stale.
+  </p>
+
+  <details>
+    <summary>Connection (Global OSC slot)</summary>
+    <sdpi-item label="Host">
+      <sdpi-textfield setting="host" default="127.0.0.1" placeholder="127.0.0.1"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port incoming">
+      <sdpi-textfield setting="sendPort" default="7002"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port outgoing">
+      <sdpi-textfield setting="receivePort" default="9002"></sdpi-textfield>
+    </sdpi-item>
+    <p class="hint">
+      Set one TotalMix Remote Controller's Compatibility (Mode) to "Global OSC".
+      Defaults match controller 2 (7002/9002).
+    </p>
+  </details>
+
+  <script>
+    (function () {
+      function valueOf(setting, fallback) {
+        var host = document.querySelector('[setting="' + setting + '"]');
+        if (!host) return fallback;
+        if (host.value !== undefined && host.value !== null && host.value !== "") return host.value;
+        var inner = host.querySelector("select,input");
+        return inner && inner.value ? inner.value : fallback;
+      }
+
+      function watch(apply) {
+        var run = function () { try { apply(valueOf); } catch (e) {} };
+        document.addEventListener("change", run, true);
+        document.addEventListener("input", run, true);
+        setInterval(run, 250);
+        run();
+      }
+
+      window.__watchSettings = watch;
+    })();
+  </script>
+  <script>
+    __watchSettings(function (v) {
+      var m = v("mode", "level");
+      document.getElementById("row-level").hidden = m !== "level";
+    });
+  </script>
+</body>
+</html>
