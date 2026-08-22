@@ -1,22 +1,21 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
-  "UUID": "de.shells.totalmix",
-  "Name": "TotalMix FX",
+  "UUID": "de.shellsdw.totalmix2",
+  "Name": "TotalMix FX (Gen2)",
   "Version": "4.2.1.0",
-  "Author": "shells",
+  "Author": "shells-dw",
   "Description": "Control RME TotalMix FX over OSC, with Stream Deck+ dial support.",
-  "Category": "TotalMix FX",
+  "Category": "TotalMix FX (Gen2)",
   "CategoryIcon": "imgs/category/categoryIcon",
   "Icon": "imgs/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
   "CodePath": "bin/plugin.js",
-  "SDKVersion": 2,
+  "SDKVersion": 3,
   "Nodejs": {
-    "Version": "20",
-    "Debug": "enabled"
+    "Version": "20"
   },
   "Software": {
-    "MinimumVersion": "6.6"
+    "MinimumVersion": "6.9"
   },
   "OS": [
     {
@@ -31,8 +30,8 @@
   "Actions": [
     {
       "Name": "Volume",
-      "UUID": "de.shells.totalmix.volume",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.volume",
+      "Icon": "imgs/iconVolume",
       "Tooltip": "Control a fader, input gain or FX parameter. Dial: rotate to adjust, press to mute/dim. Key: nudge up or down per press.",
       "PropertyInspectorPath": "ui/volume.html",
       "Controllers": [
@@ -56,8 +55,8 @@
     },
     {
       "Name": "Toggle",
-      "UUID": "de.shells.totalmix.toggle",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.toggle",
+      "Icon": "imgs/iconToggle",
       "Tooltip": "Flip any on/off parameter: dim, mono, mute, phantom, groups, snapshots.",
       "PropertyInspectorPath": "ui/toggle.html",
       "Controllers": [
@@ -76,8 +75,8 @@
     },
     {
       "Name": "Select",
-      "UUID": "de.shells.totalmix.select",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.select",
+      "Icon": "imgs/iconSelect",
       "Tooltip": "Jump straight to a submix, bank position, bus or Quick Workspace.",
       "PropertyInspectorPath": "ui/select.html",
       "Controllers": [
@@ -92,8 +91,8 @@
     },
     {
       "Name": "Volume (TotalMix 2.1+)",
-      "UUID": "de.shells.totalmix.globalvolume",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.globalvolume",
+      "Icon": "imgs/iconGlobalVolume",
       "Tooltip": "Global OSC (TotalMix FX 2.1+): control a channel fader, submix send or preamp gain by absolute channel number. Dial: rotate to adjust, press to mute/solo. Key: nudge per press.",
       "PropertyInspectorPath": "ui/global-volume.html",
       "Controllers": [
@@ -117,8 +116,8 @@
     },
     {
       "Name": "Toggle (TotalMix 2.1+)",
-      "UUID": "de.shells.totalmix.globaltoggle",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.globaltoggle",
+      "Icon": "imgs/iconGlobalToggle",
       "Tooltip": "Global OSC (TotalMix FX 2.1+): flip any on/off parameter by absolute channel number — mute, dim, phantom, EQ, groups and more.",
       "PropertyInspectorPath": "ui/global-toggle.html",
       "Controllers": [
@@ -138,8 +137,8 @@
     },
     {
       "Name": "Trigger (TotalMix 2.1+)",
-      "UUID": "de.shells.totalmix.globaltrigger",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.globaltrigger",
+      "Icon": "imgs/iconGlobalTrigger",
       "Tooltip": "Global OSC (TotalMix FX 2.1+): load snapshots (with active-state light) and layouts, undo/redo, DURec transport, show/hide the TotalMix window.",
       "PropertyInspectorPath": "ui/global-trigger.html",
       "Controllers": [
@@ -159,8 +158,8 @@
     },
     {
       "Name": "Display (TotalMix 2.1+)",
-      "UUID": "de.shells.totalmix.globaldisplay",
-      "Icon": "imgs/actionIcon",
+      "UUID": "de.shellsdw.totalmix2.globaldisplay",
+      "Icon": "imgs/iconGlobalDisplay",
       "Tooltip": "Global OSC (TotalMix FX 2.1+): read-only display of channel peak levels, device status, DSP load and DURec time/state. Press to refresh.",
       "PropertyInspectorPath": "ui/global-display.html",
       "Controllers": [

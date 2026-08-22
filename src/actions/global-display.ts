@@ -57,7 +57,7 @@ const METER_FLOOR_DB = -60;
  * "all status messages incl. DURec" — plus a full refresh, so a stale display
  * can always be nudged by hand.
  */
-@action({ UUID: "de.shells.totalmix.globaldisplay" })
+@action({ UUID: "de.shellsdw.totalmix2.globaldisplay" })
 export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

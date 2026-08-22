@@ -24,7 +24,7 @@ export type SelectSettings = {
 /**
  * Direct selection of submix, bank position, bus and Quick Workspace.
  */
-@action({ UUID: "de.shells.totalmix.select" })
+@action({ UUID: "de.shellsdw.totalmix2.select" })
 export class Select extends SingletonAction<SelectSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

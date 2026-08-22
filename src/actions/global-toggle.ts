@@ -132,7 +132,7 @@ const ICON_ALIAS: Record<GlobalToggleParameter, ToggleParameter> = {
  * optimistically, which also covers the group addresses TotalMix never reports:
  * for those the button's own presses ARE the state, noted in the PI.
  */
-@action({ UUID: "de.shells.totalmix.globaltoggle" })
+@action({ UUID: "de.shellsdw.totalmix2.globaltoggle" })
 export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

@@ -39,7 +39,7 @@ running side by side with the classic actions:
 The classic actions keep working unchanged — both protocols run in parallel on
 separate TotalMix Remote Controllers.
 > [!NOTE]  
-> Global OSC is still beta and may change with any new release.
+> Global OSC is still beta and may change with any new release. You will need TotalMix 2.1x, which is currently in beta, for this feature.
 
 ![Overview](/docs/images/GH_SocPic.png)
 
@@ -51,15 +51,19 @@ It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers global act
 
 Inside the Gitub Release you can find the precompiled plugin. Download and open it, your computer should already recognize this as a StreamDeck file and offer to open it with StreamDeck - which will have the plugin available in the list then.
 
-## Upgrading from v3
+## Coming from v3
 
-**Your existing buttons will not carry over.** v4 consolidates what used to be many separate actions into three, so buttons must be re-added. Your settings, ports and icons are otherwise familiar.
+**Your existing buttons will not carry over.** v4 consolidates what used to be many separate actions into three, plus four more for TotalMix FX 2.1's Global OSC, so buttons must be re-added. Your settings, ports and icons are otherwise familiar.
+
+It's a different plugin with different UUID so it **will** run alongside your existing plugin, **however** they can't both point to the same OSC controllers. v3 uses Remote Controllers 1 and 2, and so does v4, so the two collide completely. If you want both active at the same time, you must move one of them to a formerly unused OSC controller (TotalMix has four; 3 and 4 are the usual spares). Otherwise uninstall the old plugin!
 
 MIDI support has been removed. OSC does everything the MIDI actions did and reports state back, which MIDI cannot. If you depend on MIDI, stay on v3.3.5.
 
 The de.shells.totalmix.exe.config file is gone. Connection settings now live under Connection in each button's settings.
 
 ## Setup for OSC
+
+The classic actions use Remote Controller 1. The "(TotalMix 2.1+)" actions use Remote Controller 2 in Global OSC mode. Set up whichever matches the actions you intend to use — both only if you want both.
 
 Open Options → Settings… → OSC in TotalMix.
 
@@ -150,7 +154,7 @@ TotalMix FX 2.1 introduces a second, completely different OSC dialect ("Global O
 
 # I have an issue or miss a feature?
 
-You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in `%APPDATA%\Elgato\StreamDeck\Plugins\de.shells.totalmix.sdPlugin\logs`.
+You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in `%APPDATA%\Elgato\StreamDeck\Plugins\de.shellsdw.totalmix2.sdPlugin\logs`.
 As described above I developed this with a Fireface UC which is the only device I have at home and with that constant access to so debugging/developing for any other RME device might not be the the easiest task, but I'll see what I can do.
 
 # Contribute
@@ -164,6 +168,17 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![ko-fi](ht
 
 
 # Changelog
+## [4.2.1] - 2026-08-22
+### Changed
+- New plugin UUID — this now installs and runs alongside the v3 plugin instead of replacing it. Buttons from the old plugin do not carry over. **NOTE:** both plugins cannot use the same OSC controllers — see [Coming from v3](#coming-from-v3).
+- Renamed to "TotalMix FX Gen2", in both the plugin name and the action-list category, to tell the two apart.
+- Requires Stream Deck 6.9 or newer (was 6.6). Moved to SDK version 3 for DRM protection: file encryption and integrity checking.
+- Author field now reads "shellsdw".
+### Added
+- Individual action-list icons for all seven actions, replacing the single shared icon. The four "(TotalMix 2.1+)" actions carry a marker dot so they read as variants of their classic counterparts.
+### Fixed
+- Plugin icon was 72×72 and is now supplied at the required 256×256 and 512×512.
+
 ## [4.2.0] - 2026-08-21
 ### Added
 - Support for TotalMix FX 2.1's new "Global OSC" protocol, as four additional   actions running alongside the classic ones: Volume, Toggle, Trigger and Display "(TotalMix 2.1+)".

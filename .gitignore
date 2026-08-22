@@ -1,5 +1,5 @@
 node_modules/
-de.shells.totalmix.sdPlugin/bin/
+de.shellsdw.totalmix2.sdPlugin/bin/
 *.streamDeckPlugin
 fixtures/osc-capture.log
-de.shells.totalmix.sdPlugin/logs/
+de.shellsdw.totalmix2.sdPlugin/logs/
