@@ -9,6 +9,7 @@ import streamDeck, {
 import * as g from "../globalosc/addresses.js";
 import { globalMixFor, type GlobalConnection } from "../globalosc/connection.js";
 import { globalConnectionOptions } from "../globalosc/datasource.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 
 export type GlobalTriggerSettings = {
@@ -69,6 +70,7 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalTriggerSettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "global");
 		await this.setup(ev.action, ev.payload.settings);
 	}
 

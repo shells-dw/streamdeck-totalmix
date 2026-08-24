@@ -20,6 +20,7 @@ import {
 	replyGlobalChannelDatasource,
 } from "../globalosc/datasource.js";
 import { datasourceEvent } from "../totalmix/datasource.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 
 export type GlobalVolumeSettings = {
@@ -93,6 +94,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	private readonly primedChannels = new Set<string>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalVolumeSettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "global", { stepDb: true });
 		await this.setup(ev.action, ev.payload.settings);
 	}
 

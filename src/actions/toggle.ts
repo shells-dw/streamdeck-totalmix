@@ -11,6 +11,7 @@ import { asBool } from "../osc/codec.js";
 import * as addr from "../totalmix/addresses.js";
 import { iconFor } from "../totalmix/icons.js";
 import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
 
@@ -84,6 +85,7 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
 	override async onWillAppear(ev: WillAppearEvent<ToggleSettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "classic");
 		await this.setup(ev.action, ev.payload.settings);
 	}
 

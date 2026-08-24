@@ -4,8 +4,47 @@
   <meta charset="utf-8" />
   <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
   <style>
+    /*
+      sdpi-components injects only `body,html{background-color:#2d2d2d}` into the
+      light DOM. Its theme tokens (--font-color and friends) are declared inside
+      each component's shadow root, so plain HTML here cannot see them and falls
+      back to the browser default — black text on a dark background. Redeclare
+      them at :root, with the same values the library uses, so bare elements
+      match the components instead of disappearing.
+    */
+    :root {
+      --font-color: #969696;
+      --input-font-color: #d8d8d8;
+      --font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+      --font-size: 9pt;
+    }
+
+    body {
+      color: var(--font-color);
+      font-family: var(--font-family);
+      font-size: var(--font-size);
+    }
+
+    /* Collapsible section headers: brighter than labels, so they read as headings. */
+    summary {
+      color: var(--input-font-color);
+      font-family: var(--font-family);
+      font-size: var(--font-size);
+      cursor: pointer;
+      padding: 4px 0 4px 2px;
+      user-select: none;
+    }
+
+    summary:hover {
+      color: #ffffff;
+    }
+
+    details {
+      margin: 0 0 8px;
+    }
+
     .hint {
-      color: #969696;
+      color: var(--font-color);
       font-size: 11px;
       line-height: 1.4;
       margin: 2px 12px 8px;
@@ -121,6 +160,26 @@
       Defaults match controller 2 (7002/9002); the classic actions stay on
       controller 1 (7001/9001).
     </p>
+  </details>
+
+  <details>
+    <summary>Defaults for new buttons</summary>
+    <p class="hint">Stored in Stream Deck itself, so they survive plugin updates.
+    Leave a field empty to use the value shown in grey. These are copied into each
+    button as you add it — buttons already on your Stream Deck keep what they were
+    created with, and are changed under Connection above.</p>
+    <sdpi-item label="Host">
+      <sdpi-textfield setting="defaultGlobalHost" global placeholder="127.0.0.1"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port incoming">
+      <sdpi-textfield setting="defaultGlobalSendPort" global placeholder="7002"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port outgoing">
+      <sdpi-textfield setting="defaultGlobalReceivePort" global placeholder="9002"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="dB per step">
+      <sdpi-textfield setting="defaultStepDb" global placeholder="1.5"></sdpi-textfield>
+    </sdpi-item>
   </details>
 
   <script>

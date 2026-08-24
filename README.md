@@ -79,6 +79,17 @@ Set its *Compatibility (Mode)* to **Global OSC**. The plugin's defaults match co
 
 ![Enable OSC](/docs/images/OSC_setup2.png)
 
+### If your ports or host are different
+
+If TotalMix runs on another machine, or you use Remote Controller slots other than 1 and 2, open any action's property inspector and expand **Defaults for new buttons**. What you set there is copied into every button you add from then on, so you type it once instead of on all thirty buttons.
+
+These live in Stream Deck's own storage, not in a file inside the plugin folder — so unlike v3's `de.shells.totalmix.exe.config`, they survive plugin updates.
+
+Two things worth knowing:
+
+- Changing a default does not move buttons already on your Stream Deck. They keep the connection they were created with, changed under **Connection** in their own property inspector. This is deliberate: it's what lets one dial sit on Remote Controller 1 watching playback while another sits on a different slot watching inputs.
+- The classic actions and the "(TotalMix 2.1+)" Global OSC actions keep separate defaults, because they address separate controller slots.
+
 Then tick Enable OSC Control in the Options menu and make sure the Submix linked to OSC Controller are ticked for all In Use OSC Controllers.
 
 > [!NOTE]  
@@ -148,10 +159,6 @@ TotalMix FX 2.1 introduces a second, completely different OSC dialect ("Global O
 **Not yet in the 2.1 beta:** peak level meters (`/level/…`) are documented but not transmitted, and input/playback channel faders only exist as mix-matrix nodes. The Display action's level mode should start working once it's implemented.
 
 
-# Limitations
-
-- Currently differing ports and IPs must be set per button/dial again. That's fine if you run TotalMix on the same computer as the StreamDeck as it has the default values baked in, but can be annoying, I know, but currently no central setup is implemented.
-
 # I have an issue or miss a feature?
 
 You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in `%APPDATA%\Elgato\StreamDeck\Plugins\de.shellsdw.totalmix2.sdPlugin\logs`.
@@ -168,6 +175,10 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![ko-fi](ht
 
 
 # Changelog
+## [4.2.2] - 2026-08-24
+### Added
+- Defaults for new buttons. Host, ports and dB-per-step can be set once and are copied into each button as it is added, instead of being retyped per button. Stored in Stream Deck's global settings, so they survive plugin updates.
+
 ## [4.2.1] - 2026-08-22
 ### Changed
 - New plugin UUID — this now installs and runs alongside the v3 plugin instead of replacing it. Buttons from the old plugin do not carry over. **NOTE:** both plugins cannot use the same OSC controllers — see [Coming from v3](#coming-from-v3).

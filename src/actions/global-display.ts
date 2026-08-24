@@ -16,6 +16,7 @@ import {
 	replyGlobalChannelDatasource,
 } from "../globalosc/datasource.js";
 import { datasourceEvent } from "../totalmix/datasource.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { wrapTitle } from "../globalosc/wrap.js";
 
@@ -66,6 +67,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	private readonly renderTimers = new Map<string, NodeJS.Timeout>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalDisplaySettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "global");
 		await this.setup(ev.action, ev.payload.settings);
 	}
 

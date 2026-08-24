@@ -14,6 +14,7 @@ import { asBool, asNumber } from "../osc/codec.js";
 import { faderToBar, formatDb, stepDb } from "../osc/curves.js";
 import * as addr from "../totalmix/addresses.js";
 import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
 
@@ -150,6 +151,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	}
 
 	override async onWillAppear(ev: WillAppearEvent<VolumeSettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "classic", { stepDb: true });
 		await this.setup(ev.action, ev.payload.settings);
 	}
 

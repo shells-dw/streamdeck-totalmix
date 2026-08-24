@@ -15,6 +15,7 @@ import {
 	replyGlobalChannelDatasource,
 } from "../globalosc/datasource.js";
 import { datasourceEvent } from "../totalmix/datasource.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { iconFor } from "../totalmix/icons.js";
 import type { ToggleParameter } from "./toggle.js";
@@ -137,6 +138,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalToggleSettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "global");
 		await this.setup(ev.action, ev.payload.settings);
 	}
 

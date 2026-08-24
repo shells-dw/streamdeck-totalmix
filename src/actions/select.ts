@@ -8,6 +8,7 @@ import {
 } from "@elgato/streamdeck";
 import * as addr from "../totalmix/addresses.js";
 import { totalMixFor } from "../totalmix/connection.js";
+import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 
 export type SelectSettings = {
@@ -29,6 +30,7 @@ export class Select extends SingletonAction<SelectSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
 	override async onWillAppear(ev: WillAppearEvent<SelectSettings>): Promise<void> {
+		await seedDefaults(ev.action, ev.payload.settings, "classic");
 		await this.setup(ev.action, ev.payload.settings);
 	}
 
