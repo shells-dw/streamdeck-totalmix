@@ -175,7 +175,7 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![ko-fi](ht
 
 
 # Changelog
-## [4.2.2] - 2026-08-24
+## [4.3.0] - 2026-08-24
 ### Added
 - Defaults for new buttons. Host, ports and dB-per-step can be set once and are copied into each button as it is added, instead of being retyped per button. Stored in Stream Deck's global settings, so they survive plugin updates.
 
