@@ -1,7 +1,7 @@
  ![GitHub](https://img.shields.io/github/license/shells-dw/streamdeck-totalmix)     ![GitHub last commit](https://img.shields.io/github/last-commit/shells-dw/streamdeck-totalmix)/ [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dwshells) [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/dwshells)
 
 
-# Unofficial StreamDeck RME TotalMix FX Plugin
+# Unofficial StreamDeck TotalMix FX Plugin
 
 ## New in v4
 
@@ -175,6 +175,10 @@ If you'd like to drop me a coffee for the hours I've spent on this: [![ko-fi](ht
 
 
 # Changelog
+## [4.3.1] - 2026-08-26
+### Changed
+- Naming/Branding; remove "RME" for compliance.
+
 ## [4.3.0] - 2026-08-24
 ### Added
 - Defaults for new buttons. Host, ports and dB-per-step can be set once and are copied into each button as it is added, instead of being retyped per button. Stored in Stream Deck's global settings, so they survive plugin updates.

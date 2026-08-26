@@ -2,7 +2,7 @@
   "name": "streamdeck-totalmix",
   "version": "4.0.0",
   "type": "module",
-  "description": "Control RME TotalMix FX from a Stream Deck over OSC",
+  "description": "Control TotalMix FX from a Stream Deck over OSC",
   "license": "MIT",
   "scripts": {
     "build": "rollup -c",
