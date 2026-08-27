@@ -1,2 +1,0 @@
-2026-08-23T07:34:07.394Z INFO  Listening for TotalMix on udp/9001, sending to 127.0.0.1:7001
-2026-08-23T07:34:07.414Z INFO  First inbound OSC: 19 message(s). Sample: /1/labelS1, /1/labelS2, /1/labelS3, /1/labelS4, /1/labelS5, /1/labelS6, /1/labelS7, /1/labelS8
