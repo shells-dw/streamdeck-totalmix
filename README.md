@@ -43,6 +43,13 @@ separate TotalMix Remote Controllers.
 
 ![Overview](/docs/images/GH_SocPic.png)
 
+## New in v4.4 — dial gestures, pan, and state on the display
+
+- **Press and touch assignable**, on both the classic and the Global OSC volume dials. Each can be bound independently — mute, solo, cue, phantom, dim, mono, talkback, speaker B, global mute, set to −∞, set to 0 dB, centre the pan, or nothing at all. Left alone, each does the sensible thing for what the dial points at.
+- **Mute and solo show on the display.** A muted channel shows blue and a soloed one orange backround on the touchscreen. Driven by the mixer, so it follows a mute made anywhere — the dial, a Toggle key, or TotalMix itself.
+- **Pan on a dial**, for the selected channel or a strip in the bank, with TotalMix's own "L50 / C / R50" readout and a tap to centre.
+- The **Volume** action is now **Volume & Pan**. Same action, same UUID — your existing buttons are untouched.
+
 ## What Is This (and what does it do?)
 
 It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers global actions as well as individual channel actions on the [RME TotalMix FX][] application. Note: a RME audio interface/card is needed for TotalMix FX to work.
@@ -109,7 +116,7 @@ Note: if you're using a (software) firewall on your PC and/or any firewall betwe
  
 | Action | Where | What it does |
 |---|---|---|
-| **Volume** | Key or dial | Main out, a channel, the selected channel, input preamp gain, or an FX parameter. Rotate to adjust, press to mute/dim/bypass. |
+| **Volume & Pan** | Key or dial | Main out, a channel, the selected channel, pan, input preamp gain, or an FX parameter. Rotate to adjust; press and touch are assignable. |
 | **Toggle** | Key | Dim, mono, talkback, speaker B, mute, solo, phantom, cue, EQ, low cut, compressor, mute/solo/fader groups, snapshots, reverb, echo, Room EQ. |
 | **Select** | Key | Jump to a submix, channel, bus, snapshot, or Quick Workspace. |
 | **Volume (TotalMix 2.1+)** | Key or dial | Global OSC: channel fader, submix send or preamp gain, addressed by absolute channel number. Rotate to adjust, press to mute/dim/solo. |
@@ -125,7 +132,39 @@ Dials step in decibels along RME's own fader curve, so a detent moves the same a
 > On buttons instead of SD+ dials this will allow nudging up or down with a button press.
 
 ![Vol_Btn](/docs/images/SD_vol_btn.png) ![Vol_Dial](/docs/images/SD_vol_dial.png)
+
+### Press and touch
+
+A Stream Deck+ dial has three inputs, not one: turn it, press it, or tap the strip above it. Turning always sets the level. The other two are set per button under **On press** and **On touch**, and default to whatever suits the target:
+
+| Target | Press | Touch |
+|---|---|---|
+| Main / Control Room | Mute | Dim |
+| A channel, a strip, input gain | Mute | Fader to −∞ |
+| Pan | Mute | Centre |
+| An FX parameter | Bypass | Parameter to minimum |
+
+
+Either can be reassigned to something else entirely. The menu is grouped by what the choice acts on:
+
+- **This dial** — mute, solo/PFL, cue, phantom power, set to −∞, set to 0 dB, centre the pan, bypass the effect. These follow the channel the dial controls.
+- **Control room** — dim, mono, talkback, speaker B, external input, mute FX return, recall main volume. These are global switches, so any dial can carry one regardless of what it points at.
+- **Global** — mute all, solo all.
+- **Nothing**, for a dial you would rather not fire by accident.
+
+> [!NOTE]
+> Setting a fader to −∞ remembers the level it was at, so pressing or tapping
+> again restores it. It silences a channel without touching its mute state, which
+> means it also leaves any mute group the channel belongs to alone.
+
+### Mute and solo on the dial display
+
+A muted channel's display background turns blue, a soloed one orange. This also appears when a fader is parked at −∞. 
+
+### Pan
  
+Pan sits alongside volume on the same action, as **Pan (selected channel)** on **Pan (strip in current bank)**. It steps 1% of the throw per detent, which is two of TotalMix's own units, and displays TotalMix's notation — `L50`, `C`, `R50`. A tap on the touch strip centres it again.
+
 ### Picking a channel
  
 Choose channels by name — the dropdown lists what TotalMix calls them ("1 · Mic 1"), read live from your interface.
@@ -182,7 +221,22 @@ This is a private project, I am not affiliated with RME or Elgato.
 
 
 # Changelog
-## [4.3.4] - 2026-08-27
+## [4.4.0] - 2026-08-27
+### Added
+- Assignable dial gestures. A Stream Deck+ dial's press and its touch-strip tap can each be bound independently, under **On press** and **On touch**.
+- Mute and solo state on the dial display. A muted channel's background turns blue, a soloed one orange. A fader parked at −∞ counts as muted.
+- Pan on a dial, as two new targets: **Pan (selected channel)** and **Pan (strip in current bank)**. Steps 1% of the throw per detent — two of TotalMix's units — snapped to the grid so turning back from either side lands exactly on centre. Displays TotalMix's own `L50 / C / R50` notation.
+- A mute for the main out. The press drops the fader to −∞ and remembers the level, restoring it on the next press. The restore point is refreshed from every level TotalMix reports, not only from the gesture, so a fader already down when the plugin starts still has somewhere to come back to. Dim moves to the touch tap.
+- Assignable gestures on the Global OSC volume dial too, with its own vocabulary: no cue and no pan, since the protocol's channel section carries neither as far as I can see, and a mix node defaults its press to solo because a send has no mute of its own.
+- The background color applies to **Volume (TotalMix 2.1+)** dials too.
+
+### Changed
+- The Volume action is now **Volume & Pan**, reflecting that it already covered preamp gain and ten FX parameters as well as faders.
+
+### Known limits
+- Per-strip Solo/PFL is inputs and playbacks only, per RME's OSC table, and since 1.96 TotalMix re-sends 0 for parameters that don't apply to the current bus.
+
+## [4.3.5] - 2026-08-27
 ### Changed
 - Plugin UUID changed again, sorry for that.
 

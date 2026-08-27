@@ -739,3 +739,63 @@ describe("startup view priming", () => {
 		expect(conn.getNumber("/1/volume2", -1, { bus: "output", bank: 0 })).toBeCloseTo(0.9, 5);
 	});
 });
+
+/**
+ * The startup case behind "a button only follows the mixer once you press it".
+ *
+ * A positional value is filed under the view current when it arrives, and the
+ * first dump is the one that reveals that view — so anything preceding the busX
+ * and labelSubmix messages in it lands under the placeholder view instead.
+ */
+describe("re-request once the view is known", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("makes a value that arrived before the view readable afterwards", async () => {
+		await delay(60);
+
+		// A dump in the awkward order: the fader first, the view second.
+		await fake.push(PLUGIN_PORT, "/1/volume1", 0.8);
+		await fake.push(PLUGIN_PORT, "/1/busInput", 1.0);
+		await fake.pushString(PLUGIN_PORT, "/1/labelSubmix", "Main");
+		await delay(60);
+
+		// Stranded: filed under the placeholder view, unreadable from the real one.
+		expect(conn.get("/1/volume1", { bus: "input" })).toBeUndefined();
+
+		// The re-request goes out, and the second dump files correctly.
+		fake.received.length = 0;
+		await delay(500);
+		expect(fake.received.map((m) => m.address)).toEqual(["/2/mute", "/1/globalMute"]);
+
+		await fake.push(PLUGIN_PORT, "/1/volume1", 0.8);
+		await delay(60);
+		// OSC carries 32-bit floats, so 0.8 comes back as its nearest single.
+		expect(conn.get("/1/volume1", { bus: "input" })).toBeCloseTo(0.8, 6);
+	});
+
+	it("re-requests only once, so it cannot loop", async () => {
+		await delay(60);
+		await fake.push(PLUGIN_PORT, "/1/busInput", 1.0);
+		await delay(500);
+
+		fake.received.length = 0;
+		await fake.pushString(PLUGIN_PORT, "/1/labelSubmix", "Main");
+		await fake.push(PLUGIN_PORT, "/1/busPlayback", 1.0);
+		await delay(500);
+
+		expect(fake.received).toEqual([]);
+	});
+});

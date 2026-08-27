@@ -19,6 +19,8 @@ import { datasourceEvent } from "../totalmix/datasource.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { wrapTitle } from "../globalosc/wrap.js";
+import { alertIfDown } from "./alert.js";
+import { washFeedback } from "./wash.js";
 
 export type GlobalDisplaySettings = {
 	mode?: GlobalDisplayMode;
@@ -140,10 +142,12 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	}
 
 	override onKeyDown(ev: KeyDownEvent<GlobalDisplaySettings>): void {
+		if (alertIfDown(ev.action, globalMixFor(globalConnectionOptions(ev.payload.settings)))) return;
 		this.refresh(ev.payload.settings);
 	}
 
 	override onDialDown(ev: DialDownEvent<GlobalDisplaySettings>): void {
+		if (alertIfDown(ev.action, globalMixFor(globalConnectionOptions(ev.payload.settings)))) return;
 		this.refresh(ev.payload.settings);
 	}
 
@@ -244,11 +248,12 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 		const text = formatted?.text ?? "—";
 
 		if (target.isDial()) {
-			await target.setFeedback({
-				title: this.labelFor(gm, settings),
-				value: text,
-				indicator: { value: formatted?.bar ?? 0 },
-			});
+			// Read-only, so never washed — but it shares the volume layout and so
+			// must use its keys and write its colours, or a wash left by another
+			// action's render would stick to this one.
+			await target.setFeedback(
+				washFeedback(this.labelFor(gm, settings), text, formatted?.bar ?? 0, "none"),
+			);
 			return;
 		}
 

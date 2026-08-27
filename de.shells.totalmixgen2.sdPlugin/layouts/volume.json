@@ -3,9 +3,17 @@
   "id": "layouts/volume.json",
   "items": [
     {
-      "key": "title",
+      "key": "bg",
+      "type": "pixmap",
+      "rect": [0, 0, 200, 100],
+      "zOrder": 0,
+      "value": "imgs/clearWash.png"
+    },
+    {
+      "key": "name",
       "type": "text",
       "rect": [8, 6, 184, 20],
+      "zOrder": 10,
       "font": { "size": 15, "weight": 600 },
       "alignment": "center"
     },
@@ -13,6 +21,7 @@
       "key": "value",
       "type": "text",
       "rect": [8, 28, 184, 26],
+      "zOrder": 10,
       "font": { "size": 22, "weight": 600 },
       "alignment": "center"
     },
@@ -20,6 +29,7 @@
       "key": "indicator",
       "type": "bar",
       "rect": [16, 60, 168, 12],
+      "zOrder": 10,
       "value": 0,
       "subtype": 4,
       "border_w": 0,

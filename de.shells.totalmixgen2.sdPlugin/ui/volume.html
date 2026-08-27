@@ -58,6 +58,8 @@
       <option value="strip">Strip in current bank</option>
       <option value="channel">Selected channel (page 2)</option>
       <option value="gain">Input gain (preamp)</option>
+      <option value="pan">Pan (selected channel)</option>
+      <option value="stripPan">Pan (strip in current bank)</option>
       <optgroup label="Effects">
         <option value="fxReverbSend">Reverb send (selected channel)</option>
         <option value="fxReverbReturn">Reverb return</option>
@@ -95,6 +97,68 @@
       set Bus, Pin bank start to 0, and Strip to the channel's position on that
       bus (a stereo pair counts as one strip).
     </p>
+  </div>
+
+  <div id="row-gestures" hidden>
+    <sdpi-item label="On press">
+      <sdpi-select setting="press" default="auto">
+        <option value="auto">Default for this target</option>
+        <option value="none">Nothing</option>
+        <optgroup label="This dial">
+          <option value="mute" data-kinds="main strip channel gain pan">Mute</option>
+          <option value="solo" data-kinds="strip channel gain pan">Solo / PFL</option>
+          <option value="cue" data-kinds="strip channel gain pan">Cue</option>
+          <option value="phantom" data-kinds="strip channel gain pan">Phantom power (48V)</option>
+          <option value="infinity" data-kinds="main strip channel gain fx">Set to −∞ (press again to restore)</option>
+          <option value="unity" data-kinds="main strip channel">Set to 0 dB</option>
+          <option value="center" data-kinds="pan">Centre the pan</option>
+          <option value="bypass" data-kinds="fx">Bypass the effect</option>
+        </optgroup>
+        <optgroup label="Control room">
+          <option value="dim">Dim</option>
+          <option value="mono">Mono</option>
+          <option value="talkback">Talkback</option>
+          <option value="speakerB">Speaker B</option>
+          <option value="extIn">External input</option>
+          <option value="muteFx">Mute FX return</option>
+          <option value="recall">Recall main volume</option>
+        </optgroup>
+        <optgroup label="Global">
+          <option value="globalMute">Mute all</option>
+          <option value="globalSolo">Solo all</option>
+        </optgroup>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="On touch">
+      <sdpi-select setting="touch" default="auto">
+        <option value="auto">Default for this target</option>
+        <option value="none">Nothing</option>
+        <optgroup label="This dial">
+          <option value="mute" data-kinds="main strip channel gain pan">Mute</option>
+          <option value="solo" data-kinds="strip channel gain pan">Solo / PFL</option>
+          <option value="cue" data-kinds="strip channel gain pan">Cue</option>
+          <option value="phantom" data-kinds="strip channel gain pan">Phantom power (48V)</option>
+          <option value="infinity" data-kinds="main strip channel gain fx">Set to −∞ (press again to restore)</option>
+          <option value="unity" data-kinds="main strip channel">Set to 0 dB</option>
+          <option value="center" data-kinds="pan">Centre the pan</option>
+          <option value="bypass" data-kinds="fx">Bypass the effect</option>
+        </optgroup>
+        <optgroup label="Control room">
+          <option value="dim">Dim</option>
+          <option value="mono">Mono</option>
+          <option value="talkback">Talkback</option>
+          <option value="speakerB">Speaker B</option>
+          <option value="extIn">External input</option>
+          <option value="muteFx">Mute FX return</option>
+          <option value="recall">Recall main volume</option>
+        </optgroup>
+        <optgroup label="Global">
+          <option value="globalMute">Mute all</option>
+          <option value="globalSolo">Solo all</option>
+        </optgroup>
+      </sdpi-select>
+    </sdpi-item>
+    <p class="hint" id="gesture-hint"></p>
   </div>
 
   <div id="row-nudge" hidden>
@@ -216,19 +280,56 @@
 
       // Gain shares the strip picker but is input-bus only, so the bus selector
       // disappears (the plugin pins Input itself). FX targets need neither.
-      document.getElementById("row-strip").hidden = (t !== "strip" && t !== "gain") || fx;
+      var positional = t === "strip" || t === "gain" || t === "stripPan";
+      document.getElementById("row-strip").hidden = !positional || fx;
       document.getElementById("row-bus").hidden = t === "gain" || fx;
 
       // Nudge direction only means anything on a key.
       document.getElementById("row-nudge").hidden = onDial;
       document.getElementById("nudge-hint").hidden = onKey; // hint only when unsure
 
-      // Keys: the step is configurable for every target. Dials: gain and FX use
-      // fixed steps (their ranges are device/parameter-defined).
-      document.getElementById("row-step").hidden = onDial ? (t === "gain" || fx) : false;
+      var pan = t === "pan" || t === "stripPan";
+
+      // Keys: the step is configurable for every target. Dials: gain, FX and pan
+      // use fixed steps (their ranges are device- or parameter-defined).
+      document.getElementById("row-step").hidden = onDial ? (t === "gain" || fx || pan) : false;
 
       // The device only sets the gain span, so it is noise on every other target.
       document.getElementById("row-device").hidden = t !== "gain";
+
+      // Press and touch are dial gestures; a key has no touch strip and its press
+      // is the nudge above.
+      document.getElementById("row-gestures").hidden = onKey;
+
+      // An option the target cannot perform is hidden rather than disabled, and
+      // the plugin falls back to the default if an old setting survives a target
+      // change. Both sides have to agree: this list mirrors GESTURES in
+      // src/actions/gestures.ts.
+      var kind = fx ? "fx" : pan ? "pan" : t;
+      var applicable = {};
+      Array.prototype.forEach.call(document.querySelectorAll("#row-gestures option"), function (opt) {
+        var kinds = opt.getAttribute("data-kinds");
+        var ok = !kinds || kinds.split(" ").indexOf(kind) !== -1;
+        opt.hidden = !ok;
+        opt.disabled = !ok;
+        if (ok) applicable[opt.value] = true;
+      });
+
+      // Optgroups whose every option went away would otherwise leave a stray label.
+      Array.prototype.forEach.call(document.querySelectorAll("#row-gestures optgroup"), function (group) {
+        group.hidden = !group.querySelector("option:not([hidden])");
+      });
+
+      document.getElementById("gesture-hint").textContent =
+        pan
+          ? "Default: press mutes the channel; touch centres the pan."
+          : t === "main"
+          ? "Default: press mutes by dropping the fader to \u2212\u221e and remembering the level " +
+            "(the classic OSC protocol has no main-out mute); touch dims."
+          : fx
+            ? "Default: press bypasses the effect; touch sets the parameter to its minimum."
+            : "Default: press mutes; touch drops the fader to \u2212\u221e, which silences the " +
+              "channel without touching its mute state or its mute group. Press or tap again to restore.";
     });
   </script>
 </body>

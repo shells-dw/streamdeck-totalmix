@@ -19,6 +19,7 @@ import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { iconFor } from "../totalmix/icons.js";
 import type { ToggleParameter } from "./toggle.js";
+import { alertIfDown } from "./alert.js";
 
 export type GlobalToggleSettings = {
 	parameter?: GlobalToggleParameter;
@@ -194,6 +195,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 
 	override onKeyDown(ev: KeyDownEvent<GlobalToggleSettings>): void {
 		const gm = globalMixFor(globalConnectionOptions(ev.payload.settings));
+		if (alertIfDown(ev.action, gm)) return;
 		const address = this.addressFor(ev.payload.settings);
 		streamDeck.logger.info(`Key press: set-toggle ${address}`);
 		gm.toggleSet(address);

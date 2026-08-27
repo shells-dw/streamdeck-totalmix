@@ -18,13 +18,28 @@ export const GAIN_ASSUMED_RANGE_DB = 65;
 /** FX steps 2% of range per detent — fine enough for time and frequency knobs. */
 export const FX_STEP = 0.02;
 
-export type StepKind = "fader" | "gain" | "fx";
+/**
+ * Pan steps 1% of the throw per detent.
+ *
+ * TotalMix pans in whole units from L100 through C to R100, so 1% of the 0..1
+ * wire value is two of its units — coarse enough to cross the image in a couple
+ * of turns, fine enough to place a source deliberately.
+ */
+export const PAN_STEP = 0.01;
+
+/**
+ * Global OSC balance steps the same 1% of the throw per detent, but its range is
+ * -1..+1 rather than 0..1, so the step is twice as large in wire units.
+ */
+export const BALANCE_STEP = 0.02;
+
+export type StepKind = "fader" | "gain" | "fx" | "pan";
 
 /**
  * Computes the next wire value for a continuous target.
  *
  * Faders step in dB along RME's curve — that curve is specific to mix faders and
- * must not be applied to the others. Gain and FX are linear on the wire.
+ * must not be applied to the others. Gain, FX and pan are linear on the wire.
  */
 export function computeNext(
 	kind: StepKind,
@@ -44,6 +59,10 @@ export function computeNext(
 			);
 		case "fx":
 			return clamp01(current + ticks * fxFraction);
+		case "pan":
+			// Snapped to the step grid so repeated detents land exactly on 0.5
+			// rather than drifting past centre by a rounding error.
+			return clamp01(Math.round((current + ticks * PAN_STEP) / PAN_STEP) * PAN_STEP);
 	}
 }
 

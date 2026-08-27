@@ -10,6 +10,7 @@ import * as addr from "../totalmix/addresses.js";
 import { totalMixFor } from "../totalmix/connection.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
+import { alertIfDown } from "./alert.js";
 
 export type SelectSettings = {
 	mode?: "submix" | "bankStart" | "offsetInBank" | "bus" | "quickWorkspace" | "nav" | "snapshot";
@@ -65,6 +66,7 @@ export class Select extends SingletonAction<SelectSettings> {
 	override onKeyDown(ev: KeyDownEvent<SelectSettings>): void {
 		const s = ev.payload.settings;
 		const tm = totalMixFor(connectionOptions(s));
+		if (alertIfDown(ev.action, tm)) return;
 		const value = num(s.value, 0);
 
 		switch (s.mode ?? "submix") {

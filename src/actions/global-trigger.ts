@@ -11,6 +11,7 @@ import { globalMixFor, type GlobalConnection } from "../globalosc/connection.js"
 import { globalConnectionOptions } from "../globalosc/datasource.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
+import { alertIfDown } from "./alert.js";
 
 export type GlobalTriggerSettings = {
 	mode?: GlobalTriggerMode;
@@ -131,6 +132,7 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 	override onKeyDown(ev: KeyDownEvent<GlobalTriggerSettings>): void {
 		const settings = ev.payload.settings;
 		const gm = globalMixFor(globalConnectionOptions(settings));
+		if (alertIfDown(ev.action, gm)) return;
 		const mode = settings.mode ?? "snapshot";
 		streamDeck.logger.info(`Key press: global trigger ${mode}`);
 

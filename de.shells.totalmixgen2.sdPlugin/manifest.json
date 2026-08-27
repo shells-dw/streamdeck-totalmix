@@ -2,7 +2,7 @@
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "UUID": "de.shells.totalmixgen2",
   "Name": "TotalMix FX Gen2",
-  "Version": "4.3.5.0",
+  "Version": "4.4.0.0",
   "Author": "shells-dw",
   "Description": "Control TotalMix FX over OSC, with Stream Deck+ dial support.",
   "Category": "TotalMix FX Gen2",
@@ -29,10 +29,10 @@
   ],
   "Actions": [
     {
-      "Name": "Volume",
+      "Name": "Volume & Pan",
       "UUID": "de.shells.totalmixgen2.volume",
       "Icon": "imgs/iconVolume",
-      "Tooltip": "Control a fader, input gain or FX parameter. Dial: rotate to adjust, press to mute/dim. Key: nudge up or down per press.",
+      "Tooltip": "Control a fader, pan, input gain or FX parameter. Dial: rotate to adjust; press and touch are configurable, and default to mute and dim/centre/-oo. Key: nudge up or down per press.",
       "PropertyInspectorPath": "ui/volume.html",
       "Controllers": [
         "Keypad",
@@ -42,8 +42,8 @@
         "layout": "layouts/volume.json",
         "TriggerDescription": {
           "Rotate": "Adjust level",
-          "Push": "Dim / mute",
-          "Touch": "Dim / mute"
+          "Push": "Mute",
+          "Touch": "Dim / -oo"
         }
       },
       "States": [
@@ -93,7 +93,7 @@
       "Name": "Volume (TotalMix 2.1+)",
       "UUID": "de.shells.totalmixgen2.globalvolume",
       "Icon": "imgs/iconGlobalVolume",
-      "Tooltip": "Global OSC (TotalMix FX 2.1+): control a channel fader, submix send or preamp gain by absolute channel number. Dial: rotate to adjust, press to mute/solo. Key: nudge per press.",
+      "Tooltip": "Global OSC (TotalMix FX 2.1+): control a channel fader, submix send or preamp gain by absolute channel number. Dial: rotate to adjust; press and touch are configurable. Key: nudge per press.",
       "PropertyInspectorPath": "ui/global-volume.html",
       "Controllers": [
         "Keypad",
@@ -103,8 +103,8 @@
         "layout": "layouts/volume.json",
         "TriggerDescription": {
           "Rotate": "Adjust level",
-          "Push": "Mute / solo node",
-          "Touch": "Mute / solo node"
+          "Push": "Mute",
+          "Touch": "Dim / -oo"
         }
       },
       "States": [

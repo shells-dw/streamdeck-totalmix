@@ -14,6 +14,7 @@ import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js"
 import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
+import { alertIfDown } from "./alert.js";
 
 export type ToggleSettings = {
 	/** Which parameter to flip. */
@@ -171,6 +172,7 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 
 	override onKeyDown(ev: KeyDownEvent<ToggleSettings>): void {
 		const tm = totalMixFor(connectionOptions(ev.payload.settings));
+		if (alertIfDown(ev.action, tm)) return;
 		const parameter = ev.payload.settings.parameter ?? "mainDim";
 		const address = this.addressFor(ev.payload.settings);
 

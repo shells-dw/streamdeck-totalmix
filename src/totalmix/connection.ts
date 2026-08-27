@@ -134,6 +134,24 @@ export class TotalMixConnection {
 	/** Guards the one-shot "first inbound" diagnostic in handlePacket. */
 	private loggedFirstInbound = false;
 
+	/**
+	 * Guards the one-shot re-request issued once the slot's view becomes known.
+	 * Cleared whenever the per-view cache is dropped, so a TotalMix restart or a
+	 * reconnect goes through the same sequence again.
+	 */
+	private revealedView = false;
+	private revealTimer: NodeJS.Timeout | null = null;
+
+	/**
+	 * Addresses seen at least once, for the per-address arrival diagnostic.
+	 *
+	 * TotalMix streams only the parameters of the page and view its slot is
+	 * mirroring, so "a button does not follow the mixer" has two very different
+	 * causes: the address never arrives, or it arrives and is filed under a view
+	 * the action does not read. Logging first arrival separates them.
+	 */
+	private readonly seenAddresses = new Set<string>();
+
 	/** Connection up/down subscribers, separate from per-address listeners. */
 	private readonly connectionListeners = new Set<(connected: boolean) => void>();
 
@@ -276,6 +294,75 @@ export class TotalMixConnection {
 	}
 
 	/**
+	 * Re-requests the page once the slot's bus and submix are first known.
+	 *
+	 * The first dump after connecting is the one that reveals them, and a
+	 * positional value is filed under the view current at the moment it arrives.
+	 * Anything in that dump preceding the busX and labelSubmix messages is
+	 * therefore filed under the placeholder "?" view, which no action reads once
+	 * the real view is known — so those buttons sit blank until something moves
+	 * the slot and provokes a fresh dump, which is why a press or a turn appeared
+	 * to be required before a button would track the mixer.
+	 *
+	 * The second dump costs two datagrams and lands entirely under the real view,
+	 * because by then it is known regardless of message order. Filing wakes the
+	 * subscribers, so every button repaints from it without any of them knowing
+	 * this happened.
+	 */
+	private onViewMaybeRevealed(): void {
+		if (this.revealedView) return;
+		if (this.view.bus === undefined && this.view.submix === undefined) return;
+
+		this.revealedView = true;
+		if (this.revealTimer !== null) clearTimeout(this.revealTimer);
+
+		// Deferred so the dump that revealed the view finishes first: a refresh
+		// sent mid-dump would move the slot while values were still arriving.
+		this.revealTimer = setTimeout(() => {
+			this.revealTimer = null;
+			streamDeck.logger.info(
+				`View known (${this.viewKey()}); re-requesting page ${this.page} so values file under it.`,
+			);
+			this.requestFullRefresh();
+		}, TotalMixConnection.REVEAL_REFRESH_MS);
+		this.revealTimer.unref?.();
+	}
+
+	/** Long enough for a page dump (about 80 ms) to finish before the slot moves. */
+	private static readonly REVEAL_REFRESH_MS = 400;
+
+	/**
+	 * Addresses worth a log line on first arrival even when nothing is listening:
+	 * the mute and solo flags that drive a dial's wash, and anything on page 2.
+	 * A page-2 address arriving at all is itself notable, since the slot mirrors
+	 * page 1 and TotalMix sends only the mirrored page.
+	 */
+	private static readonly DIAGNOSTIC = /^\/(?:1\/(?:mute|solo)\/1\/\d+|2\/)/;
+
+	/**
+	 * Logs the first time each address is seen, at info so it survives the default
+	 * log level.
+	 *
+	 * Bounded two ways: once per address, and only for addresses something is
+	 * subscribed to or that DIAGNOSTIC names. A button that does not follow the
+	 * mixer has two very different causes — the address never arrives, or it
+	 * arrives and is filed under a view the action does not read — and the view
+	 * key and listener count here separate them.
+	 */
+	private logFirstArrival(m: OscMessage, positional: boolean): void {
+		if (this.seenAddresses.has(m.address)) return;
+
+		const listeners = this.listeners.get(m.address)?.size ?? 0;
+		if (listeners === 0 && !TotalMixConnection.DIAGNOSTIC.test(m.address)) return;
+
+		this.seenAddresses.add(m.address);
+		streamDeck.logger.info(
+			`First arrival: ${m.address} = ${String(m.value)}, ` +
+				`${positional ? `view ${this.viewKey()}` : "global"}, ${listeners} listener(s)`,
+		);
+	}
+
+	/**
 	 * Files one message into the right cache and wakes its subscribers.
 	 *
 	 * Order matters: the view-tracking addresses (labelSubmix, busX) are read
@@ -301,11 +388,15 @@ export class TotalMixConnection {
 			if (active) this.view.bus = bus;
 		}
 
+		this.onViewMaybeRevealed();
+
 		const positional = TotalMixConnection.POSITIONAL.test(m.address);
 		const store = positional ? this.viewMap(this.viewKey()) : this.globals;
 
 		const previous = store.get(m.address);
 		if (previous === m.value) return; // unchanged; do not wake subscribers
+
+		this.logFirstArrival(m, positional);
 
 		store.set(m.address, m.value);
 
@@ -501,6 +592,8 @@ export class TotalMixConnection {
 	/** Drops all per-view state, for use after a TotalMix restart. */
 	private invalidateBankView(): void {
 		this.viewState.clear();
+		// The next dump has to reveal the view again, and be followed again.
+		this.revealedView = false;
 	}
 
 	/**
@@ -767,6 +860,8 @@ export class TotalMixConnection {
 		if (this.restoreTimer !== null) clearTimeout(this.restoreTimer);
 		if (this.refreshTimer !== null) clearInterval(this.refreshTimer);
 		if (this.primeTimer !== null) clearTimeout(this.primeTimer);
+		if (this.revealTimer !== null) clearTimeout(this.revealTimer);
+		this.revealTimer = null;
 		this.primeTimer = null;
 		this.flushTimer = null;
 		this.refreshTimer = null;

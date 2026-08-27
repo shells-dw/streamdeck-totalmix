@@ -58,6 +58,8 @@
       <option value="channel">Channel fader</option>
       <option value="mixNode">Submix send (mix node)</option>
       <option value="gain">Input gain (preamp)</option>
+      <option value="pan">Pan (channel)</option>
+      <option value="mixPan">Pan (submix send)</option>
     </sdpi-select>
   </sdpi-item>
 
@@ -134,6 +136,64 @@
     </sdpi-item>
   </div>
 
+  <div id="row-gestures" hidden>
+    <sdpi-item label="On press">
+      <sdpi-select setting="press" default="auto">
+        <option value="auto">Default for this target</option>
+        <option value="none">Nothing</option>
+        <optgroup label="This dial">
+          <option value="mute" data-kinds="main channel gain pan">Mute</option>
+          <option value="solo" data-kinds="channel gain mixNode pan mixPan">Solo / PFL</option>
+          <option value="phantom" data-kinds="channel gain pan">Phantom power (48V)</option>
+          <option value="infinity" data-kinds="main channel gain mixNode">Set to −∞ (press again to restore)</option>
+          <option value="unity" data-kinds="main channel mixNode">Set to 0 dB</option>
+          <option value="center" data-kinds="pan mixPan">Centre the pan</option>
+        </optgroup>
+        <optgroup label="Control room">
+          <option value="dim">Dim</option>
+          <option value="mono">Mono</option>
+          <option value="talkback">Talkback</option>
+          <option value="speakerB">Speaker B</option>
+          <option value="extIn">External input</option>
+          <option value="muteFx">Mute FX return</option>
+          <option value="recall">Recall main volume</option>
+        </optgroup>
+        <optgroup label="Global">
+          <option value="globalMute">Mute all</option>
+          <option value="globalSolo">Solo all</option>
+        </optgroup>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="On touch">
+      <sdpi-select setting="touch" default="auto">
+        <option value="auto">Default for this target</option>
+        <option value="none">Nothing</option>
+        <optgroup label="This dial">
+          <option value="mute" data-kinds="main channel gain pan">Mute</option>
+          <option value="solo" data-kinds="channel gain mixNode pan mixPan">Solo / PFL</option>
+          <option value="phantom" data-kinds="channel gain pan">Phantom power (48V)</option>
+          <option value="infinity" data-kinds="main channel gain mixNode">Set to −∞ (press again to restore)</option>
+          <option value="unity" data-kinds="main channel mixNode">Set to 0 dB</option>
+          <option value="center" data-kinds="pan mixPan">Centre the pan</option>
+        </optgroup>
+        <optgroup label="Control room">
+          <option value="dim">Dim</option>
+          <option value="mono">Mono</option>
+          <option value="talkback">Talkback</option>
+          <option value="speakerB">Speaker B</option>
+          <option value="extIn">External input</option>
+          <option value="muteFx">Mute FX return</option>
+          <option value="recall">Recall main volume</option>
+        </optgroup>
+        <optgroup label="Global">
+          <option value="globalMute">Mute all</option>
+          <option value="globalSolo">Solo all</option>
+        </optgroup>
+      </sdpi-select>
+    </sdpi-item>
+    <p class="hint" id="gesture-hint"></p>
+  </div>
+
   <div id="row-nudge">
     <sdpi-item label="Key press">
       <sdpi-select setting="nudge" default="up">
@@ -141,7 +201,7 @@
         <option value="down">Nudge down</option>
       </sdpi-select>
     </sdpi-item>
-    <p class="hint">Applies to keys only. On a Stream Deck+ dial: rotate to adjust, press to mute (or solo the mix node).</p>
+    <p class="hint">Applies to keys only. On a Stream Deck+ dial, rotate to adjust; press and touch are set above.</p>
   </div>
 
   <details>
@@ -204,16 +264,63 @@
     })();
   </script>
   <script>
+    // Which controller is this instance on? Documented sdpi-components API; when
+    // it fails we fall back to showing every field, which is cluttered but can
+    // never hide a control someone needs.
+    var controller = null;
+    try {
+      SDPIComponents.streamDeckClient.getConnectionInfo().then(function (info) {
+        try { controller = info.actionInfo.payload.controller || null; } catch (e) {}
+      }).catch(function () {});
+    } catch (e) {}
+
     __watchSettings(function (v) {
       var t = v("target", "channel");
       var bus = v("bus", "output");
+      // The submix picker exists because an in/pb fader is really a mix node.
+      // A channel's pan is not, so it does not need one.
       var inpb = t === "channel" && (bus === "input" || bus === "playback");
-      document.getElementById("row-channel").hidden = t !== "channel";
+      var pan = t === "pan" || t === "mixPan";
+      document.getElementById("row-channel").hidden = t !== "channel" && t !== "pan";
       document.getElementById("row-submix").hidden = !inpb;
       document.getElementById("row-gain").hidden = t !== "gain";
-      document.getElementById("row-mix").hidden = t !== "mixNode";
+      document.getElementById("row-mix").hidden = t !== "mixNode" && t !== "mixPan";
       document.getElementById("row-main").hidden = t !== "main";
-      document.getElementById("row-step").hidden = t === "gain";
+      // Balance has a fixed step: its range is not measured in dB.
+      document.getElementById("row-step").hidden = t === "gain" || pan;
+
+      // Press and touch are dial gestures; a key has no touch strip and its
+      // press is the nudge below.
+      document.getElementById("row-gestures").hidden = controller === "Keypad";
+
+      // An option the target cannot perform is hidden rather than disabled, and
+      // the plugin falls back to the default if an old setting survives a target
+      // change. Both sides have to agree: this list mirrors GLOBAL in
+      // src/actions/gestures.ts.
+      Array.prototype.forEach.call(document.querySelectorAll("#row-gestures option"), function (opt) {
+        var kinds = opt.getAttribute("data-kinds");
+        var ok = !kinds || kinds.split(" ").indexOf(t) !== -1;
+        opt.hidden = !ok;
+        opt.disabled = !ok;
+      });
+
+      // Optgroups whose every option went away would leave a stray label behind.
+      Array.prototype.forEach.call(document.querySelectorAll("#row-gestures optgroup"), function (group) {
+        group.hidden = !group.querySelector("option:not([hidden])");
+      });
+
+      document.getElementById("gesture-hint").textContent =
+        t === "pan" || t === "mixPan"
+          ? "Default: press " + (t === "mixPan" ? "solos the node" : "mutes the channel") +
+            "; touch centres the pan."
+          : t === "main"
+          ? "Default: press mutes by dropping the fader to \u2212\u221e and remembering the level " +
+            "(this protocol's control room has no mute); touch dims."
+          : t === "mixNode"
+            ? "Default: press solos the node \u2014 a send has no mute of its own, pulling it down " +
+              "is the mute; touch drops it to \u2212\u221e. Press or tap again to restore."
+            : "Default: press mutes; touch drops the fader to \u2212\u221e, which silences the " +
+              "channel without touching its mute state. Press or tap again to restore.";
     });
   </script>
 </body>

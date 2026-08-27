@@ -88,3 +88,28 @@ export const freqToValue = (hz: number): number =>
 
 export const valueToFreq = (value: number): number =>
 	Math.exp(clamp01(value) * (LOG_MAX - LOG_MIN) + LOG_MIN);
+
+/**
+ * Formats a pan wire value the way TotalMix prints it: "L100" to "C" to "R100".
+ *
+ * Only needed for page-1 strip pans, which are kOSCScaleNoSend and so have no
+ * ...Val string of their own; the selected-channel pan on page 2 is
+ * kOSCScalePrintPan and its own string is preferred wherever it is available.
+ */
+export function formatPan(value: number): string {
+	const units = Math.round((clamp01(value) * 2 - 1) * 100);
+	if (units === 0) return "C";
+	return units < 0 ? `L${-units}` : `R${units}`;
+}
+
+/**
+ * Formats a Global OSC balance/pan value, which runs -1.0 (hard left) through
+ * 0.0 (centre) to +1.0 (hard right), in the same notation TotalMix prints for
+ * the classic protocol's 0..1 pan.
+ */
+export function formatBalance(value: number): string {
+	const clamped = value < -1 ? -1 : value > 1 ? 1 : value;
+	const units = Math.round(clamped * 100);
+	if (units === 0) return "C";
+	return units < 0 ? `L${-units}` : `R${units}`;
+}
