@@ -165,7 +165,7 @@ TotalMix FX 2.1 introduces a Global OSC with absolute channel addressing. The fo
 
 # I have an issue or miss a feature?
 
-You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in `%APPDATA%\Elgato\StreamDeck\Plugins\de.shellsdw.totalmix2.sdPlugin\logs`.
+You can submit an issue or request a feature with [GitHub issues]. Please describe as good as possible what went wrong and also include any log files as they are incredibly helpful for me to figure out what went wrong. Logs can be found in `%APPDATA%\Elgato\StreamDeck\Plugins\de.shells.totalmixgen2.sdPlugin\logs`.
 As described above I developed this with a Fireface UC which is the only device I have at home and with that constant access to so debugging/developing for any other RME device might not be the the easiest task, but I'll see what I can do.
 
 # Contribute
@@ -182,6 +182,10 @@ This is a private project, I am not affiliated with RME or Elgato.
 
 
 # Changelog
+## [4.3.4] - 2026-08-27
+### Changed
+- Plugin UUID changed again, sorry for that.
+
 ## [4.3.4] - 2026-08-27
 ### Added
 - Device selection for the classic input gain dial. dB stepping needs the preamp's gain range, which the classic OSC protocol doesn't transmit, so the button settings now offer a list of RME interfaces with their gain spans. Unset or unrecognized devices fall back to the usual 65 dB span. The displayed value is always TotalMix's own readout, so it stays correct regardless of the setting.

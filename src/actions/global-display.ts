@@ -57,7 +57,7 @@ const METER_FLOOR_DB = -60;
  * A press requests /sendstate, the refresh trigger for all status messages
  * including DURec, plus a full refresh.
  */
-@action({ UUID: "de.shellsdw.totalmix2.globaldisplay" })
+@action({ UUID: "de.shells.totalmixgen2.globaldisplay" })
 export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

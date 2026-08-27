@@ -11,7 +11,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "de.shellsdw.totalmix2.sdPlugin/bin",
+    "outDir": "de.shells.totalmixgen2.sdPlugin/bin",
     "rootDir": "src"
   },
   "include": ["src/**/*.ts"]

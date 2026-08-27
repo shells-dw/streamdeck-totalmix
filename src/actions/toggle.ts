@@ -80,7 +80,7 @@ const ONOFF_PARAMETERS: ReadonlySet<ToggleParameter> = new Set([
 	"stripCue",
 ]);
 
-@action({ UUID: "de.shellsdw.totalmix2.toggle" })
+@action({ UUID: "de.shells.totalmixgen2.toggle" })
 export class Toggle extends SingletonAction<ToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

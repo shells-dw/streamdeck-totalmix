@@ -74,7 +74,7 @@ const DEFAULT_STEP_DB = 1.5;
  * "fader", channel "volume") it is converted through the published curve. Writes
  * are always faderlin.
  */
-@action({ UUID: "de.shellsdw.totalmix2.globalvolume" })
+@action({ UUID: "de.shells.totalmixgen2.globalvolume" })
 export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

@@ -88,7 +88,7 @@ const kindOf = (target: string): "fader" | "gain" | "fx" =>
  * value, because the TotalMix fader curve is strongly non-linear — a linear step
  * moves 4.4x further in dB at the bottom of the throw than at the top.
  */
-@action({ UUID: "de.shellsdw.totalmix2.volume" })
+@action({ UUID: "de.shells.totalmixgen2.volume" })
 export class Volume extends SingletonAction<VolumeSettings> {
 	/** Unsubscribe callbacks, keyed by action id, released on disappear. */
 	private readonly cleanup = new Map<string, Array<() => void>>();

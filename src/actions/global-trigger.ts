@@ -65,7 +65,7 @@ const STATE_IMG = { on: "imgs/mixerOn", off: "imgs/mixerOff" } as const;
  * - DURec transport: /durec/state carries "Not ready"/"Stop"/"Record"/"Play"/
  *   "Pause"; each transport key lights while its state is current.
  */
-@action({ UUID: "de.shellsdw.totalmix2.globaltrigger" })
+@action({ UUID: "de.shells.totalmixgen2.globaltrigger" })
 export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 

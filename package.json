@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build": "rollup -c",
-    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart de.shellsdw.totalmix2\"",
+    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart de.shells.totalmixgen2\"",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
