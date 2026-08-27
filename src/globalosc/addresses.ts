@@ -2,11 +2,9 @@
  * Address construction for RME's Global OSC protocol (TotalMix FX 2.1 beta 2,
  * table dated 2026-07-21).
  *
- * Unlike the classic protocol, addressing here is absolute: /output/2/faderlin
- * always means output channel 2 (0-based; channel 3 in the GUI, 3+4 if stereo),
- * regardless of any bank, bus or page a controller slot happens to show. There
- * is no view to pin, which removes the entire pin/park machinery the classic
- * actions need.
+ * Addressing is absolute: /output/2/faderlin always means output channel 2
+ * (0-based; channel 3 in the GUI, 3+4 if stereo), independent of any bank, bus
+ * or page a controller slot shows. There is no view to pin.
  *
  * Numbering rules from the table's Description sheet:
  * - channel numbers count from 0;
@@ -35,8 +33,8 @@ export const channelMute = (bus: GlobalBus, ch: number): string => channel(bus, 
 export const channelName = (bus: GlobalBus, ch: number): string => channel(bus, ch, "name");
 
 /**
- * Preamp gain (dB float per project decision; the table leaves the unit open).
- * L/R-split: on a stereo pair, the right side is addressed at channel + 1.
+ * Preamp gain in dB; the table leaves the unit unspecified. L/R-split: on a
+ * stereo pair the right side is addressed at channel + 1.
  */
 export const channelGain = (ch: number): string => channel("input", ch, "gain");
 
@@ -63,10 +61,9 @@ export const controlroom = (param: string): string => `/controlroom/${param}`;
 
 export const CR_DIM = controlroom("dim");
 /**
- * Which output channel the Control Room's Main Out is assigned to, in the
- * table's usual 0-based channel numbering (its example: value 0.0 = "channel
- * 1+2"). The Main volume target resolves through this: main out volume IS that
- * output channel's fader — Global OSC has no separate mastervolume address.
+ * Output channel the Control Room's Main Out is assigned to, in 0-based channel
+ * numbering (value 0.0 = channel 1+2). Main out volume is that output channel's
+ * fader; Global OSC has no separate mastervolume address.
  */
 export const CR_MAINOUT = controlroom("mainout");
 export const CR_MAIN_MONO = controlroom("mainmono");
@@ -103,9 +100,8 @@ export const soloGroup = (n: number): string => `/sologroup/${n}`;
 export const faderGroup = (n: number): string => `/fadergroup/${n}`;
 
 /**
- * Send 1.0 to load. TotalMix uses the SAME address to signal state:
- * 0 = off, 2 = active, 3 = changed — which is what makes simple snapshot keys
- * with on/off lights possible in this protocol.
+ * Send 1.0 to load. TotalMix reports state on the same address:
+ * 0 = off, 2 = active, 3 = changed.
  */
 export const snapshotLoad = (n: number): string => `/snapshot/load/${n}`;
 

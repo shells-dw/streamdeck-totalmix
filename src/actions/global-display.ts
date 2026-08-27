@@ -49,14 +49,13 @@ const LEVEL_RENDER_MS = 100;
 const METER_FLOOR_DB = -60;
 
 /**
- * Read-only display of what the Global OSC protocol publishes but nothing
- * controls: peak level meters (/level/…, dB, only changing values sent), the
- * status block (/status/device | connection | dsp, sent ~1/s), and the DURec
- * time and state strings.
+ * Read-only display of values the Global OSC protocol publishes without a
+ * corresponding control: peak level meters (/level/…, dB, only changing values
+ * sent), the status block (/status/device | connection | dsp, sent about once
+ * per second), and the DURec time and state strings.
  *
- * A press (key or dial) requests /sendstate — the table's refresh trigger for
- * "all status messages incl. DURec" — plus a full refresh, so a stale display
- * can always be nudged by hand.
+ * A press requests /sendstate, the refresh trigger for all status messages
+ * including DURec, plus a full refresh.
  */
 @action({ UUID: "de.shellsdw.totalmix2.globaldisplay" })
 export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
@@ -209,8 +208,8 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 		switch (mode) {
 			case "level": {
 				const dB = gm.getNumber(address, METER_FLOOR_DB);
-				// Deep under-range is TotalMix's "silence"; render as the meter's
-				// empty state rather than an absurd number.
+				// Deep under-range represents silence; rendered as the meter's empty
+				// state.
 				const text = dB <= METER_FLOOR_DB ? "-oo" : `${dB.toFixed(1)} dB`;
 				const bar = Math.round(
 					Math.min(1, Math.max(0, (dB - METER_FLOOR_DB) / -METER_FLOOR_DB)) * 100,
@@ -240,9 +239,8 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	): Promise<void> {
 		const address = this.addressFor(settings);
 		const formatted = this.format(gm, settings, address);
-		// Unlike a control, a readout stays useful while the link is quiet:
-		// TotalMix only transmits CHANGES, so long silence is normal and the
-		// last-known value is the truth. Only an empty cache shows the dash.
+		// TotalMix transmits only changes, so silence is normal and the last known
+		// value remains current. Only an empty cache shows the dash.
 		const text = formatted?.text ?? "—";
 
 		if (target.isDial()) {
@@ -254,7 +252,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 			return;
 		}
 
-		// Keys cut long texts (device names!) at the edge; wrap them instead.
+		// Keys clip long text such as device names at the edge, so it is wrapped.
 		await target.setTitle(wrapTitle(text));
 	}
 

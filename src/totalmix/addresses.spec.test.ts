@@ -108,3 +108,29 @@ describe("addresses conform to the RME spec", () => {
 		expect(pageless.has(address) || valid.has(address), `${address} not in spec`).toBe(true);
 	});
 });
+
+describe("pageOf", () => {
+	it("reads the page out of the address", () => {
+		expect(addr.pageOf("/1/volume1")).toBe(1);
+		expect(addr.pageOf("/2/lowcutEnable")).toBe(2);
+		expect(addr.pageOf("/3/reverbEnable")).toBe(3);
+		expect(addr.pageOf("/4/roomEqEnable")).toBe(4);
+	});
+
+	it("puts every snapshot on page 3", () => {
+		for (let n = 1; n <= 8; n++) expect(addr.pageOf(addr.snapshot(n))).toBe(3);
+	});
+
+	it("puts groups on page 3 and strip parameters on page 1", () => {
+		expect(addr.pageOf(addr.muteGroup(1))).toBe(3);
+		expect(addr.pageOf(addr.soloGroup(4))).toBe(3);
+		expect(addr.pageOf(addr.mute(1))).toBe(1);
+		expect(addr.pageOf(addr.solo(8))).toBe(1);
+	});
+
+	it("defaults to page 1 for anything unrecognised", () => {
+		// Unrecognised address shapes fall back to page 1.
+		expect(addr.pageOf("/setBankStart")).toBe(1);
+		expect(addr.pageOf("")).toBe(1);
+	});
+});

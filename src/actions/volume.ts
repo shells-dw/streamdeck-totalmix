@@ -15,6 +15,8 @@ import { faderToBar, formatDb, stepDb } from "../osc/curves.js";
 import * as addr from "../totalmix/addresses.js";
 import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
 import { seedDefaults } from "../totalmix/defaults.js";
+import { computeNext, formatGain, FX_STEP } from "../osc/steps.js";
+import { gainRangeDb } from "../totalmix/devices.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
 
@@ -30,6 +32,8 @@ export type VolumeSettings = {
 	bankStart?: number | string;
 	/** dB moved per dial detent, or per key press. */
 	stepDb?: number;
+	/** RME device id, for the gain span. Empty or "auto" means detect. */
+	device?: string;
 	/** Key placement only: whether a press nudges the value up or down. */
 	nudge?: "up" | "down";
 	/** Host/port overrides; normally taken from global settings. */
@@ -38,19 +42,11 @@ export type VolumeSettings = {
 	receivePort?: number;
 };
 
+/** Step per detent when the user has not set one. Coarse enough to cross the throw in a few turns, fine enough to trim a monitor level. */
 const DEFAULT_STEP_DB = 1.5;
 
 /** Re-pin bus/bank at most this often per action — once per gesture, not per tick. */
 const PIN_INTERVAL_MS = 400;
-
-/**
- * Gain is kOSCScaleLin01 over a device-dependent range, so exact dB-per-detent is
- * unknowable from our side. A typical RME preamp spans ~65 dB; stepping
- * stepDb/65 of the range per detent makes the dial feel like roughly the
- * configured dB, and the touchscreen always shows TotalMix's own Val string, so
- * the displayed number is truthful regardless of the device's real range.
- */
-const GAIN_ASSUMED_RANGE_DB = 65;
 
 export type FxTarget = keyof typeof FX_TARGETS;
 
@@ -74,33 +70,14 @@ const FX_TARGETS = {
 	fxLowcutFreq: { address: addr.CH_LOWCUT_FREQ, press: addr.CH_LOWCUT_ENABLE, label: "Low Cut" },
 } as const;
 
+/** Narrows a settings string to an FX target, so FX_TARGETS can be indexed safely. */
 const isFx = (t: string): t is FxTarget => t in FX_TARGETS;
 
-/** FX dials step 2% of range per detent — fine enough for time/frequency knobs. */
-const FX_STEP = 0.02;
-
 /**
- * Computes the next wire value for any continuous target. Pure so it can be
- * tested without the SDK. Fader targets step in dB along RME's curve; gain and
- * FX step linearly by the given fraction of their range.
+ * Which stepping law a target obeys. Only mix faders follow RME's dB curve;
+ * gain and FX are linear on the wire, and applying the fader curve to them
+ * would make their steps wrong at both ends of the range.
  */
-export function computeNext(
-	kind: "fader" | "gain" | "fx",
-	current: number,
-	ticks: number,
-	dbStep: number,
-	fxFraction: number,
-): number {
-	switch (kind) {
-		case "fader":
-			return stepDb(current, ticks * dbStep);
-		case "gain":
-			return Math.min(1, Math.max(0, current + (ticks * dbStep) / GAIN_ASSUMED_RANGE_DB));
-		case "fx":
-			return Math.min(1, Math.max(0, current + ticks * fxFraction));
-	}
-}
-
 const kindOf = (target: string): "fader" | "gain" | "fx" =>
 	isFx(target) ? "fx" : target === "gain" ? "gain" : "fader";
 
@@ -150,6 +127,11 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 	}
 
+	/**
+	 * Seeds the user's saved defaults into a freshly placed button before wiring
+	 * it up, so a new key inherits their host, ports and step rather than the
+	 * factory ones.
+	 */
 	override async onWillAppear(ev: WillAppearEvent<VolumeSettings>): Promise<void> {
 		await seedDefaults(ev.action, ev.payload.settings, "classic", { stepDb: true });
 		await this.setup(ev.action, ev.payload.settings);
@@ -160,6 +142,12 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		await this.setup(ev.action, ev.payload.settings);
 	}
 
+	/**
+	 * (Re)binds one button to the connection and addresses its settings imply.
+	 *
+	 * Runs on appear and on every settings change, so it must be idempotent: the
+	 * previous subscriptions are released at the end, once the new ones exist.
+	 */
 	private async setup(
 		target: WillAppearEvent<VolumeSettings>["action"],
 		settings: VolumeSettings,
@@ -191,9 +179,8 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 
 		// Register this dial's view for startup priming. The connection visits
-		// every required view once, serially, filling each slice — so values and
-		// names are prefilled without the appear-time pin races that direct
-		// per-action pinning used to cause.
+		// every required view once, serially, filling each slice, so values and
+		// names are prefilled without appear-time pin races.
 		const startupReq = this.requiredView(settings);
 		if (startupReq !== null) tm.requireView(startupReq);
 
@@ -205,10 +192,15 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		render();
 	}
 
+	/** Drops subscriptions when the button leaves the screen — profile switches would otherwise accumulate them. */
 	override onWillDisappear(ev: WillDisappearEvent<VolumeSettings>): void {
 		this.releaseFor(ev.action.id);
 	}
 
+	/**
+	 * Answers the property inspector's request for the channel dropdown, filling
+	 * it from live cache so the user picks real channel names instead of numbers.
+	 */
 	override async onSendToPlugin(ev: SendToPluginEvent<{ event?: string }, VolumeSettings>): Promise<void> {
 		// Always log what the PI sends: whether this line appears is the fact that
 		// splits "request never arrives" from "reply is wrong" when the channel
@@ -220,6 +212,13 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		await replyStripDatasource(tm, "getStrips", settings, (settings.target ?? "main") === "gain");
 	}
 
+	/**
+	 * Steps the value by the configured amount per detent — dB for faders and
+	 * gain, a fixed fraction of range for FX — and repaints optimistically.
+	 *
+	 * Writes are coalesced, so spinning fast costs one datagram per tick window
+	 * rather than one per detent.
+	 */
 	override onDialRotate(ev: DialRotateEvent<VolumeSettings>): void {
 		const settings = ev.payload.settings;
 		const tm = totalMixFor(connectionOptions(settings));
@@ -233,12 +232,11 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		const address = this.addressFor(settings);
 		const perTick = target === "gain" ? DEFAULT_STEP_DB : num(settings.stepDb, DEFAULT_STEP_DB);
 
-		// The value is read from THIS DIAL'S view slice — retained per bus/bank,
-		// so it is this channel's own last value even while the slot was parked
-		// elsewhere. (Verified in a capture: another bus's dump carries
-		// plausible-looking zeros for micgain, which is why a flat cache could
-		// never be trusted here.) Only a view that has never delivered data
-		// blocks the gesture.
+		// The value is read from this dial's view slice, retained per bus/bank, so
+		// it is this channel's own last value even while the slot is parked
+		// elsewhere. A flat cache would be wrong here: another bus's dump carries
+		// zeros for micgain. Only a view that has never delivered data blocks the
+		// gesture.
 		if (tm.get(address, req) === undefined) {
 			streamDeck.logger.warn(`Ignoring dial move on ${address}: no data for its view yet`);
 			tm.requestFullRefresh();
@@ -246,7 +244,14 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 
 		const current = tm.getNumber(address, 0, req);
-		const next = computeNext(kindOf(target), current, ev.payload.ticks, perTick, FX_STEP);
+		const next = computeNext(
+			kindOf(target),
+			current,
+			ev.payload.ticks,
+			perTick,
+			FX_STEP,
+			gainRangeDb(settings.device),
+		);
 
 		// Coalesced: rotation fires far faster than TotalMix needs telling, and only
 		// the latest position matters.
@@ -290,13 +295,24 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 
 		const current = tm.getNumber(address, 0, reqView);
-		const next = computeNext(kindOf(target), current, ticks, dbStep, dbStep / 100);
+		const next = computeNext(
+			kindOf(target),
+			current,
+			ticks,
+			dbStep,
+			dbStep / 100,
+			gainRangeDb(settings.device),
+		);
 
 		streamDeck.logger.info(`Key press: nudge ${address} ${ticks > 0 ? "+" : "-"}${dbStep}`);
-		tm.send(address, next);
+		tm.sendOffPage(address, next);
 		void this.render(tm, ev.action, settings, next);
 	}
 
+	/**
+	 * The press gesture, whose meaning follows the target: each one's closest
+	 * equivalent of "silence this", since not every target has a plain mute.
+	 */
 	private toggleMute(tm: TotalMixConnection, settings: VolumeSettings): void {
 		const target = settings.target ?? "main";
 
@@ -320,9 +336,14 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		// "strip" and "gain" both press-mute the strip.
 		// Per-strip mute is kOSCScaleOnOff, not a toggle: invert the cached state.
 		const address = addr.mute(num(settings.strip, 1));
-		tm.send(address, asBool(tm.get(address) ?? 0) ? 0 : 1);
+		tm.sendOffPage(address, asBool(tm.get(address) ?? 0) ? 0 : 1);
 	}
 
+	/**
+	 * The OSC address this button controls. Falls back to main volume for an
+	 * unrecognised target, so settings written by an older build stay harmless
+	 * rather than addressing nothing.
+	 */
 	private addressFor(settings: VolumeSettings): string {
 		const target = settings.target ?? "main";
 		switch (target) {
@@ -340,11 +361,15 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	}
 
 	/**
-	 * Prefers TotalMix's own "...Val" display string over a locally computed one:
-	 * TotalMix is authoritative about how it formats a level, and matching it keeps
-	 * the Stream Deck consistent with the on-screen mixer.
+	 * The view this action's settings require, or null if it needs no particular
+	 * one.
+	 *
+	 * Gain is always input-bus regardless of the bus setting, because the preamp
+	 * only exists there. Strips require a view only when the user pinned a bus or
+	 * bank; unpinned, they follow whatever the slot shows, which is the point of
+	 * leaving those settings empty. Main, channel and FX targets are not
+	 * positional at all and so require nothing.
 	 */
-	/** The view this action's settings require, if any. */
 	private requiredView(settings: VolumeSettings): { bus?: "input" | "playback" | "output"; bank?: number } | null {
 		const tgt = settings.target ?? "main";
 		const bank =
@@ -366,6 +391,16 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		return null;
 	}
 
+	/**
+	 * Paints the key or dial from cache.
+	 *
+	 * Prefers TotalMix's own "...Val" display string over a locally computed one:
+	 * TotalMix is authoritative about how it formats a level, and matching it keeps
+	 * the Stream Deck consistent with the on-screen mixer.
+	 *
+	 * `override` is the value just written by a gesture, shown before TotalMix
+	 * confirms it so the dial tracks the finger rather than the network.
+	 */
 	private async render(
 		tm: TotalMixConnection,
 		target: WillAppearEvent<VolumeSettings>["action"] | DialAction<VolumeSettings>,
@@ -396,9 +431,8 @@ export class Volume extends SingletonAction<VolumeSettings> {
 
 		const value = override ?? tm.getNumber(address, 0, req);
 		// The Val string is TotalMix's own formatting and, for gain, the only
-		// truthful display — our 0..1 value has no fixed dB meaning there. Gain
-		// is shown as a bare whole number ("60" not "60.0 dB"): preamps step in
-		// integers, so the decimals and unit are noise on a small screen.
+		// meaningful display: the 0..1 wire value has no fixed dB meaning. Gain
+		// is rounded to a whole number and keeps its unit ("60 dB").
 		const raw = tm.getString(addr.displayOf(address), req);
 		const label =
 			raw !== undefined
@@ -422,6 +456,12 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		await target.setTitle(tm.connected ? label : "—");
 	}
 
+	/**
+	 * The title shown above the value. Prefers the channel name TotalMix
+	 * reports — read through this action's own view, so it is this strip's name
+	 * even when the slot is parked on another bus — and falls back to a
+	 * positional label until that name arrives.
+	 */
 	private labelFor(tm: TotalMixConnection, settings: VolumeSettings): string {
 		const req = this.requiredView(settings);
 		const target = settings.target ?? "main";
@@ -445,6 +485,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 	}
 
+	/** Runs and forgets one button's unsubscribe callbacks. Safe to call twice. */
 	private releaseFor(id: string): void {
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
@@ -453,15 +494,10 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	}
 }
 
-/**
- * Reduces TotalMix's gain Val string ("60.0 dB") to a bare whole number ("60").
- * Falls back to the original string when no number is found, so odd device
- * formats degrade to showing exactly what TotalMix sent.
- */
-export function formatGain(val: string): string {
-	const m = val.match(/-?\d+(?:\.\d+)?/);
-	return m ? String(Math.round(Number(m[0]))) : val;
-}
-
 /** Reads a numeric OSC value defensively; exported for tests. */
 export const readLevel = (v: unknown): number => asNumber(v as never);
+
+// Re-exported so tests can reach the stepping helpers through the action they
+// belong to. Importing them from here rather than from osc/steps.js keeps the
+// test asserting what this action actually uses.
+export { computeNext, formatGain };

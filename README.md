@@ -12,7 +12,7 @@
 - **Live two-way feedback** — change something in TotalMix and your buttons update instantly
 - **Near-zero CPU** — one persistent connection, no polling
 - **Pick channels by name** — "1 · Mic 1", read live from your interface
-- **Input gain on a dial** — per channel, stereo pairs linked
+- **Input gain on a dial** — per channel, stereo pairs linked, with per-device gain ranges
 - **Effects control** — reverb, echo and low cut on dials; press to bypass
 - **Jump straight to submixes, snapshots, buses and Quick Workspaces**
 - **Room EQ** toggle per output channel
@@ -73,7 +73,7 @@ Tick "In Use" on Remote Controller 1. Defaults are port incoming 7001, port outg
 Set Number of faders per bank to match your interface's channel count. The plugin can read only as many channels as this is set to.  
 Don't tick Send Level Messages — the plugin doesn't use meters, and it saves needless traffic.
 
-### v4.2 Global OSC
+### Global OSC (on Totalmix 2.1, currently beta)
 Tick "In Use" on Remote Controller 2. Defaults are port incoming 7002, port outgoing 9002 — the plugin expects these.
 Set its *Compatibility (Mode)* to **Global OSC**. The plugin's defaults match controller 2's ports (incoming 7002, outgoing 9002). Then click *Details* and enable at least *Send changes* and *Send status*, recommended is also "Send faders in linear scale" and "Send all data on start (enable)".
 
@@ -96,6 +96,9 @@ Then tick Enable OSC Control in the Options menu and make sure the Submix linked
 > If you change the ports, set them to match under Connection in any button's settings.  
 > TotalMix can also run on a different computer — set the address accordingly, and allow UDP through any firewall in between.
 
+> [!NOTE]
+> Every Remote Controller the plugin talks to needs its own incoming port. If two connections end up on the same receive port (for example the classic and the Global OSC slot both set to 7001), the plugin logs a clear "port already in use" error telling you which port to change. Versions before 4.3.4 could leave one of the two connections silently dead instead, without any error.
+
 No additional software is needed.
 
 Note: if you're using a (software) firewall on your PC and/or any firewall between the StreamDeck and the target PC - make sure to allow the plugin to communicate with the TotalMix port as well as allow TotalMix to listen to it. You'll be prompted with Firewall messages when first enabling OSC in TotalMix and when the plugin first loads in StreamDeck, **make sure it's allowed to communicate or it will not work.**
@@ -112,7 +115,7 @@ Note: if you're using a (software) firewall on your PC and/or any firewall betwe
 | **Volume (TotalMix 2.1+)** | Key or dial | Global OSC: channel fader, submix send or preamp gain, addressed by absolute channel number. Rotate to adjust, press to mute/dim/solo. |
 | **Toggle (TotalMix 2.1+)** | Key | Global OSC: mute, PFL, phase, 48V, pad, instrument, M/S, loopback, stereo link, record, low cut, EQ, dynamics, AutoLevel, Room EQ, control room switches, global mute/solo, reverb, echo, mute/solo/fader groups. |
 | **Trigger (TotalMix 2.1+)** | Key | Global OSC: load snapshots (key lights while active) and layout presets, undo/redo, recall, DURec transport, show/hide the TotalMix window. |
-| **Display (TotalMix 2.1+)** | Key or dial | Global OSC, read-only: device name, connection, DSP load, DURec time and state. Press to refresh. |
+| **Display (TotalMix 2.1+)** | Key or dial | Global OSC, read-only: device name, connection, DSP load, DURec time and state. Updates on its own; press to force a refresh. |
  
 ### Volume and dials
  
@@ -127,11 +130,15 @@ Dials step in decibels along RME's own fader curve, so a detent moves the same a
  
 Choose channels by name — the dropdown lists what TotalMix calls them ("1 · Mic 1"), read live from your interface.
  
-TotalMix addresses channels by their position in the currently visible bank, not by a fixed number, so a button can drift if you move around the mixer. To pin a button to one channel permanently, set **Bus** and **Pin bank start** (usually 0) in its settings. Stereo pairs count as one channel. This is still not perfect, as channels up on the mix shift their ID, for example, when a channel is stereo, it's 1, the next channel is 2, but if the channel 1 is set to mono, another channel is added to the mixer, making this channel 2 and the former channel 2 becomes channel 3. Until RME releases their new OSC implementation, which is currently in Alpha and supposed to fix that, there is nothing my plugin can do about that. To work around that, set your channels as you need them before assigning StreamDeck functions to them.
+TotalMix addresses channels by their position in the currently visible bank, not by a fixed number, so a button can drift if you move around the mixer. To pin a button to one channel permanently, set **Bus** and **Pin bank start** (usually 0) in its settings. Stereo pairs count as one channel. This is still not perfect, as channels up on the mix shift their ID, for example, when a channel is stereo, it's 1, the next channel is 2, but if the channel 1 is set to mono, another channel is added to the mixer, making this channel 2 and the former channel 2 becomes channel 3. Until RME releases the Global OSC implementation, which is currently in Beta (available today with TotalMix 2.1 Beta, setup see above), there is nothing my plugin can do about that. To work around that, set your channels as you need them before assigning StreamDeck functions to them.
  
 ### Input gain
  
 Preamp gain on a dial, locked to input channels. On linked stereo inputs, both sides move together. Channels without a preamp will show 0 and ignore the dial.
+
+dB-accurate stepping needs to know how wide your preamp's gain range is, and the classic OSC protocol doesn't identify the connected interface — so the button settings offer a **Device** selection. Pick your interface there and each detent moves by the amount you configured; left unset, a 65 dB span is assumed, which fits most RME preamps. Getting this wrong only changes how far a detent travels: the number on the display is always TotalMix's own readout, complete with its unit, so it stays truthful either way.
+
+The Global OSC gain dial doesn't need any of this — that protocol carries gain in dB directly and reports the device name itself, which the plugin uses to scale the position bar.
 
 > [!NOTE]
 > On buttons instead of SD+ dials this will allow nudging up or down with a button press.
@@ -145,7 +152,7 @@ Reverb send, return, volume, time, pre-delay and width; echo volume, delay and f
 
 ### TotalMix FX 2.1 — the Global OSC actions
 
-TotalMix FX 2.1 introduces a second, completely different OSC dialect ("Global OSC") with absolute channel addressing. The four "(TotalMix 2.1+)" actions use it while the classic actions keep using the classic protocol. Both run at the same time on separate Remote Controllers.
+TotalMix FX 2.1 introduces a Global OSC with absolute channel addressing. The four "(TotalMix 2.1+)" actions use it while the classic actions keep using the classic protocol. Both run at the same time on separate Remote Controllers.
 
 **Channel numbers are absolute** — no bank pinning, no drifting. Stereo pairs are addressed by their left channel; for the per-side parameters (phase, gain) the dropdown offers separate "(R)" entries.
 
@@ -155,9 +162,6 @@ TotalMix FX 2.1 introduces a second, completely different OSC dialect ("Global O
 **Snapshots** light up while active — TotalMix reports load state over Global OSC (including loads made in the mixer window), which the classic protocol cannot do.  
 **DURec stop** during recording needs two presses; that's TotalMix's own safety against killing a take, and the plugin deliberately does not bypass it.  
 **Groups** (mute/solo/fader) are receive-only in this protocol: TotalMix never reports their state, so those buttons track their own presses.
-
-**Not yet in the 2.1 beta:** peak level meters (`/level/…`) are documented but not transmitted, and input/playback channel faders only exist as mix-matrix nodes. The Display action's level mode should start working once it's implemented.
-
 
 # I have an issue or miss a feature?
 
@@ -172,9 +176,25 @@ If you're interested in using this plugin but something you really need is missi
 
 If you'd like to drop me a coffee for the hours I've spent on this: [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dwshells) [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/dwshells)
 
+# Disclaimer
+
+This is a private project, I am not affiliated with RME or Elgato.
 
 
 # Changelog
+## [4.3.4] - 2026-08-27
+### Added
+- Device selection for the classic input gain dial. dB stepping needs the preamp's gain range, which the classic OSC protocol doesn't transmit, so the button settings now offer a list of RME interfaces with their gain spans. Unset or unrecognized devices fall back to the usual 65 dB span. The displayed value is always TotalMix's own readout, so it stays correct regardless of the setting.
+- The Global OSC connection reads the device name from the interface and uses it to scale the gain dial's position bar.
+- Gain readouts now carry their unit ("60 dB" instead of "60"), passing through whatever unit TotalMix reports.
+### Fixed
+- Global OSC status data (device name, connection state, DSP load, DURec time and state) now arrives on its own. The refresh cycle only ever requested the mix and channel parameters, which don't include the status block, so a Display key stayed blank until pressed once; the status request is now part of every refresh.
+- A failed port bind (port already taken) left the connection setup unfinished. Bind failures are now handled and logged, with a dedicated "port already in use" message naming the affected port.
+- Two connections could silently bind the same receive port. Port collisions now fail with a log message saying which port to change. If you see a new "port in use" error after updating, your classic and Global OSC slots probably share a receive port.
+- Level meter and DSP load updates no longer flood the log file. They are still received and displayed as before, just not logged on every change.
+### Changed
+- Documentation pass: comments rewritten for accuracy and several doc blocks reattached to the declarations they actually describe. No functional changes.
+
 ## [4.3.1] - 2026-08-26
 ### Changed
 - Naming/Branding; remove "RME" for compliance.
@@ -374,4 +394,3 @@ I'm in no way affiliated with RME or Elgato. I wrote this plugin out of personal
 [virtualMidi]: https://www.tobias-erichsen.de/software/virtualmidi.html "virtualMIDI product page"
 [loopBe]: https://www.nerds.de/en/loopbe1.html "loopBe product page"
 [GitHub issues]: https://github.com/shells-dw/streamdeck-totalmix/issues "GitHub issues link"
-

@@ -2,36 +2,21 @@ import streamDeck from "@elgato/streamdeck";
 import { num, str } from "./settings.js";
 
 /**
- * Per-user defaults for newly added buttons, held in Stream Deck's global
- * settings.
+ * Default connection settings for newly added buttons, stored in Stream Deck's
+ * global settings under the plugin UUID.
  *
- * The problem this solves: someone running TotalMix on another machine, or using
- * Remote Controller slots other than the factory ones, previously had to open the
- * Connection section and retype the same host and ports on every single button
- * they ever added. v3 answered that with de.shells.totalmix.exe.config, a file
- * inside the plugin folder — which Stream Deck replaces wholesale on every plugin
- * update, so the settings vanished and the README had to apologise for it.
- *
- * Global settings live in Stream Deck's own storage instead, keyed to the plugin
- * UUID. They survive updates, they are typed form fields rather than hand-edited
- * JSON, and there is no path to resolve and get wrong.
- *
- * SEED, NOT OVERRIDE. These values are copied into a button's own settings the
- * first time it appears, and never consulted for that button again. That is
- * deliberate: connections are pooled per host+port pair precisely so that
- * different buttons can address different Remote Controller slots — a dial parked
- * on slot 1 watching playback alongside one on slot 3 watching inputs. Treating
- * these as live global overrides would force every button onto one slot and undo
- * that. So changing a default here leaves existing buttons exactly as they are.
+ * Values are copied into a button's own settings on first appearance and are not
+ * consulted for that button again. Connections are pooled per host+port pair, so
+ * per-button connection settings allow different buttons to address different
+ * Remote Controller slots; live global overrides would collapse that to one slot.
  */
 
 /**
- * The raw shape as written by the property inspector.
+ * Raw shape as written by the property inspector.
  *
- * Every field is `unknown` on purpose: sdpi-textfield persists whatever the DOM
- * gives it, so a port typed as 7001 arrives as the string "7001". Nothing here is
- * trusted to be the type its name suggests — num() and str() do that work at the
- * point of use, exactly as they do for per-action settings.
+ * Fields are `unknown` because sdpi-textfield persists DOM values: a port typed
+ * as 7001 arrives as the string "7001". num() and str() coerce at the point of
+ * use.
  */
 export interface StoredDefaults {
 	/** Classic OSC slot (Remote Controller 1 by default). */
@@ -52,10 +37,8 @@ export interface StoredDefaults {
 export type Slot = "classic" | "global";
 
 /**
- * Factory values, used when the user has set no default. These mirror TotalMix's
- * own out-of-the-box Remote Controller ports and the constants the actions
- * already fall back to, so behaviour with an empty defaults form is byte-for-byte
- * what it was before this module existed.
+ * Factory values, used when no default is set. These match TotalMix's
+ * out-of-the-box Remote Controller ports.
  */
 export const BUILT_IN = {
 	classic: { host: "127.0.0.1", sendPort: 7001, receivePort: 9001 },
@@ -72,12 +55,8 @@ export interface ResolvedDefaults {
 }
 
 /**
- * Cached read of the global settings blob.
- *
- * Without this, thirty buttons appearing on a profile switch would each make a
- * round trip over the Stream Deck websocket before they could connect. The cache
- * holds the in-flight promise rather than its result, so concurrent appearances
- * share one request.
+ * Cached read of the global settings blob. Holds the in-flight promise rather
+ * than its result, so buttons appearing together share one websocket round trip.
  */
 let cache: Promise<StoredDefaults> | null = null;
 
@@ -85,26 +64,20 @@ let cache: Promise<StoredDefaults> | null = null;
 let subscribed = false;
 
 /**
- * Keeps the cache honest when the user edits the defaults form.
- *
- * Stream Deck emits didReceiveGlobalSettings both in reply to our own get and
- * whenever the property inspector saves, so the freshest blob is always pushed to
- * us and can simply replace what we hold.
+ * Replaces the cache whenever Stream Deck pushes global settings, which it does
+ * both in reply to a get and whenever the property inspector saves.
  */
 function subscribe(): void {
 	if (subscribed) return;
 	subscribed = true;
 	try {
-		// The SDK's generic is constrained to JsonObject, which requires an index
-		// signature. StoredDefaults deliberately has none — the whole point is
-		// that only these seven keys are ours — so read the blob untyped and
-		// narrow here, which is honest about it being untrusted anyway.
+		// The SDK generic requires JsonObject, which needs an index signature.
+		// StoredDefaults has none, so the blob is read untyped and narrowed here.
 		streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
 			cache = Promise.resolve((ev.settings ?? {}) as StoredDefaults);
 		});
 	} catch {
-		// An SDK build without the event is not a reason to lose the feature;
-		// the cache simply lives until the plugin restarts.
+		// Without the event the cache lives until the plugin restarts.
 	}
 }
 
@@ -116,8 +89,7 @@ export async function storedDefaults(): Promise<StoredDefaults> {
 			.getGlobalSettings()
 			.then((s) => s as StoredDefaults)
 			.catch((err: unknown) => {
-				// Never cache a failure: a transient websocket problem at startup
-				// would otherwise pin every future button to the built-ins.
+				// A cached failure would pin every later button to the built-ins.
 				cache = null;
 				streamDeck.logger.warn(`Could not read global defaults: ${String(err)}`);
 				return {} as StoredDefaults;
@@ -146,34 +118,31 @@ export async function getDefaults(slot: Slot): Promise<ResolvedDefaults> {
 			};
 }
 
-/** Drops the cache. Tests use this; the plugin has no reason to. */
+/** Drops the cache. Used by tests. */
 export function resetDefaultsCache(): void {
 	cache = null;
 	subscribed = false;
 }
 
-/** The slice of an action this module needs in order to persist a seed. */
+/** The part of an action needed to persist a seed. */
 export interface SeedTarget {
 	setSettings(settings: never): Promise<void>;
 }
 
-/** Fields a caller can opt into seeding beyond the connection. */
+/** Optional fields to seed alongside the connection. */
 export interface SeedOptions {
-	/** Seed the dB-per-detent preference too. Volume actions only. */
+	/** Seed the dB-per-detent preference. Volume actions only. */
 	stepDb?: boolean;
 }
 
 /**
- * Fills in a button's unset fields from the user's defaults, once.
+ * Fills a button's absent connection fields from the stored defaults.
  *
- * `settings` is mutated in place so the caller can carry straight on with the
- * seeded values in the same pass — the alternative, re-reading them, would race
- * the write and connect the button on the wrong port for its first moments.
+ * `target` is mutated in place so the caller can use the seeded values in the
+ * same pass rather than re-reading them and racing the write.
  *
- * Only fields that are genuinely absent are touched. A button whose host is an
- * empty string has been deliberately cleared by its owner and is left alone,
- * which is also what stops a seeded button being re-seeded on its next
- * appearance.
+ * Only `undefined` fields are set. An empty string is a cleared field and is
+ * left alone, which also makes seeding idempotent across appearances.
  *
  * @returns Whether anything was written.
  */
@@ -183,9 +152,7 @@ export async function seedDefaults<T extends object>(
 	slot: Slot,
 	opts: SeedOptions = {},
 ): Promise<boolean> {
-	// The action settings interfaces declare their fields optionally rather than
-	// via an index signature, so widen once here instead of casting at all seven
-	// call sites.
+	// Action settings interfaces have no index signature, so widen once here.
 	const settings = target as Record<string, unknown>;
 
 	const missing =
@@ -194,8 +161,7 @@ export async function seedDefaults<T extends object>(
 		settings.receivePort === undefined ||
 		(opts.stepDb === true && settings.stepDb === undefined);
 
-	// The common case by a wide margin: an existing button reappearing. Bail
-	// before touching the websocket at all.
+	// An existing button reappearing: no websocket round trip needed.
 	if (!missing) return false;
 
 	const defaults = await getDefaults(slot);

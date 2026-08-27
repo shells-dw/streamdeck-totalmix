@@ -8,7 +8,7 @@ import { num } from "./settings.js";
  *
  * sdpi-components' datasource protocol: the PI sends { event: "<name>" } via
  * sendToPlugin, and expects { event: "<name>", items: [{ value, label }] } back.
- * We answer with the tracknames TotalMix mirrors for the visible bank, so the
+ * Answered with the tracknames TotalMix mirrors for the visible bank, so the
  * user picks "3 · Phones" instead of guessing that Phones is fader 3.
  *
  * If the action pins a bus/bank, that view is asserted first and given a moment

@@ -115,6 +115,18 @@ export const muteGroup = (group: number): string => `/3/muteGroups/${groupIndex(
 export const soloGroup = (group: number): string => `/3/soloGroups/${groupIndex(group)}/1`;
 export const faderGroup = (group: number): string => `/3/faderGroups/${groupIndex(group)}/1`;
 
+/**
+ * Page an address belongs to.
+ *
+ * A remote controller slot mirrors one page at a time and TotalMix transmits
+ * only the selected page's parameters. Derived from the address rather than a
+ * parallel table.
+ */
+export function pageOf(address: string): 1 | 2 | 3 | 4 {
+	const m = /^\/([1-4])\//.exec(address);
+	return m === null ? 1 : (Number(m[1]) as 1 | 2 | 3 | 4);
+}
+
 /** Snapshots are similarly reversed: snapshot 1 is at index 8. */
 export const snapshot = (n: number): string => `/3/snapshots/${9 - n}/1`;
 

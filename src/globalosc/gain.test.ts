@@ -25,3 +25,28 @@ describe("gain stepping", () => {
 		expect(stepGainDb(200, 1)).toBe(75);
 	});
 });
+
+describe("per-device ceiling", () => {
+	it("clamps to the device maximum rather than the default 75", () => {
+		// Values above a device's range are ignored by TotalMix.
+		expect(stepGainDb(64, 10, 65)).toBe(65);
+		expect(stepGainDb(60, 1, 65)).toBe(61);
+	});
+
+	it("still allows the full 75 on a device that has it", () => {
+		expect(stepGainDb(70, 10, 75)).toBe(75);
+	});
+
+	it("keeps the floor at 0 regardless of ceiling", () => {
+		expect(stepGainDb(3, -10, 65)).toBe(0);
+	});
+
+	it("falls back to 75 if handed a nonsense ceiling", () => {
+		expect(stepGainDb(70, 10, 0)).toBe(75);
+		expect(stepGainDb(70, 10, -5)).toBe(75);
+	});
+
+	it("defaults to 75 when no ceiling is passed", () => {
+		expect(stepGainDb(70, 10)).toBe(75);
+	});
+});

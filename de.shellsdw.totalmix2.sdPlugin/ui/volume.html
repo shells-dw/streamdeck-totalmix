@@ -109,6 +109,31 @@
     percent of range for FX.</p>
   </div>
 
+  <div id="row-device">
+    <sdpi-item label="Device">
+      <sdpi-select setting="device" default="">
+        <option value="">Unknown (65 dB)</option>
+        <option value="ufx2">Fireface UFX II — 75 dB</option>
+        <option value="ufxplus">Fireface UFX+ — 75 dB</option>
+        <option value="ufx3">Fireface UFX III — 75 dB</option>
+        <option value="ucx2">Fireface UCX II — 75 dB</option>
+        <option value="12mic">12Mic / 12Mic-D — 75 dB</option>
+        <option value="m1610">M-1610 Pro — 75 dB</option>
+        <option value="ff802">Fireface 802 / 802 FS — 75 dB</option>
+        <option value="ucx">Fireface UCX — 65 dB</option>
+        <option value="uc">Fireface UC — 65 dB</option>
+        <option value="ufx">Fireface UFX — 65 dB</option>
+        <option value="bfpro">Babyface Pro / Pro FS — 65 dB</option>
+        <option value="ff400">Fireface 400 / 800 — 65 dB</option>
+        <option value="babyface">Babyface (original) — 60 dB</option>
+      </sdpi-select>
+    </sdpi-item>
+    <p class="hint">Sets how far one detent travels, since this protocol sends gain
+    as 0..1 with no dB meaning attached and carries no way to identify your
+    interface. The value shown on the key is always TotalMix's own reading, so this
+    only affects how the dial feels, never what it displays.</p>
+  </div>
+
   <div id="row-step">
     <sdpi-item label="dB per step">
       <sdpi-range setting="stepDb" min="0.5" max="6" step="0.5" default="1.5" showlabels></sdpi-range>
@@ -201,6 +226,9 @@
       // Keys: the step is configurable for every target. Dials: gain and FX use
       // fixed steps (their ranges are device/parameter-defined).
       document.getElementById("row-step").hidden = onDial ? (t === "gain" || fx) : false;
+
+      // The device only sets the gain span, so it is noise on every other target.
+      document.getElementById("row-device").hidden = t !== "gain";
     });
   </script>
 </body>

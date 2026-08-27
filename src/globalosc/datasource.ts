@@ -71,7 +71,8 @@ export function buildChannelItems(
 }
 
 /**
- * Same datasource plumbing as the classic actions: PI sends { event }, we reply
+ * Same datasource plumbing as the classic actions: the PI sends { event }, the
+ * plugin replies
  * { event, items }. The connection is primed via /sendall on connect; the short
  * wait lets a just-opened socket's dump land before the list is built.
  */

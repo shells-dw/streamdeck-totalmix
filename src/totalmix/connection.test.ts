@@ -12,9 +12,17 @@ vi.mock("@elgato/streamdeck", () => ({
 const { TotalMixConnection } = await import("./connection.js");
 const { encodeFloat, parsePacket } = await import("../osc/codec.js");
 
-/** Stands in for TotalMix: receives our commands, and can push state at us. */
+/**
+ * Stands in for TotalMix: receives our commands, and can push state at us.
+ *
+ * A real socket rather than a mock, so the tests exercise actual encoding,
+ * datagram framing and the asynchrony that comes with them. The cost is that
+ * assertions need a short delay to let packets round-trip through the loopback.
+ */
 class FakeTotalMix {
 	private readonly socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+
+	/** Everything the connection has sent, in order. Cleared to scope assertions. */
 	readonly received: { address: string; value: unknown }[] = [];
 	private clientPort = 0;
 
@@ -56,6 +64,11 @@ class FakeTotalMix {
 	}
 }
 
+/**
+ * Lets loopback packets land before asserting. Values are generous relative to
+ * the ~1ms a local round-trip actually takes, so a loaded CI machine does not
+ * turn these into flakes.
+ */
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Null-terminated, 4-byte-padded OSC string. */
@@ -71,6 +84,11 @@ function oscString(s: string): Buffer {
 const TMX_PORT = 47311;
 const PLUGIN_PORT = 47312;
 
+/**
+ * Core connection behaviour, exercised against a real UDP socket rather than a
+ * mock: the parsing, coalescing and page handling all depend on datagram
+ * boundaries, which an in-process fake would paper over.
+ */
 describe("TotalMixConnection", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;
@@ -88,6 +106,11 @@ describe("TotalMixConnection", () => {
 		fake.close();
 	});
 
+	/**
+	 * The premise of the whole redesign: state arrives because TotalMix pushes
+	 * it, with nothing asked for after the initial refresh. If this fails, the
+	 * plugin is back to polling.
+	 */
 	it("caches pushed values without any polling", async () => {
 		await fake.push(PLUGIN_PORT, "/1/mainVolume", 0.5);
 		await delay(60);
@@ -95,6 +118,7 @@ describe("TotalMixConnection", () => {
 		expect(conn.getNumber("/1/mainVolume")).toBeCloseTo(0.5, 5);
 	});
 
+	/** Dozens of buttons share one socket, so delivery has to be per-address. */
 	it("notifies only the subscribers of that address", async () => {
 		const main = vi.fn();
 		const other = vi.fn();
@@ -109,6 +133,10 @@ describe("TotalMixConnection", () => {
 		expect(other).not.toHaveBeenCalled();
 	});
 
+	/**
+	 * TotalMix re-sends unchanged values in every page dump. Waking listeners on
+	 * those would repaint every key several times a second for nothing.
+	 */
 	it("does not wake subscribers when the value is unchanged", async () => {
 		const listener = vi.fn();
 		conn.subscribe("/1/mainVolume", listener);
@@ -123,6 +151,11 @@ describe("TotalMixConnection", () => {
 		expect(listener.mock.calls.length).toBe(afterFirst);
 	});
 
+	/**
+	 * A button appearing mid-session (profile switch, page change) must paint
+	 * from cache at once rather than showing a placeholder until the value next
+	 * happens to move — which for a resting fader could be never.
+	 */
 	it("delivers the cached value to a late subscriber immediately", async () => {
 		await fake.push(PLUGIN_PORT, "/1/mainVolume", 0.75);
 		await delay(50);
@@ -134,6 +167,7 @@ describe("TotalMixConnection", () => {
 		expect(listener).toHaveBeenCalledWith(expect.closeTo(0.75, 5));
 	});
 
+	/** Leaked subscriptions would accumulate across profile switches. */
 	it("stops notifying after unsubscribe", async () => {
 		const listener = vi.fn();
 		const off = conn.subscribe("/1/mainVolume", listener);
@@ -145,6 +179,11 @@ describe("TotalMixConnection", () => {
 		expect(listener).not.toHaveBeenCalled();
 	});
 
+	/**
+	 * TotalMix pings bare "/" continuously. It proves the link is alive but
+	 * carries no state, so it must never reach the cache — the distinction the
+	 * `primed` flag depends on.
+	 */
 	it("ignores heartbeats", async () => {
 		const before = conn.get("/");
 		await fake.push(PLUGIN_PORT, "/", 0);
@@ -171,11 +210,17 @@ describe("TotalMixConnection", () => {
 		expect(sends.at(-1)!.value).toBeCloseTo(0.4, 5);
 	});
 
+	/**
+	 * Each step is computed from the previous value, so during a burst the dial
+	 * must read back its own pending position. Reading the last value TotalMix
+	 * confirmed would make a fast spin crawl.
+	 */
 	it("reads back its own optimistic value during a burst", () => {
 		conn.sendCoalesced("/1/mainVolume", 0.42);
 		expect(conn.getNumber("/1/mainVolume")).toBeCloseTo(0.42, 5);
 	});
 
+	/** The counterpart to coalescing: discrete commands must never be delayed or merged. */
 	it("sends discrete commands immediately", async () => {
 		fake.received.length = 0;
 		conn.toggle("/1/mainDim");
@@ -186,6 +231,11 @@ describe("TotalMixConnection", () => {
 		expect(dim[0]!.value).toBe(1);
 	});
 
+	/**
+	 * The port is open to anything on the machine. A stray or truncated datagram
+	 * must be dropped without killing the socket, or one bad packet from an
+	 * unrelated program takes the plugin down until it is restarted.
+	 */
 	it("survives a malformed datagram without dropping the connection", async () => {
 		const listener = vi.fn();
 		conn.subscribe("/1/mainVolume", listener);
@@ -206,6 +256,10 @@ describe("TotalMixConnection", () => {
 		expect(listener).toHaveBeenCalledWith(expect.closeTo(0.6, 5));
 	});
 
+	/**
+	 * There is no handshake in OSC, so "connected" is inferred purely from
+	 * inbound traffic — and starts false until something actually arrives.
+	 */
 	it("reports connection state from inbound traffic", async () => {
 		expect(conn.connected).toBe(false);
 		await fake.push(PLUGIN_PORT, "/1/mainVolume", 0.1);
@@ -214,9 +268,8 @@ describe("TotalMixConnection", () => {
 	});
 
 	/**
-	 * A slot mirrors one page at a time, so refreshing must not cycle through all
-	 * four — that would leave TotalMix parked on page 4 and page 1 would never
-	 * update. This is the regression guard for exactly that bug.
+	 * A slot mirrors one page at a time, so a refresh must touch a single page.
+	 * Cycling all four leaves the slot on page 4 and page 1 never updates.
 	 */
 	it("refreshes a single page and stays on it", async () => {
 		// Let the refresh issued by connect() land before measuring.
@@ -233,6 +286,10 @@ describe("TotalMixConnection", () => {
 		expect(fake.received.every((r) => r.value === 0)).toBe(true);
 	});
 
+	/**
+	 * Switching pages hops via page 1 (the "away" page for anything but page 1),
+	 * so the destination is always entered as a change and its re-send fires.
+	 */
 	it("re-requests when the page changes", async () => {
 		await delay(60);
 		fake.received.length = 0;
@@ -241,8 +298,111 @@ describe("TotalMixConnection", () => {
 
 		expect(fake.received.map((m) => m.address)).toEqual(["/1/globalMute", "/3/globalMute"]);
 	});
+
+	it("returns to its own page after an off-page command", async () => {
+		// A snapshot address selects page 3 for the slot, which stops updates for
+		// every page-1 address on the same connection until page 1 is reselected.
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.sendOffPage("/3/snapshots/8/1", 1.0);
+		await delay(60);
+		// The command goes out immediately; the page is restored later.
+		expect(fake.received.map((m) => m.address)).toEqual(["/3/snapshots/8/1"]);
+
+		await delay(300);
+		// A full refresh rather than a bare page select: a snapshot changes the
+		// mixer without emitting individual parameters, so the values must be
+		// re-requested. The away-hop forces the re-send.
+		expect(fake.received.map((m) => m.address)).toEqual([
+			"/3/snapshots/8/1",
+			"/2/mute",
+			"/1/globalMute",
+		]);
+		// 0.0 is inert on a toggle, so refreshing changes nothing.
+		const touches = fake.received.filter((m) => m.address !== "/3/snapshots/8/1");
+		expect(touches.every((m) => m.value === 0)).toBe(true);
+	});
+
+	it("restores after a toggle() too, not just an explicit sendOffPage", async () => {
+		// toggle() is the path snapshots, groups and FX enables take; the on/off
+		// branch calling sendOffPage directly is not reached by snapshots.
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.toggle("/3/snapshots/7/1");
+		await delay(360);
+
+		expect(fake.received.map((m) => m.address)).toEqual([
+			"/3/snapshots/7/1",
+			"/2/mute",
+			"/1/globalMute",
+		]);
+	});
+
+	it("revisits every bus an action needs after a snapshot", async () => {
+		// Page-1 addresses mean "strip N of the currently selected bus", so a
+		// refresh carries one bus only and every other view stays stale.
+		// The prime walk waits for inbound data before starting.
+		await fake.push(PLUGIN_PORT, "/1/mute/1/1", 0);
+		await delay(60);
+
+		conn.requireView({ bus: "input" });
+		conn.requireView({ bus: "playback" });
+		await delay(1200); // let the startup walk finish
+		fake.received.length = 0;
+
+		conn.toggle("/3/snapshots/7/1");
+		await delay(1400);
+
+		const sent = fake.received.map((m) => m.address);
+		expect(sent).toContain("/1/busInput");
+		expect(sent).toContain("/1/busPlayback");
+		// The page is restored as well.
+		expect(sent).toContain("/1/globalMute");
+	});
+
+	it("leaves a page-1 toggle alone", async () => {
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.toggle("/1/busInput");
+		await delay(360);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/1/busInput"]);
+	});
+
+	it("does not bounce pages for a command already on our page", async () => {
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.sendOffPage("/1/mainDim", 1.0);
+		await delay(360);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/1/mainDim"]);
+	});
+
+	it("restores once after a burst, not once per message", async () => {
+		// A dial burst must produce one refresh, not one per detent.
+		await delay(60);
+		fake.received.length = 0;
+
+		for (let i = 0; i < 5; i++) {
+			conn.sendOffPage("/3/reverbVolume", 0.5);
+			await delay(30);
+		}
+		await delay(320);
+
+		expect(fake.received.filter((m) => m.address === "/3/reverbVolume")).toHaveLength(5);
+		expect(fake.received.filter((m) => m.address === "/1/globalMute")).toHaveLength(1);
+	});
 });
 
+/**
+ * Settings arriving from the property inspector, which persists everything as
+ * strings. These guard the coercion in connect() — the bugs here are silent
+ * ones, where the connection appears fine but tears down its socket repeatedly.
+ */
 describe("property inspector string settings", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;
@@ -260,8 +420,8 @@ describe("property inspector string settings", () => {
 
 	/**
 	 * sdpi-textfield persists numbers as strings. A string port must neither break
-	 * the connection nor register as a port change — the regression here was every
-	 * action appearance tearing the socket down because "9001" !== 9001.
+	 * the connection nor register as a port change, which would tear down the
+	 * shared socket on every action appearance.
 	 */
 	it("accepts string ports and still delivers commands", async () => {
 		// String ports exactly as the PI saves them.
@@ -309,6 +469,11 @@ describe("property inspector string settings", () => {
 	});
 });
 
+/**
+ * Startup ordering. UDP has no delivery guarantee and no handshake, so the
+ * initial refresh can simply be lost — most often because Stream Deck launched
+ * the plugin before TotalMix finished booting. Uses millisecond timings.
+ */
 describe("startup refresh resilience", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;
@@ -360,6 +525,11 @@ describe("startup refresh resilience", () => {
 	});
 });
 
+/**
+ * The positional/global cache split. Page-1 strip addresses name a position in
+ * the current view, not a channel, so they must be invalidated or re-keyed when
+ * the view moves — whether we moved it or TotalMix reported it moving.
+ */
 describe("positional view cache", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;
@@ -415,6 +585,11 @@ describe("positional view cache", () => {
 	});
 });
 
+/**
+ * Submix is the third view dimension, alongside bus and bank — and the least
+ * obvious, since it changes what every fader means without changing any
+ * address.
+ */
 describe("submix as a view dimension", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;
@@ -449,6 +624,12 @@ describe("submix as a view dimension", () => {
 	});
 });
 
+/**
+ * Retention is what makes several dials on different buses usable at once.
+ * Invalidation alone (see "positional view cache") would leave every dial but
+ * the current one blank; here each view keeps its own slice, readable through a
+ * view requirement without moving the slot.
+ */
 describe("per-view state retention", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;
@@ -508,6 +689,11 @@ describe("per-view state retention", () => {
 	});
 });
 
+/**
+ * The serial prime walk, which fills every required view's slice at startup so
+ * dials arrive populated. Replaces the old appear-time pin scramble, where
+ * several actions raced each other for the single shared slot.
+ */
 describe("startup view priming", () => {
 	let fake: FakeTotalMix;
 	let conn: InstanceType<typeof TotalMixConnection>;

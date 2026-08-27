@@ -3,9 +3,8 @@
  *
  * sdpi-textfield and sdpi-range persist what the DOM gives them, so a port typed
  * as 9001 is stored as "9001" and a slider position as "3". The action settings
- * types in this codebase say `number` — which is what we want to work with, but
- * not what we receive. Every numeric setting must pass through here at the point
- * of use.
+ * types declare `number`, which is not what arrives. Every numeric setting is
+ * coerced here at the point of use.
  *
  * This is not cosmetic. A string port makes `connect()` believe the port changed
  * on every action appearance ("9001" !== 9001), tearing down and reopening the

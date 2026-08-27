@@ -1,11 +1,10 @@
 /**
  * Value scaling from RME's official OSC implementation table (TotalMix FX 1.96,
- * 22.07.2024). Formulas transcribed verbatim — do not "simplify" them.
+ * 22.07.2024). Formulas are transcribed verbatim and must not be simplified.
  *
- * Why this matters for dials: the fader curve is strongly non-linear in dB. A
- * fixed step in the 0..1 wire domain moves about 0.144 dB near the bottom of the
- * throw but only 0.033 dB near the top — a 4.4x difference. Stepping linearly
- * therefore feels broken. Convert to dB, step a fixed dB per detent, convert back.
+ * The fader curve is non-linear in dB: a fixed step in the 0..1 wire domain
+ * moves about 0.144 dB near the bottom of the throw and 0.033 dB near the top.
+ * Dial stepping therefore converts to dB, steps a fixed dB, and converts back.
  */
 
 /** Wire value 0.0 is this dB floor, displayed by TotalMix as -oo. */
@@ -14,10 +13,9 @@ export const MIN_DB = -65.0;
 /**
  * Wire value 1.0 is this dB ceiling.
  *
- * Note: RME's published constants actually yield 6.0000000027 dB at fader
- * position 1023, not exactly 6.0. The discrepancy is in their rounded
- * coefficients and is far below anything audible or displayable, but tests
- * comparing against the curve should allow ~1e-8 rather than assuming an exact 6.
+ * The published constants yield 6.0000000027 dB at fader position 1023 rather
+ * than exactly 6.0, from rounding in the coefficients. Tests comparing against
+ * the curve should allow a tolerance of ~1e-8.
  */
 export const MAX_DB = 6.0;
 
@@ -54,8 +52,8 @@ export function dbToFader(dB: number): number {
 }
 
 /**
- * Steps a fader value by a fixed number of dB — the correct primitive for a dial
- * detent or a volume up/down button.
+ * Steps a fader value by a fixed number of dB, the primitive used for a dial
+ * detent or a volume up/down key.
  */
 export function stepDb(currentValue: number, deltaDb: number): number {
 	const dB = faderToDb(currentValue);
@@ -66,13 +64,12 @@ export function stepDb(currentValue: number, deltaDb: number): number {
 export const isMinusInfinity = (value: number): boolean => clamp01(value) <= 0;
 
 /**
- * Formats a fader value for display. Prefer TotalMix's own "...Val" string when
- * you have it — this is the fallback for when you don't.
+ * Formats a fader value for display. Used only when TotalMix's own "...Val"
+ * string is unavailable.
  */
 export function formatDb(value: number): string {
-	// TotalMix renders minus infinity as the ASCII string "-oo" (confirmed in a
-	// real capture). Match it so the fallback and TotalMix's own Val string never
-	// show the same state two different ways.
+	// TotalMix renders minus infinity as the ASCII string "-oo". Matching it keeps
+	// this fallback and TotalMix's own Val string consistent.
 	if (isMinusInfinity(value)) return "-oo";
 	const dB = faderToDb(value);
 	return `${dB >= 0 ? "+" : ""}${dB.toFixed(1)} dB`;

@@ -13,6 +13,7 @@ import streamDeck, {
 import { dbToFader, faderToBar, formatDb, stepDb, MAX_DB, MIN_DB } from "../osc/curves.js";
 import * as g from "../globalosc/addresses.js";
 import { GAIN_MAX_DB, stepGainDb } from "../globalosc/gain.js";
+import { detectedMaxGainDb } from "../totalmix/devices.js";
 import { globalMixFor, type GlobalConnection } from "../globalosc/connection.js";
 import {
 	buildChannelItems,
@@ -31,18 +32,15 @@ export type GlobalVolumeSettings = {
 	/** 0-based channel for target "channel". */
 	channel?: number | string;
 	/**
-	 * Which output's submix an input/playback fader belongs to. Wire capture
-	 * confirmed in/pb faders exist only as mix nodes, one per submix: the GUI
-	 * fader move emitted /mix/in/0/0/faderlin — the node of the submix
-	 * selected in the window. "auto"/empty follows /controlroom/mainout;
-	 * a number pins a specific output channel's submix.
+	 * Output whose submix an input/playback fader belongs to. Input and playback
+	 * faders exist only as mix nodes, one per submix. "auto" or empty follows
+	 * /controlroom/mainout; a number pins a specific output channel's submix.
 	 */
 	submixOut?: number | string;
 	/**
-	 * 0-based channel for target "gain". A separate setting from "channel" on
-	 * purpose: the PI shows one dropdown per target, and two dropdowns bound to
-	 * the same setting fight each other (the hidden one can silently overwrite
-	 * what the visible one just stored).
+	 * 0-based channel for target "gain". Separate from "channel" because the
+	 * property inspector renders one dropdown per target, and two dropdowns bound
+	 * to the same setting overwrite each other's stored value.
 	 */
 	gainChannel?: number | string;
 	/** Mix node source: hardware input or software playback. */
@@ -66,27 +64,24 @@ const DEFAULT_STEP_DB = 1.5;
 /**
  * Volume control over the Global OSC protocol.
  *
- * Addressing is absolute; the one indirection is the "main" target: Global OSC
- * has no mastervolume, because the Main Out simply IS an output channel. Which
- * one is read from /controlroom/mainout (0-based output channel number, per
- * the table's example "0.0 = channel 1+2"), and the action re-targets itself
- * whenever that assignment changes.
+ * Addressing is absolute except for the "main" target: Global OSC has no
+ * mastervolume address because the Main Out is an output channel, identified by
+ * /controlroom/mainout as a 0-based output channel number. The action re-targets
+ * when that assignment changes.
  *
- * Channel faders address /{input|playback|output}/{ch}/faderlin — the table's
- * channel grid applies to all three buses alike. Fader state prefers faderlin
- * (curve published in the table); where only the dB sibling has arrived (mix
- * "fader" [dB], channel "volume"), it is converted through that same curve as
- * the starting point. Writes always go out as faderlin.
+ * Channel faders address /{input|playback|output}/{ch}/faderlin for all three
+ * buses. State prefers faderlin; where only the dB sibling has arrived (mix
+ * "fader", channel "volume") it is converted through the published curve. Writes
+ * are always faderlin.
  */
 @action({ UUID: "de.shellsdw.totalmix2.globalvolume" })
 export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
 	/**
-	 * Last Main Out assignment each "main"-target action saw. Re-setup happens
-	 * only when the assignment actually changes — without the guard, the
-	 * cached-value delivery a fresh subscription performs would re-trigger
-	 * setup in an endless loop.
+	 * Last Main Out assignment seen per "main"-target action. Re-setup runs only
+	 * on an actual change; the cached-value delivery of a fresh subscription
+	 * would otherwise re-trigger setup indefinitely.
 	 */
 	private readonly lastMainOut = new Map<string, number>();
 
@@ -148,9 +143,8 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			unsubs.push(gm.subscribe(nameAddress, render));
 		}
 
-		// Ask TotalMix for this specific channel's parameters once. The bulk
-		// /sendall at connect can be lost when the plugin starts first; this
-		// targeted request makes each configured dial self-sufficient.
+		// Requests this channel's parameters once. The bulk /sendall at connect
+		// can be lost if the plugin starts before TotalMix.
 		this.primeChannel(gm, settings);
 
 		this.releaseFor(target.id);
@@ -183,9 +177,8 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			}
 		}
 
-		// Mix-node targets: ask for the whole submix's nodes (value 1 = all
-		// nodes, not just those above -65 dB — a node parked at -oo must still
-		// report, or the dial for it would refuse to move).
+		// Mix-node targets request the whole submix. Value 1 requests all nodes;
+		// value 2 would omit nodes below -65 dB, which a dial still needs.
 		const node = this.mixNodeSpec(settings);
 		if (node !== undefined) {
 			const key = `${gm.options_.host}:${gm.options_.sendPort}:submix:${node.out}`;
@@ -253,8 +246,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const isGain = (settings.target ?? "channel") === "gain";
 
 		if (address === undefined) {
-			// Main target before /controlroom/mainout has arrived: the fader to
-			// move is literally unknown. Ask and wait.
+			// Before /controlroom/mainout arrives the target fader is unknown.
 			streamDeck.logger.warn("Ignoring move: Main Out assignment not received yet");
 			gm.requestFullRefresh();
 			return;
@@ -262,16 +254,14 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 		let level = this.resolveLevel(gm, settings, address);
 		if (level === undefined && (settings.target ?? "channel") === "channel") {
-			// TotalMix (2.1 beta 2) does not transmit fader state for these
-			// channels no matter what is requested, so waiting means the dial
-			// never works. Adopt -oo as the starting level — the one seed that
-			// can never be louder than intended — and step from our own writes
-			// from here on.
+			// TotalMix 2.1 beta 2 does not transmit fader state for these channels
+			// on any request. Seeds at -oo, the only value that cannot be louder
+			// than intended, and steps from subsequent writes.
 			streamDeck.logger.info(
 				`No fader state from TotalMix for ${address}; starting from -oo and stepping locally.`,
 			);
-			// Seed on the last candidate for this target — for in/pb that is the
-			// Main Out mix node, the only fader form this device transmits.
+			// Seeds on the last candidate: for input/playback that is the Main Out
+			// mix node, the only fader form transmitted.
 			const candidates = this.levelCandidates(settings, gm, address);
 			const seedOn = candidates[candidates.length - 1] ?? { kind: "faderlin" as const, address };
 			level = { kind: "faderlin", address: seedOn.kind === "faderlin" ? seedOn.address : address, value: 0 };
@@ -287,7 +277,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const perTick = num(settings.stepDb, DEFAULT_STEP_DB);
 
 		if (isGain) {
-			const next = stepGainDb(level.value, ticks);
+			const next = stepGainDb(level.value, ticks, detectedMaxGainDb(GAIN_MAX_DB));
 			gm.setCoalesced(address, next);
 			void this.render(gm, ev.action, settings, next);
 			return;
@@ -542,8 +532,10 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		// No Val strings in this protocol; both formats are exact from the table:
 		// faderlin via the published curve, gain as the whole-dB value it is.
 		const label = isGain ? `${Math.round(value)} dB` : formatDb(value);
+		// The fill bar shares the stepping ceiling, so on a 65 dB device the dial
+		// reads full at 65 rather than stopping at 87% of its travel.
 		const bar = isGain
-			? Math.round(Math.min(1, Math.max(0, value / GAIN_MAX_DB)) * 100)
+			? Math.round(Math.min(1, Math.max(0, value / detectedMaxGainDb(GAIN_MAX_DB))) * 100)
 			: faderToBar(value);
 
 		if (target.isDial()) {

@@ -244,17 +244,27 @@ describe("gain display formatting", async () => {
 	const { formatGain } = await import("./steps.js");
 
 	it.each([
-		["60.0 dB", "60"],
-		["7.5 dB", "8"],
-		["0.0 dB", "0"],
-		["-3.0 dB", "-3"],
-		["+12.0 dB", "12"],
-	])("reduces %s to %s", (input, expected) => {
+		["60.0 dB", "60 dB"],
+		["7.5 dB", "8 dB"],
+		["0.0 dB", "0 dB"],
+		["-3.0 dB", "-3 dB"],
+		["+12.0 dB", "12 dB"],
+	])("rounds %s to %s", (input, expected) => {
 		expect(formatGain(input)).toBe(expected);
 	});
 
+	it("keeps a unit the device reports instead of assuming dB", () => {
+		expect(formatGain("12.0 dBu")).toBe("12 dBu");
+	});
+
+	it("assumes dB when a bare number arrives", () => {
+		expect(formatGain("42")).toBe("42 dB");
+	});
+
 	it("passes unrecognised strings through untouched", () => {
+		// "-oo" is what TotalMix sends for a fader at the bottom of its travel.
 		expect(formatGain("n/a")).toBe("n/a");
+		expect(formatGain("-oo")).toBe("-oo");
 	});
 });
 

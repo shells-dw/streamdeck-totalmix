@@ -3,18 +3,15 @@ import { stepDb } from "./curves.js";
 /**
  * Value stepping for dials and nudge keys.
  *
- * Deliberately kept out of the action files: those carry the `@action` decorator
- * and import the Stream Deck SDK, which drags a whole runtime into anything that
- * imports them — including tests. Pure functions live here so they can be tested
- * directly, with no SDK and no decorator transform involved.
+ * Kept out of the action files, which carry the `@action` decorator and import
+ * the Stream Deck SDK. Pure functions here are testable without the SDK or the
+ * decorator transform.
  */
 
 /**
- * A typical RME preamp spans roughly this many dB. Gain is kOSCScaleLin01 over a
- * device-dependent range, so exact dB-per-detent is unknowable from our side;
- * this makes a step feel like approximately the configured dB. The displayed
- * value always comes from TotalMix's own string, so the reading stays truthful
- * even where this approximation is off.
+ * Fallback preamp span. Gain is kOSCScaleLin01 over a device-dependent range;
+ * callers pass the device span where known (see totalmix/devices.ts). Displayed
+ * values come from TotalMix's own string regardless.
  */
 export const GAIN_ASSUMED_RANGE_DB = 65;
 
@@ -35,26 +32,34 @@ export function computeNext(
 	ticks: number,
 	dbStep: number,
 	fxFraction: number,
+	gainRangeDb: number = GAIN_ASSUMED_RANGE_DB,
 ): number {
 	switch (kind) {
 		case "fader":
 			return stepDb(current, ticks * dbStep);
 		case "gain":
-			return clamp01(current + (ticks * dbStep) / GAIN_ASSUMED_RANGE_DB);
+			// A zero or negative span would make the step infinite or inverted.
+			return clamp01(
+				current + (ticks * dbStep) / (gainRangeDb > 0 ? gainRangeDb : GAIN_ASSUMED_RANGE_DB),
+			);
 		case "fx":
 			return clamp01(current + ticks * fxFraction);
 	}
 }
 
 /**
- * Reduces TotalMix's gain display string ("60.0 dB") to a bare whole number
- * ("60") — preamps step in integers, so decimals and units are noise on a dial
- * touchscreen. Unrecognised strings pass through untouched, so an unexpected
- * device format degrades to showing exactly what TotalMix sent.
+ * Rounds TotalMix's gain display string to a whole number, keeping the unit
+ * ("60.0 dB" -> "60 dB").
+ *
+ * The unit is carried over from the source rather than hardcoded, so a device
+ * reporting other than dB shows its own. Strings with no leading number ("n/a",
+ * "-oo") pass through unchanged.
  */
 export function formatGain(val: string): string {
-	const m = val.match(/-?\d+(?:\.\d+)?/);
-	return m ? String(Math.round(Number(m[0]))) : val;
+	const m = val.match(/^\s*([+-]?\d+(?:\.\d+)?)\s*(.*)$/);
+	if (m?.[1] === undefined) return val;
+	const unit = (m[2] ?? "").trim() || "dB";
+	return `${Math.round(Number(m[1]))} ${unit}`;
 }
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);

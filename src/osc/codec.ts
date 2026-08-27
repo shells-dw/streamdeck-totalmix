@@ -1,14 +1,9 @@
 /**
- * Minimal OSC 1.0 codec covering exactly what TotalMix FX speaks: bundles of
+ * Minimal OSC 1.0 codec covering the subset TotalMix FX uses: bundles of
  * single-argument messages carrying a float or a string.
  *
- * Deliberately hand-rolled rather than taking a dependency. The .NET and Node OSC
- * package ecosystems are both chains of abandoned forks, and the subset TotalMix
- * uses is small enough that owning it is cheaper than migrating off an orphan
- * later. Correctness is pinned by tests, including a real captured session.
- *
  * Wire format: big-endian; strings null-terminated and padded with nulls to a
- * 4-byte boundary.
+ * 4-byte boundary. Correctness is covered by tests including a captured session.
  */
 
 export type OscValue = number | string | boolean | null;
@@ -37,8 +32,8 @@ export const isDisplayValue = (m: OscMessage): boolean => m.address.endsWith("Va
 
 /**
  * Numeric view of a value. TotalMix expresses on/off as 0.0/1.0, so booleans
- * coerce. Strings deliberately do NOT coerce: a display string like "-6.0 dB"
- * is not a value, and silently parsing it would mask a mis-modelled address.
+ * coerce. Strings do not: a display string such as "-6.0 dB" is formatting, not
+ * a value, and parsing it would mask a mis-modelled address.
  */
 export function asNumber(v: OscValue): number {
 	if (typeof v === "number") return v;
@@ -67,16 +62,16 @@ function readString(buf: Buffer, c: Cursor): string | null {
 	const s = buf.toString("utf8", c.pos, nul);
 	const advance = pad4(nul - c.pos + 1);
 
-	// Padding claiming to run past the datagram: keep the string but park the
-	// cursor at the end so no further argument is attempted.
+	// Padding running past the datagram: keeps the string and parks the cursor at
+	// the end so no further argument is read.
 	c.pos = c.pos + advance > buf.length ? buf.length : c.pos + advance;
 	return s;
 }
 
 /**
  * Reads one argument by type tag. Returns `undefined` when the argument cannot
- * be read or its width is unknown — the caller must then stop, since alignment
- * is no longer recoverable.
+ * be read or its width is unknown; alignment is unrecoverable at that point and
+ * the caller must stop.
  */
 function readArg(buf: Buffer, c: Cursor, tag: string): OscValue | undefined {
 	switch (tag) {
@@ -102,8 +97,8 @@ function readArg(buf: Buffer, c: Cursor, tag: string): OscValue | undefined {
 		case "F":
 			return false;
 		case "b": {
-			// Blob: int32 length, payload padded to 4. Unused by TotalMix, but
-			// skipped correctly so any following argument stays aligned.
+			// Blob: int32 length, payload padded to 4. Unused by TotalMix; skipped
+			// so any following argument stays aligned.
 			if (c.pos + 4 > buf.length) return undefined;
 			const len = buf.readInt32BE(c.pos);
 			c.pos += 4;
@@ -111,7 +106,7 @@ function readArg(buf: Buffer, c: Cursor, tag: string): OscValue | undefined {
 			c.pos += pad4(len);
 			return null;
 		}
-		// Fixed-width types we don't use but must step over accurately.
+		// Fixed-width types that are unused but must be stepped over.
 		case "h":
 		case "d":
 		case "t":
@@ -139,8 +134,8 @@ function parseMessage(buf: Buffer, out: OscMessage[]): void {
 	const address = readString(buf, c);
 	if (address === null) return;
 
-	// No type tag string: treat as an argument-less signal. TotalMix's "/"
-	// heartbeat can arrive this way.
+	// No type tag string: an argument-less signal. The "/" heartbeat arrives
+	// this way.
 	if (c.pos >= buf.length) {
 		out.push({ address, value: null, argCount: 0 });
 		return;
@@ -154,8 +149,8 @@ function parseMessage(buf: Buffer, out: OscMessage[]): void {
 
 	for (let i = 1; i < tags.length; i++) {
 		const v = readArg(buf, c, tags[i]!);
-		// Unparseable argument: keep what we have rather than dropping the whole
-		// message, since the address alone is often actionable.
+		// Unparseable argument: the address alone is often actionable, so the
+		// message is kept.
 		if (v === undefined) break;
 		if (argCount === 0) value = v;
 		argCount++;
@@ -168,8 +163,8 @@ function parseInto(buf: Buffer, out: OscMessage[], depth: number): void {
 	if (depth > MAX_BUNDLE_DEPTH || buf.length < 4) return;
 
 	if (buf.length >= 8 && buf.toString("latin1", 0, 8) === BUNDLE_TAG) {
-		// 8 bytes "#bundle\0" + 8 byte timetag. The timetag is ignored: TotalMix
-		// sends immediate bundles and we have no use for scheduling.
+		// 8 bytes "#bundle\0" + 8 byte timetag. The timetag is ignored; TotalMix
+		// sends immediate bundles.
 		let pos = 16;
 
 		while (pos + 4 <= buf.length) {
@@ -238,8 +233,7 @@ export function encodeBare(address: string): Buffer {
 }
 
 /**
- * Sends 1.0, which is how every kOSCScaleToggle parameter is flipped. Deliberately
- * does not read current state: the toggle semantics make a read-modify-write both
- * unnecessary and racy.
+ * Sends 1.0, which flips any kOSCScaleToggle parameter. Current state is not
+ * read: toggle semantics make a read-modify-write unnecessary and racy.
  */
 export const encodeToggle = (address: string): Buffer => encodeFloat(address, 1.0);

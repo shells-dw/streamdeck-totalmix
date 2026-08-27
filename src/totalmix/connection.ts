@@ -8,35 +8,32 @@ import {
 	type OscMessage,
 	type OscValue,
 } from "../osc/codec.js";
+import { pageOf } from "./addresses.js";
 
 /**
  * A single long-lived connection to one TotalMix FX instance.
  *
- * This replaces the v3 design, which opened a fresh socket per state query, ran a
- * blocking receive loop, then closed and disposed it. That cost a socket lifecycle
- * per poll and — more importantly — meant nothing was bound to the port most of the
- * time, so any state TotalMix pushed spontaneously was missed. Which in turn forced
- * polling to compensate.
- *
- * Here the socket stays open for the lifetime of the plugin, every inbound message
- * updates a cache, and actions subscribe to the addresses they care about.
+ * The socket stays bound for the lifetime of the plugin, every inbound message
+ * updates a cache, and actions subscribe to the addresses they read.
  */
 
 export interface ConnectionOptions {
 	/** Host running TotalMix FX. */
 	host: string;
-	/** TotalMix "Port incoming" — where we send. Default 7001. */
+	/** TotalMix "Port incoming" — the destination port. Default 7001. */
 	sendPort: number;
-	/** TotalMix "Port outgoing" — where we listen. Default 9001. */
+	/** TotalMix "Port outgoing" — the bound receive port. Default 9001. */
 	receivePort: number;
 }
 
+/** TotalMix's factory settings for Remote Controller slot 1. */
 export const DEFAULT_OPTIONS: ConnectionOptions = {
 	host: "127.0.0.1",
 	sendPort: 7001,
 	receivePort: 9001,
 };
 
+/** Called with the new value whenever a subscribed address changes. */
 export type Listener = (value: OscValue) => void;
 
 /** A view requirement: which bus/bank an action's data must belong to. */
@@ -55,11 +52,7 @@ export interface ConnectionTiming {
 
 const DEFAULT_TIMING: ConnectionTiming = { staleMs: 5000, refreshMs: 2000 };
 
-/**
- * Outbound rate limit. Dial rotation fires far faster than TotalMix needs to be
- * told; coalescing to one send per address per tick keeps the wire quiet without
- * any perceptible lag.
- */
+/** Outbound flush interval: one send per address per tick. */
 const SEND_COALESCE_MS = 25;
 
 export class TotalMixConnection {
@@ -73,11 +66,11 @@ export class TotalMixConnection {
 	private readonly globals = new Map<string, OscValue>();
 
 	/**
-	 * Positional state, retained PER VIEW. /1/volume3 under (playback, bank 0,
+	 * Positional state, retained per view. /1/volume3 under (playback, bank 0,
 	 * submix Main) and under (input, bank 0, submix Main) are different faders;
-	 * both values are kept, each under its own key. Switching views never
-	 * destroys data — a dial parked on a non-current view keeps its last known
-	 * value and its own bus's channel name.
+	 * both values are kept, each under its own key. A view change adds a slice
+	 * rather than replacing one, so a read for a non-current view still
+	 * resolves.
 	 */
 	private readonly viewState = new Map<string, Map<string, OscValue>>();
 
@@ -96,22 +89,34 @@ export class TotalMixConnection {
 	private readonly pending = new Map<string, number>();
 	private flushTimer: NodeJS.Timeout | null = null;
 
+	/** Pending return to the slot's own page after an off-page command. */
+	private restoreTimer: NodeJS.Timeout | null = null;
+
 	private refreshTimer: NodeJS.Timeout | null = null;
 	private lastInbound = 0;
 	private connectedFlag = false;
 
 	/**
-	 * True once at least one real (non-heartbeat) message has arrived. TotalMix
-	 * sends heartbeats even when a refresh request was lost — e.g. when the
-	 * plugin started before TotalMix was ready — so "packets are arriving" must
-	 * not be mistaken for "the cache is populated". Until this is true, the
-	 * timer keeps re-requesting the page dump.
+	 * True once at least one non-heartbeat message has arrived. TotalMix sends
+	 * heartbeats regardless of whether a refresh request was received, so
+	 * inbound traffic alone does not imply a populated cache. While false, the
+	 * refresh timer re-requests the page dump.
 	 */
 	private primed = false;
 
 	/** Views actions have declared they need, each primed once at startup. */
 	private readonly primeQueue: ViewRequirement[] = [];
 	private readonly primedViews = new Set<string>();
+
+	/**
+	 * Every view an action has required, kept for the connection's lifetime.
+	 *
+	 * Page-1 addressing is control-element oriented with dynamic mapping to
+	 * channels depending on bank assignment, not fixed per channel: /1/mute/1/1
+	 * means strip 1 of the currently selected bus and bank. A slot selects one
+	 * view at a time, so a refresh carries values for that view only.
+	 */
+	private readonly knownViews: ViewRequirement[] = [];
 	private primeTimer: NodeJS.Timeout | null = null;
 
 	private readonly timing: ConnectionTiming;
@@ -119,26 +124,39 @@ export class TotalMixConnection {
 	constructor(timing: Partial<ConnectionTiming> = {}) {
 		this.timing = { ...DEFAULT_TIMING, ...timing };
 	}
+
+	/**
+	 * The page this slot mirrors. Page 1 (the mixer) is what nearly everything
+	 * needs; off-page commands hop away and come back rather than changing this.
+	 */
 	private page: 1 | 2 | 3 | 4 = 1;
+
+	/** Guards the one-shot "first inbound" diagnostic in handlePacket. */
 	private loggedFirstInbound = false;
 
+	/** Connection up/down subscribers, separate from per-address listeners. */
 	private readonly connectionListeners = new Set<(connected: boolean) => void>();
 
+	/** True while inbound OSC is arriving; see setConnected for the transitions. */
 	get connected(): boolean {
 		return this.connectedFlag;
 	}
 
+	/**
+	 * The resolved host and ports, after the string coercion connect() applies.
+	 * Trailing underscore avoids colliding with the private `options` field.
+	 */
 	get options_(): Readonly<ConnectionOptions> {
 		return this.options;
 	}
 
 	/**
-	 * Opens the socket, or reopens it if the port changed. Safe to call repeatedly —
-	 * every action calls it on appear.
+	 * Opens the socket, or reopens it if the receive port changed. Idempotent;
+	 * called by every action on appear.
 	 */
 	async connect(options: Partial<ConnectionOptions> = {}): Promise<void> {
-		// Defensive coercion: settings from the property inspector arrive as
-		// strings, and a string port must not register as a port *change*.
+		// Property inspector settings arrive as strings; coerced here so a
+		// string port does not register as a port change.
 		const next = {
 			host: options.host !== undefined ? String(options.host) : this.options.host,
 			sendPort: options.sendPort !== undefined ? Number(options.sendPort) : this.options.sendPort,
@@ -169,17 +187,33 @@ export class TotalMixConnection {
 		this.requestFullRefresh();
 	}
 
+	/**
+	 * Binds the receive port. Resolves on "listening", and also on a bind
+	 * failure, so connect() settles either way.
+	 */
 	private openSocket(): Promise<void> {
 		return new Promise((resolve) => {
-			const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+			// No reuseAddr: on UDP it permits two sockets on one port, with only
+			// one of them receiving traffic. Without it, a taken port raises
+			// EADDRINUSE in the error handler below.
+			const socket = dgram.createSocket({ type: "udp4" });
 
 			socket.on("message", (buf) => this.handlePacket(buf));
 
 			socket.on("error", (err) => {
-				streamDeck.logger.error(`OSC socket error: ${err.message}`);
+				const inUse = (err as NodeJS.ErrnoException).code === "EADDRINUSE";
+				streamDeck.logger.error(
+					inUse
+						? `OSC: udp/${this.options.receivePort} is already in use — ` +
+							`check that no other program (or the Global OSC slot) listens on this port.`
+						: `OSC socket error: ${err.message}`,
+				);
 				// Do not rethrow: an unhandled error here would take the plugin down.
 				this.setConnected(false);
 				this.closeSocket();
+				// Bind failures arrive on this event rather than as a synchronous
+				// throw, so the promise is settled here as well.
+				resolve();
 			});
 
 			socket.on("listening", () => {
@@ -200,14 +234,19 @@ export class TotalMixConnection {
 		});
 	}
 
+	/**
+	 * Entry point for every inbound datagram: refreshes the liveness clock, then
+	 * applies each message. A malformed packet parses to no messages and is
+	 * dropped without altering the connection state.
+	 */
 	private handlePacket(buf: Buffer): void {
 		const messages = parsePacket(buf);
 		if (messages.length === 0) return;
 
 		const now = Date.now();
-		// Inbound resuming after a long gap usually means TotalMix restarted; its
-		// state and the slot's page are then unknown, so the cache must be
-		// re-primed even though packets are flowing again.
+		// Inbound resuming after a gap longer than staleMs indicates a TotalMix
+		// restart: the slot's page and state are unknown, so the cache is
+		// re-primed even though packets are arriving.
 		const resumedAfterGap = this.lastInbound !== 0 && now - this.lastInbound > this.timing.staleMs;
 		const hasData = messages.some((m) => !isHeartbeat(m));
 
@@ -218,9 +257,8 @@ export class TotalMixConnection {
 			this.requestFullRefresh();
 		}
 
-		// One-shot diagnostic: proves inbound OSC is arriving and shows what page
-		// TotalMix is actually mirroring. Without this, "no feedback" and "wrong
-		// page selected" look identical from the outside.
+		// One-shot diagnostic: records that inbound OSC arrived and which page
+		// TotalMix is mirroring.
 		if (!this.loggedFirstInbound) {
 			this.loggedFirstInbound = true;
 			const sample = messages.slice(0, 8).map((m) => m.address).join(", ");
@@ -237,16 +275,20 @@ export class TotalMixConnection {
 		}
 	}
 
+	/**
+	 * Files one message into the right cache and wakes its subscribers.
+	 *
+	 * Order matters: the view-tracking addresses (labelSubmix, busX) are read
+	 * first, so a dump that begins by announcing its view has the rest of its
+	 * messages stored under that view rather than the previous one.
+	 */
 	private applyMessage(m: OscMessage): void {
 		if (isHeartbeat(m)) return;
 
-		// TotalMix reports the active bus as busX = 1.0. That is authoritative:
-		// when it differs from what we thought, the view moved underneath us
-		// (e.g. the dump for another action's pin), so positional cache captured
-		// before this message no longer describes these positions.
-		// Submix is a third view dimension: verified in a capture, selecting a
-		// different submix in the GUI re-sends every volumeN as that submix's send
-		// level. Same positions, entirely different meaning.
+		// TotalMix reports the active bus as busX = 1.0, and the active submix as
+		// /1/labelSubmix. Both are view dimensions: selecting another submix
+		// re-sends every volumeN as that submix's send level, so the same
+		// positional addresses carry different values per submix.
 		if (m.address === "/1/labelSubmix" && typeof m.value === "string") {
 			// Key component only: each submix retains its own slice.
 			this.view.submix = m.value;
@@ -280,7 +322,14 @@ export class TotalMixConnection {
 		}
 	}
 
-	/** Current cached value for an address, or undefined if never received. */
+	/**
+	 * Current cached value for an address, or undefined if never received.
+	 *
+	 * For positional addresses `req` picks which view's retained slice to read.
+	 * Passing it lets an action see its own bus's data while the slot is parked
+	 * elsewhere; omitting it reads whatever view is current, which is only
+	 * correct for addresses that mean the same thing everywhere.
+	 */
 	get(address: string, req?: ViewRequirement | null): OscValue | undefined {
 		if (TotalMixConnection.POSITIONAL.test(address)) {
 			return this.viewState.get(this.viewKey(req))?.get(address);
@@ -288,11 +337,19 @@ export class TotalMixConnection {
 		return this.globals.get(address);
 	}
 
+	/**
+	 * Numeric read. Booleans collapse to 1/0 because TotalMix sends some on/off
+	 * parameters as OSC booleans and others as floats for the same concept.
+	 */
 	getNumber(address: string, fallback = 0, req?: ViewRequirement | null): number {
 		const v = this.get(address, req);
 		return typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : fallback;
 	}
 
+	/**
+	 * String read, for labels and the "...Val" display strings. Returns
+	 * undefined rather than coercing, so callers can fall back deliberately.
+	 */
 	getString(address: string, req?: ViewRequirement | null): string | undefined {
 		const v = this.get(address, req);
 		return typeof v === "string" ? v : undefined;
@@ -325,12 +382,18 @@ export class TotalMixConnection {
 		};
 	}
 
+	/**
+	 * Subscribes to connection up/down. Fires immediately with the current state
+	 * so a button appearing on a dead connection renders its placeholder at once
+	 * instead of waiting for the next transition. Returns an unsubscribe.
+	 */
 	onConnectionChange(listener: (connected: boolean) => void): () => void {
 		this.connectionListeners.add(listener);
 		listener(this.connectedFlag);
 		return () => this.connectionListeners.delete(listener);
 	}
 
+	/** Notifies on transitions only, so idle traffic does not re-render every key. */
 	private setConnected(connected: boolean): void {
 		if (this.connectedFlag === connected) return;
 		this.connectedFlag = connected;
@@ -348,18 +411,46 @@ export class TotalMixConnection {
 	 * navigation, snapshot recall — where every message is meaningful.
 	 */
 	send(address: string, value: number): void {
-		// Every discrete command is logged: a key press must leave a trace, so
-		// "nothing happened" is diagnosable from the log alone.
+		// Every discrete command is logged, so a key press leaves a trace.
 		streamDeck.logger.debug(`OSC out: ${address} = ${value}`);
 		this.trackViewChange(address, value);
 		this.sendBuffer(encodeFloat(address, Number(value)));
 	}
 
 	/**
-	 * Detects outbound commands that move the shared view and invalidates every
-	 * positional cache entry when they fire. Without this, values captured under
-	 * one view get read back as if they belonged to another — which is how a dial
-	 * ends up displaying (and, worse, stepping from) a different channel's fader.
+	 * Sends a command belonging to another page, then returns the slot to its own
+	 * page.
+	 *
+	 * Any parameter carrying a page number selects that page for the slot, so an
+	 * off-page command leaves the connection mirroring that page and stops
+	 * updates for every address on the slot's own page.
+	 *
+	 * The return is deferred so the command is processed before the page moves,
+	 * and so a burst of sends (a dial spun through an FX parameter) costs one
+	 * page dump rather than one per detent.
+	 */
+	sendOffPage(address: string, value: number): void {
+		const page = pageOf(address);
+		this.send(address, value);
+
+		if (page === this.page) return;
+
+		if (this.restoreTimer !== null) clearTimeout(this.restoreTimer);
+		this.restoreTimer = setTimeout(() => {
+			this.restoreTimer = null;
+			streamDeck.logger.debug(`Returning slot to page ${this.page} after a page-${page} command.`);
+			// A snapshot recall changes the mixer without emitting individual
+			// parameter updates, so values are re-requested. A full refresh
+			// forces the page transition that triggers the re-send.
+			this.requestFullRefresh();
+			// The refresh returns only the selected bus; a snapshot changes all.
+			this.revisitViews();
+		}, TotalMixConnection.PAGE_RESTORE_MS);
+	}
+
+	/**
+	 * Tracks outbound commands that move the shared view, so positional cache
+	 * entries are read back under the view they were captured in.
 	 */
 	private trackViewChange(address: string, value: number): void {
 		switch (address) {
@@ -379,8 +470,8 @@ export class TotalMixConnection {
 			case "/1/bank-":
 			case "/1/track+":
 			case "/1/track-":
-				// Moves the bank by an amount we can't know: a "?"-bank slice
-				// would mix two real banks, so drop it rather than retain it.
+				// Relative moves by an unknown amount: the resulting "?"-bank
+				// slice would merge two real banks, so it is dropped.
 				this.view.bank = undefined;
 				this.viewState.delete(this.viewKey());
 				return;
@@ -390,15 +481,37 @@ export class TotalMixConnection {
 		}
 	}
 
+	/**
+	 * Addresses whose meaning depends on the current view, and which therefore
+	 * belong in a per-view slice rather than the global map.
+	 *
+	 * These are the page-1 strip parameters: /1/volume3 is "the third fader of
+	 * whatever bus and bank the slot is showing", not a fixed channel. Two
+	 * families appear, matching RME's own two address shapes — indexed
+	 * (volume3, trackname3, and their "Val" display twins) and matrix-style
+	 * (mute/1/3, where the middle number is the row).
+	 *
+	 * Everything not matched here — mastervolume, mainDim, group states — means
+	 * the same thing in every view and is stored globally. The pattern is
+	 * anchored at both ends and matches whole addresses only.
+	 */
 	private static readonly POSITIONAL =
 		/^\/1\/(?:(?:volume|pan|micgain|trackname)\d+(?:Val)?|(?:mute|solo|phantom|cue|select)\/1\/\d+)$/;
 
-	/** Drops all per-view state, e.g. after TotalMix restarted underneath us. */
+	/** Drops all per-view state, for use after a TotalMix restart. */
 	private invalidateBankView(): void {
 		this.viewState.clear();
 	}
 
-	/** Cache key for a view; unknown components render as "?". */
+	/**
+	 * Cache key for a view: bus, bank and submix, the three dimensions that
+	 * change what a positional address refers to.
+	 *
+	 * Components of `req` override the current view, which is how a read reaches
+	 * another view's slice. Unknown components render as "?" and key their own
+	 * slice, keeping data captured before the view was known separate from a
+	 * real view's slice.
+	 */
 	private viewKey(req?: ViewRequirement | null): string {
 		const bus = req?.bus ?? this.view.bus ?? "?";
 		const bank = req?.bank ?? this.view.bank ?? "?";
@@ -406,6 +519,7 @@ export class TotalMixConnection {
 		return `${bus}:${bank}:${submix}`;
 	}
 
+	/** The slice for a view key, created on first write. */
 	private viewMap(key: string): Map<string, OscValue> {
 		let m = this.viewState.get(key);
 		if (m === undefined) {
@@ -416,42 +530,56 @@ export class TotalMixConnection {
 	}
 
 	/**
-	 * Whether the current view matches the given requirements. Unknown view
-	 * counts as a mismatch when a requirement is stated — showing nothing is
-	 * better than showing another channel's data.
-	 */
-	/**
-	 * Declares that some action needs data for this view. Each required view is
-	 * visited exactly once after the connection comes up — bus and bank asserted,
-	 * dump collected into that view's slice — so every dial has its own data
-	 * prefilled at startup instead of waiting for its first gesture. Visits are
-	 * SERIAL, replacing the old appear-time pin scramble where several actions
-	 * raced each other for the slot.
+	 * Declares that an action needs data for this view. Each required view is
+	 * visited once after the connection comes up: bus and bank are asserted and
+	 * the resulting dump is collected into that view's slice, so an action holds
+	 * its own data before its first gesture. Visits run serially.
 	 */
 	requireView(req: ViewRequirement): void {
 		if (req.bus === undefined && req.bank === undefined) return;
 		const key = `${req.bus ?? "?"}:${req.bank ?? "?"}`;
 		if (this.primedViews.has(key)) return;
 		this.primedViews.add(key);
+		this.knownViews.push(req);
 		this.primeQueue.push(req);
 		this.schedulePrimeVisit();
 	}
 
+	/** Bus name to the page-1 address that selects it, for the prime walk. */
 	private static readonly BUS_ADDRESS = {
 		input: "/1/busInput",
 		playback: "/1/busPlayback",
 		output: "/1/busOutput",
 	} as const;
 
+	/**
+	 * Queues every known view for a visit, refreshing each view's cached slice.
+	 * Visits are spaced by the prime interval, as at startup.
+	 */
+	private revisitViews(): void {
+		if (this.knownViews.length === 0) return;
+		for (const req of this.knownViews) this.primeQueue.push(req);
+		this.schedulePrimeVisit();
+	}
+
+	/**
+	 * Runs the prime queue one view at a time, rescheduling itself until it
+	 * drains. Each visit moves the shared slot, so visits must not overlap: a
+	 * second select landing during the first visit's dump would file those
+	 * values under the wrong view.
+	 *
+	 * The single timer also serves as the "walk in progress" flag, so callers
+	 * can queue work and call this unconditionally.
+	 */
 	private schedulePrimeVisit(): void {
 		if (this.primeTimer !== null || this.primeQueue.length === 0) return;
-		// 400ms per visit: a full page dump takes ~80ms in captures; this gives
-		// each view's dump room to land before the next select moves the slot.
+		// 400 ms per visit: a full page dump takes about 80 ms, so each dump
+		// completes before the next select moves the slot.
 		this.primeTimer = setTimeout(() => {
 			this.primeTimer = null;
 			if (!this.primed) {
-				// Nothing has arrived at all yet — let the startup refresh land
-				// first, then resume visiting.
+				// No state has arrived yet; the startup refresh is still
+				// outstanding, so the walk waits and reschedules.
 				this.schedulePrimeVisit();
 				return;
 			}
@@ -465,12 +593,25 @@ export class TotalMixConnection {
 		this.primeTimer.unref?.();
 	}
 
+	/**
+	 * Whether the current view matches the given requirements. An unknown view
+	 * counts as a mismatch when a requirement is stated.
+	 *
+	 * Callers use this to decide whether a write needs the view pinned first;
+	 * reads should instead pass the requirement to get()/getNumber(), which
+	 * reach that view's retained slice without moving the slot.
+	 */
 	viewMatches(req: { bus?: "input" | "playback" | "output"; bank?: number }): boolean {
 		if (req.bus !== undefined && this.view.bus !== req.bus) return false;
 		if (req.bank !== undefined && this.view.bank !== req.bank) return false;
 		return true;
 	}
 
+	/**
+	 * Sends an integer-typed argument. Only the few parameters RME types as "i"
+	 * need this; everything else on the wire is a float, including values that
+	 * read as whole numbers.
+	 */
 	sendInt(address: string, value: number): void {
 		this.sendBuffer(encodeInt(address, value));
 	}
@@ -493,6 +634,7 @@ export class TotalMixConnection {
 
 		this.flushTimer = setTimeout(() => {
 			this.flushTimer = null;
+		this.restoreTimer = null;
 			const batch = [...this.pending];
 			this.pending.clear();
 			for (const [addr, v] of batch) {
@@ -506,7 +648,10 @@ export class TotalMixConnection {
 	 * resulting state — no read-modify-write, so no race with the GUI.
 	 */
 	toggle(address: string): void {
-		this.send(address, 1.0);
+		// Snapshots, groups and FX enables reach TotalMix through here and are
+		// page-2/3 addresses, so this must go through the page-restoring path.
+		// For page-1 addresses sendOffPage adds one comparison.
+		this.sendOffPage(address, 1.0);
 	}
 
 	private sendBuffer(buf: Buffer): void {
@@ -516,9 +661,9 @@ export class TotalMixConnection {
 			return;
 		}
 
-		// send() can throw synchronously (e.g. a socket caught mid-close). A throw
-		// here would propagate into the key handler and kill the press with no
-		// visible symptom, so it must be contained and logged.
+		// send() can throw synchronously, e.g. on a socket caught mid-close. The
+		// throw is contained and logged here rather than propagating into the
+		// key handler.
 		try {
 			socket.send(buf, this.options.sendPort, this.options.host, (err) => {
 				if (err) streamDeck.logger.error(`OSC send failed: ${err.message}`);
@@ -528,25 +673,13 @@ export class TotalMixConnection {
 		}
 	}
 
+	/** Delay before returning to the slot's own page, sized to absorb a dial burst. */
+	private static readonly PAGE_RESTORE_MS = 250;
+
 	/**
-	 * Asks TotalMix to re-send the parameters of one page.
-	 *
-	 * Per RME's spec, sending any parameter carrying a page number makes TotalMix
-	 * re-send every parameter of that page — and, critically, *selects* that page
-	 * for this remote controller slot. A slot mirrors exactly one page at a time.
-	 *
-	 * So this must touch a single page and stay there. Cycling 1..4 would leave the
-	 * slot parked on page 4, and nothing on page 1 (faders, mutes, main volume)
-	 * would ever arrive.
-	 *
-	 * Value 0.0 is inert on a kOSCScaleToggle address — only 1.0 flips it — so this
-	 * refreshes without changing anything.
-	 */
-	/**
-	 * One verified kOSCScaleToggle address per page (0.0 is inert on toggles).
-	 * globalMute only exists on pages 1 and 3 — an earlier version sent
-	 * /2/globalMute, which is not in RME's table and may be dropped entirely,
-	 * silently weakening the refresh. Verified against osc-spec.json.
+	 * One kOSCScaleToggle address per page; 0.0 is inert on a toggle. globalMute
+	 * exists on pages 1 and 3 only, so pages 2 and 4 use their own addresses.
+	 * All four are present in osc-spec.json.
 	 */
 	private static readonly PAGE_TOUCH: Record<1 | 2 | 3 | 4, string> = {
 		1: "/1/globalMute",
@@ -555,11 +688,22 @@ export class TotalMixConnection {
 		4: "/4/reqEnable",
 	};
 
+	/**
+	 * Asks TotalMix to re-send the parameters of one page.
+	 *
+	 * Per RME's spec, sending any parameter carrying a page number makes TotalMix
+	 * re-send every parameter of that page and selects that page for the slot. A
+	 * slot mirrors one page at a time, so the refresh must end on the slot's own
+	 * page.
+	 *
+	 * Value 0.0 is inert on a kOSCScaleToggle address — only 1.0 flips it — so
+	 * the refresh changes no state.
+	 */
 	requestFullRefresh(): void {
-		// RME's spec: the full re-send fires when a parameter carries a NEW page
-		// number. If the slot is already on our page, touching it is a no-op — so
-		// force a transition: step onto a neighbouring page, then back. Each hop
-		// triggers that page's re-send; the second lands us home with fresh state.
+		// The re-send fires only when a parameter carries a new page number, so
+		// touching the current page is a no-op. Two sends force a transition:
+		// one onto a neighbouring page, one back. Each triggers that page's
+		// re-send, and the second leaves the slot on its own page.
 		const away = this.page === 1 ? 2 : 1;
 		this.send(TotalMixConnection.PAGE_TOUCH[away], 0.0);
 		this.send(TotalMixConnection.PAGE_TOUCH[this.page], 0.0);
@@ -588,14 +732,13 @@ export class TotalMixConnection {
 					);
 				}
 				this.setConnected(false);
-				// TotalMix may have restarted, or OSC may have been re-enabled.
-				// Re-asserting the page is cheap and re-establishes the stream.
+				// Covers a TotalMix restart or OSC being re-enabled: re-asserting
+				// the page re-establishes the stream.
 				this.requestFullRefresh();
 			} else if (!this.primed) {
-				// Packets (heartbeats) are arriving but no state has: the initial
-				// refresh was lost — most commonly the plugin started before
-				// TotalMix finished booting. Keep asking until real data lands;
-				// once primed this branch never runs again, so idle stays quiet.
+				// Heartbeats are arriving but no state has, so the initial
+				// refresh request was lost. The request repeats until state
+				// arrives; once primed, this branch stops running.
 				this.requestFullRefresh();
 			}
 		}, this.timing.refreshMs);
@@ -604,6 +747,10 @@ export class TotalMixConnection {
 		this.refreshTimer.unref?.();
 	}
 
+	/**
+	 * Closes and forgets the socket. Tolerates an already-closed socket, which
+	 * happens when the error handler and an explicit close race.
+	 */
 	private closeSocket(): void {
 		if (this.socket === null) return;
 		try {
@@ -617,6 +764,7 @@ export class TotalMixConnection {
 	/** Releases everything. Called on plugin shutdown. */
 	dispose(): void {
 		if (this.flushTimer !== null) clearTimeout(this.flushTimer);
+		if (this.restoreTimer !== null) clearTimeout(this.restoreTimer);
 		if (this.refreshTimer !== null) clearInterval(this.refreshTimer);
 		if (this.primeTimer !== null) clearTimeout(this.primeTimer);
 		this.primeTimer = null;
@@ -633,17 +781,18 @@ export class TotalMixConnection {
 /**
  * Connection pool, one entry per TotalMix Remote Controller slot.
  *
- * TotalMix mirrors exactly one view (bus + bank + page) per remote controller —
- * that is a hard protocol limit, not ours. But it offers FOUR independent slots.
- * By keying connections on their port pair, actions configured with different
- * ports get genuinely independent views: a gain dial on slot 2 (7002/9002) can
- * sit parked on the input bus while volume dials on slot 1 stay on playback,
- * both with live feedback, neither stealing the other's view.
- *
- * Actions with the same (default) ports share one connection, exactly as before.
+ * TotalMix mirrors one view (bus + bank + page) per remote controller slot and
+ * offers four slots. Connections are keyed on their port pair, so actions
+ * configured for different slots hold independent views; actions sharing a port
+ * pair share one connection.
  */
 const pool = new Map<string, TotalMixConnection>();
 
+/**
+ * The connection for a host and port pair, created on first use. Actions call
+ * this on every event rather than holding a reference, so a settings change
+ * moves them to the right slot without any teardown of their own.
+ */
 export function totalMixFor(options: ConnectionOptions): TotalMixConnection {
 	const key = `${options.host}:${options.sendPort}:${options.receivePort}`;
 	let conn = pool.get(key);

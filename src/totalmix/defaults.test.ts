@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * The SDK is faked at the settings API rather than the websocket: these tests are
- * about the seeding rules, not the wire protocol.
- */
+/** The SDK is faked at the settings API; these tests cover the seeding rules. */
 const store = { value: {} as Record<string, unknown> };
 const getGlobalSettings = vi.fn(async () => store.value);
 let globalListener: ((ev: { settings: Record<string, unknown> }) => void) | null = null;
@@ -63,8 +60,7 @@ describe("resolving defaults", () => {
 	});
 
 	it("keeps the two slots independent", async () => {
-		// Someone running the classic slot on Remote Controller 3 has no reason
-		// to have moved their global slot as well.
+		// The two slots are configured independently.
 		store.value = { defaultSendPort: 7003, defaultReceivePort: 9003 };
 
 		const classic = await getDefaults("classic");
@@ -75,7 +71,7 @@ describe("resolving defaults", () => {
 	});
 
 	it("coerces the strings the property inspector actually stores", async () => {
-		// sdpi-textfield persists what the DOM gives it, so ports arrive quoted.
+		// sdpi-textfield persists DOM values, so ports arrive quoted.
 		store.value = { defaultHost: " 192.168.1.50 ", defaultSendPort: "7003", defaultStepDb: "3" };
 
 		const d = await getDefaults("classic");
@@ -142,7 +138,7 @@ describe("seeding a button", () => {
 
 		expect(settings.host).toBe("192.168.5.5");
 		expect(action.saved).toHaveLength(0);
-		// The cheap check must short-circuit before any websocket traffic.
+		// Short-circuits before any websocket traffic.
 		expect(getGlobalSettings).not.toHaveBeenCalled();
 	});
 
@@ -156,7 +152,7 @@ describe("seeding a button", () => {
 		resetDefaultsCache();
 		await seedDefaults(action, settings, "classic");
 
-		// Changing the default must never move a button already on a Stream Deck.
+		// Changing a default does not affect an already-seeded button.
 		expect(settings.host).toBe("10.0.0.9");
 		expect(action.saved).toHaveLength(1);
 	});

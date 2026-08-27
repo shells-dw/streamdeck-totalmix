@@ -45,18 +45,18 @@ const DUREC_STATE_MATCH: Partial<Record<GlobalTriggerMode, string>> = {
 };
 
 /**
- * State artwork. mixerOff is the red glyph, mixerOn the green one — red while
- * a snapshot is not loaded / a transport state is not current, green while it
- * is. Applied with setImage because the manifest can only declare one pair for
- * the whole action. The manifest sets DisableAutomaticStates, so nothing here
- * moves on a key press — only on TotalMix's reported state.
+ * State artwork. mixerOff is the red glyph, mixerOn the green one: red while a
+ * snapshot is not loaded or a transport state is not current, green while it is.
+ * Applied with setImage because the manifest declares one pair for the whole
+ * action. DisableAutomaticStates is set, so state follows TotalMix's reports
+ * rather than key presses.
  */
 const STATE_IMG = { on: "imgs/mixerOn", off: "imgs/mixerOff" } as const;
 
 /**
- * One-shot commands over the Global OSC protocol — everything the table types
- * as (f) (value below 0.5 ignored, no state carried by the outgoing value),
- * plus the show/hide window pair, which is a plain f set.
+ * One-shot commands over the Global OSC protocol: everything typed (f) in the
+ * table (value below 0.5 ignored, no state carried by the outgoing value), plus
+ * the show/hide window pair, which is a plain f.
  *
  * Feedback where the protocol offers it:
  * - Snapshots: TotalMix signals 0 (off), 2 (active) or 3 (changed) on the same
@@ -92,8 +92,8 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 		if (mode === "snapshot") {
 			const address = g.snapshotLoad(this.snapshotNumber(settings));
 			const render = (): void => {
-				// 0 = off, 2 = active, 3 = changed — active and changed both count
-				// as "this is the loaded snapshot".
+				// 0 = off, 2 = active, 3 = changed; active and changed both mean
+				// this is the loaded snapshot.
 				const on = gm.getNumber(address, 0) >= 2;
 				if (target.isKey()) {
 					void target.setImage(on ? STATE_IMG.on : STATE_IMG.off);
@@ -113,9 +113,9 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 			unsubs.push(gm.subscribe(g.DUREC_STATE, render), gm.onConnectionChange(render));
 			render();
 		} else if (target.isKey()) {
-			// One-shot modes (undo, layouts, show/hide window …) carry no state,
-			// so their icon must never move: restore whatever the manifest or the
-			// user configured, and park the action on its neutral state.
+			// One-shot modes (undo, layouts, show/hide window) carry no state, so
+			// the icon must not move: the manifest or user artwork is restored and
+			// the action parked on its neutral state.
 			void target.setImage();
 			void target.setState(0);
 		}
@@ -158,10 +158,9 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 				gm.trigger(g.DUREC_PAUSE, 1.0);
 				return;
 			case "durecStop":
-				// Deliberately 1.0, never > 10: per the table, stopping a running
-				// recording takes two presses (or a value above 10, which would
-				// bypass that confirmation — a safety TotalMix put there on
-				// purpose, and one an accidental key press should not skip).
+				// 1.0, never above 10: per the table, stopping a running recording
+				// takes two presses, and a value above 10 bypasses that
+				// confirmation.
 				gm.trigger(g.DUREC_STOP, 1.0);
 				return;
 			case "durecRecord":

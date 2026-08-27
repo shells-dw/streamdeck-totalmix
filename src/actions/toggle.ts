@@ -204,7 +204,7 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 			};
 			const next = asBool(tm.get(address, req) ?? 0) ? 0 : 1;
 			streamDeck.logger.info(`Key press: set ${address} = ${next}`);
-			tm.send(address, next);
+			tm.sendOffPage(address, next);
 			return;
 		}
 
