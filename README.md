@@ -230,7 +230,7 @@ This is a private project, I am not affiliated with RME or Elgato.
 
 
 # Changelog
-## [4.4.1] - 2026-08-28
+## [4.5.0] - 2026-08-28
 ### Fixed
 - A TotalMix restart is detected on any packet after a silence, not only when the first packet is a bare heartbeat, and the classic connection now clears its cached views so buttons re-read their state instead of showing pre-restart values.
 - The classic connection's background rotation over pinned channels could queue the same channel visit repeatedly; visits are now queued once.
