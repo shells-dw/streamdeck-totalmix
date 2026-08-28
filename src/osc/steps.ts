@@ -1,46 +1,22 @@
 import { stepDb } from "./curves.js";
 
-/**
- * Value stepping for dials and nudge keys.
- *
- * Kept out of the action files, which carry the `@action` decorator and import
- * the Stream Deck SDK. Pure functions here are testable without the SDK or the
- * decorator transform.
- */
+/** Value stepping for dials and nudge keys (SDK-free for tests). */
 
-/**
- * Fallback preamp span. Gain is kOSCScaleLin01 over a device-dependent range;
- * callers pass the device span where known (see totalmix/devices.ts). Displayed
- * values come from TotalMix's own string regardless.
- */
+/** Fallback preamp span in dB for kOSCScaleLin01 gain; see totalmix/devices.ts. */
 export const GAIN_ASSUMED_RANGE_DB = 65;
 
-/** FX steps 2% of range per detent — fine enough for time and frequency knobs. */
+/** FX step: 2% of range per detent. */
 export const FX_STEP = 0.02;
 
-/**
- * Pan steps 1% of the throw per detent.
- *
- * TotalMix pans in whole units from L100 through C to R100, so 1% of the 0..1
- * wire value is two of its units — coarse enough to cross the image in a couple
- * of turns, fine enough to place a source deliberately.
- */
+/** Classic pan step: 1% of the 0..1 throw (two TotalMix pan units). */
 export const PAN_STEP = 0.01;
 
-/**
- * Global OSC balance steps the same 1% of the throw per detent, but its range is
- * -1..+1 rather than 0..1, so the step is twice as large in wire units.
- */
+/** Global balpan step: same 1% of a -1..+1 throw. */
 export const BALANCE_STEP = 0.02;
 
 export type StepKind = "fader" | "gain" | "fx" | "pan";
 
-/**
- * Computes the next wire value for a continuous target.
- *
- * Faders step in dB along RME's curve — that curve is specific to mix faders and
- * must not be applied to the others. Gain, FX and pan are linear on the wire.
- */
+/** Next wire value. Faders step in dB on the RME curve; gain, FX and pan step linearly. */
 export function computeNext(
 	kind: StepKind,
 	current: number,
@@ -53,27 +29,18 @@ export function computeNext(
 		case "fader":
 			return stepDb(current, ticks * dbStep);
 		case "gain":
-			// A zero or negative span would make the step infinite or inverted.
 			return clamp01(
 				current + (ticks * dbStep) / (gainRangeDb > 0 ? gainRangeDb : GAIN_ASSUMED_RANGE_DB),
 			);
 		case "fx":
 			return clamp01(current + ticks * fxFraction);
 		case "pan":
-			// Snapped to the step grid so repeated detents land exactly on 0.5
-			// rather than drifting past centre by a rounding error.
+			// Snapped to the step grid so 0.5 is reachable exactly.
 			return clamp01(Math.round((current + ticks * PAN_STEP) / PAN_STEP) * PAN_STEP);
 	}
 }
 
-/**
- * Rounds TotalMix's gain display string to a whole number, keeping the unit
- * ("60.0 dB" -> "60 dB").
- *
- * The unit is carried over from the source rather than hardcoded, so a device
- * reporting other than dB shows its own. Strings with no leading number ("n/a",
- * "-oo") pass through unchanged.
- */
+/** Rounds a gain display string to a whole number, keeping its unit ("60.0 dB" -> "60 dB"). Non-numeric strings pass through. */
 export function formatGain(val: string): string {
 	const m = val.match(/^\s*([+-]?\d+(?:\.\d+)?)\s*(.*)$/);
 	if (m?.[1] === undefined) return val;

@@ -118,6 +118,43 @@ describe("TotalMixConnection", () => {
 		expect(conn.getNumber("/1/mainVolume")).toBeCloseTo(0.5, 5);
 	});
 
+	/**
+	 * A parameter and its "...Val" string are separate messages, and some
+	 * TotalMix builds send the number on every change while re-sending the
+	 * string only in a page dump. Readers need to tell which of the two is
+	 * newer, or a frozen string outlives the value it describes.
+	 */
+	it("orders a value against its display string", async () => {
+		await fake.pushString(PLUGIN_PORT, "/1/mastervolumeVal", "-23.0 dB");
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.35);
+		await delay(60);
+
+		expect(conn.sequenceOf("/1/mastervolume")).toBeGreaterThan(conn.sequenceOf("/1/mastervolumeVal"));
+
+		await fake.pushString(PLUGIN_PORT, "/1/mastervolumeVal", "-19.5 dB");
+		await delay(60);
+
+		expect(conn.sequenceOf("/1/mastervolumeVal")).toBeGreaterThan(conn.sequenceOf("/1/mastervolume"));
+	});
+
+	/** Nothing received yet must not read as one address being older than another. */
+	it("reports zero for an address that never arrived", () => {
+		expect(conn.sequenceOf("/1/mastervolume")).toBe(0);
+		expect(conn.sequenceOf("/1/mastervolumeVal")).toBe(0);
+	});
+
+	/** Repeats of the same value are dropped, so they must not advance the order either. */
+	it("does not advance the order for an unchanged value", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.35);
+		await delay(60);
+		const first = conn.sequenceOf("/1/mastervolume");
+
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.35);
+		await delay(60);
+
+		expect(conn.sequenceOf("/1/mastervolume")).toBe(first);
+	});
+
 	/** Dozens of buttons share one socket, so delivery has to be per-address. */
 	it("notifies only the subscribers of that address", async () => {
 		const main = vi.fn();
@@ -279,11 +316,11 @@ describe("TotalMixConnection", () => {
 		await delay(60);
 
 		// Away-and-back: forces a page *change* so TotalMix's re-send actually
-		// triggers even when the slot is already parked on the target page. Both
-		// touches must be addresses that exist in RME's table for their page.
-		expect(fake.received.map((m) => m.address)).toEqual(["/2/mute", "/1/globalMute"]);
-		// 0.0 is inert on a toggle; it must not actually flip anything.
-		expect(fake.received.every((r) => r.value === 0)).toBe(true);
+		// triggers even when the slot is already parked on the target page.
+		expect(fake.received.map((m) => m.address)).toEqual(["/2", "/1"]);
+		// A page selector is the address alone. Carrying no value is what makes
+		// it safe on a slot every button shares.
+		expect(fake.received.every((r) => r.value === null)).toBe(true);
 	});
 
 	/**
@@ -296,7 +333,7 @@ describe("TotalMixConnection", () => {
 		conn.setPage(3);
 		await delay(60);
 
-		expect(fake.received.map((m) => m.address)).toEqual(["/1/globalMute", "/3/globalMute"]);
+		expect(fake.received.map((m) => m.address)).toEqual(["/1", "/3"]);
 	});
 
 	it("returns to its own page after an off-page command", async () => {
@@ -314,14 +351,10 @@ describe("TotalMixConnection", () => {
 		// A full refresh rather than a bare page select: a snapshot changes the
 		// mixer without emitting individual parameters, so the values must be
 		// re-requested. The away-hop forces the re-send.
-		expect(fake.received.map((m) => m.address)).toEqual([
-			"/3/snapshots/8/1",
-			"/2/mute",
-			"/1/globalMute",
-		]);
-		// 0.0 is inert on a toggle, so refreshing changes nothing.
+		expect(fake.received.map((m) => m.address)).toEqual(["/3/snapshots/8/1", "/2", "/1"]);
+		// The page selectors carry no value, so refreshing changes nothing.
 		const touches = fake.received.filter((m) => m.address !== "/3/snapshots/8/1");
-		expect(touches.every((m) => m.value === 0)).toBe(true);
+		expect(touches.every((m) => m.value === null)).toBe(true);
 	});
 
 	it("restores after a toggle() too, not just an explicit sendOffPage", async () => {
@@ -333,11 +366,7 @@ describe("TotalMixConnection", () => {
 		conn.toggle("/3/snapshots/7/1");
 		await delay(360);
 
-		expect(fake.received.map((m) => m.address)).toEqual([
-			"/3/snapshots/7/1",
-			"/2/mute",
-			"/1/globalMute",
-		]);
+		expect(fake.received.map((m) => m.address)).toEqual(["/3/snapshots/7/1", "/2", "/1"]);
 	});
 
 	it("revisits every bus an action needs after a snapshot", async () => {
@@ -358,8 +387,8 @@ describe("TotalMixConnection", () => {
 		const sent = fake.received.map((m) => m.address);
 		expect(sent).toContain("/1/busInput");
 		expect(sent).toContain("/1/busPlayback");
-		// The page is restored as well.
-		expect(sent).toContain("/1/globalMute");
+		// And the walk leaves the slot on the page it mirrors, not on page 3.
+		expect(sent[sent.length - 1]).toMatch(/^\/1\//);
 	});
 
 	it("leaves a page-1 toggle alone", async () => {
@@ -394,7 +423,7 @@ describe("TotalMixConnection", () => {
 		await delay(320);
 
 		expect(fake.received.filter((m) => m.address === "/3/reverbVolume")).toHaveLength(5);
-		expect(fake.received.filter((m) => m.address === "/1/globalMute")).toHaveLength(1);
+		expect(fake.received.filter((m) => m.address === "/1")).toHaveLength(1);
 	});
 });
 
@@ -504,9 +533,8 @@ describe("startup refresh resilience", () => {
 		await fake.push(PLUGIN_PORT, "/", 0);
 		await delay(150);
 
-		const asksWhileEmpty = fake.received.filter((m) =>
-			String(m.address).endsWith("globalMute") || String(m.address).endsWith("/2/mute"),
-		).length;
+		const isPageSelect = (a: unknown): boolean => /^\/[1-4]$/.test(String(a));
+		const asksWhileEmpty = fake.received.filter((m) => isPageSelect(m.address)).length;
 		expect(asksWhileEmpty).toBeGreaterThan(2); // initial + retries
 
 		// Now the "dump" arrives.
@@ -518,9 +546,7 @@ describe("startup refresh resilience", () => {
 		await fake.push(PLUGIN_PORT, "/", 0);
 		await delay(150);
 
-		const asksAfterData = fake.received.filter((m) =>
-			String(m.address).endsWith("globalMute") || String(m.address).endsWith("/2/mute"),
-		).length;
+		const asksAfterData = fake.received.filter((m) => isPageSelect(m.address)).length;
 		expect(asksAfterData).toBe(0);
 	});
 });
@@ -726,6 +752,10 @@ describe("startup view priming", () => {
 		await fake.push(PLUGIN_PORT, "/1/volume1", 0.5);
 		await delay(1000); // two 400ms visit slots plus slack
 
+		// The two visits, in order, and the input one only once despite being
+		// required twice. Nothing else may select a bus: a page move is inert,
+		// so any extra entry here would be the plugin changing the mixer's bus
+		// on its own.
 		const busSelects = fake.received.filter((m) => String(m.address).startsWith("/1/bus"));
 		expect(busSelects.map((m) => m.address)).toEqual(["/1/busInput", "/1/busOutput"]);
 		const bankSelects = fake.received.filter((m) => m.address === "/setBankStart");
@@ -778,7 +808,7 @@ describe("re-request once the view is known", () => {
 		// The re-request goes out, and the second dump files correctly.
 		fake.received.length = 0;
 		await delay(500);
-		expect(fake.received.map((m) => m.address)).toEqual(["/2/mute", "/1/globalMute"]);
+		expect(fake.received.map((m) => m.address)).toEqual(["/2", "/1"]);
 
 		await fake.push(PLUGIN_PORT, "/1/volume1", 0.8);
 		await delay(60);
@@ -797,5 +827,587 @@ describe("re-request once the view is known", () => {
 		await delay(500);
 
 		expect(fake.received).toEqual([]);
+	});
+});
+
+/**
+ * Pages 2 and 4 show one channel at a time and their addresses carry no channel
+ * number, so a value is only meaningful alongside the bus, bank start and
+ * offset that were selected when it arrived.
+ */
+describe("page-2 channel cache", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("keeps one slice per selected channel", async () => {
+		conn.send("/1/busOutput", 1.0);
+		conn.send("/setBankStart", 0);
+		conn.send("/setOffsetInBank", 0);
+		await fake.push(PLUGIN_PORT, "/2/pan", 0.25);
+		await delay(60);
+
+		conn.send("/setOffsetInBank", 2);
+		await fake.push(PLUGIN_PORT, "/2/pan", 0.75);
+		await delay(60);
+
+		expect(conn.get("/2/pan", { bus: "output", bank: 0, offset: 0 })).toBeCloseTo(0.25, 6);
+		expect(conn.get("/2/pan", { bus: "output", bank: 0, offset: 2 })).toBeCloseTo(0.75, 6);
+	});
+
+	it("separates the same offset on different buses", async () => {
+		conn.send("/1/busInput", 1.0);
+		conn.send("/setBankStart", 0);
+		conn.send("/setOffsetInBank", 1);
+		await fake.push(PLUGIN_PORT, "/2/reverbSend", 0.5);
+		await delay(60);
+
+		expect(conn.get("/2/reverbSend", { bus: "input", bank: 0, offset: 1 })).toBeCloseTo(0.5, 6);
+		expect(conn.get("/2/reverbSend", { bus: "playback", bank: 0, offset: 1 })).toBeUndefined();
+	});
+
+	it("scopes page-4 Room EQ the same way", async () => {
+		conn.send("/1/busOutput", 1.0);
+		conn.send("/setBankStart", 0);
+		conn.send("/setOffsetInBank", 3);
+		await fake.push(PLUGIN_PORT, "/4/reqEnable", 1.0);
+		await delay(60);
+
+		expect(conn.get("/4/reqEnable", { bus: "output", bank: 0, offset: 3 })).toBe(1);
+		expect(conn.get("/4/reqEnable", { bus: "output", bank: 0, offset: 0 })).toBeUndefined();
+	});
+
+	it("reports whether the selected channel is the required one", () => {
+		conn.send("/1/busOutput", 1.0);
+		conn.send("/setBankStart", 0);
+		conn.send("/setOffsetInBank", 2);
+
+		expect(conn.viewMatches({ bus: "output", bank: 0, offset: 2 })).toBe(true);
+		expect(conn.viewMatches({ bus: "output", bank: 0, offset: 1 })).toBe(false);
+	});
+
+	it("drops the slice when the channel moves by an unknown amount", async () => {
+		conn.send("/1/busOutput", 1.0);
+		conn.send("/setBankStart", 0);
+		conn.send("/setOffsetInBank", 0);
+		await fake.push(PLUGIN_PORT, "/2/lowcutFreq", 0.3);
+		await delay(60);
+		expect(conn.get("/2/lowcutFreq")).toBeDefined();
+
+		conn.send("/2/track+", 1.0);
+
+		expect(conn.get("/2/lowcutFreq")).toBeUndefined();
+	});
+});
+
+/**
+ * A slot mirrors one page, and any parameter carrying a page number moves it
+ * there. A dial burst writes through the coalescing path, which therefore needs
+ * the same return trip as a discrete command.
+ */
+describe("page restoration after a coalesced write", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("returns to page 1 after an off-page dial burst", async () => {
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.sendCoalesced("/3/reverbVolume", 0.4);
+		conn.sendCoalesced("/3/reverbVolume", 0.45);
+		await delay(400);
+
+		const addresses = fake.received.map((m) => m.address);
+		expect(addresses).toContain("/3/reverbVolume");
+		// The page-touch pair that ends on the slot's own page.
+		expect(addresses.slice(-2)).toEqual(["/2", "/1"]);
+	});
+
+	it("schedules nothing for a write on the slot's own page", async () => {
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.sendCoalesced("/1/volume1", 0.4);
+		await delay(400);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/1/volume1"]);
+	});
+});
+
+/**
+ * A slot mirrors one page and TotalMix streams only that page, so a value on
+ * any other page reaches the cache only after something provokes a dump of it.
+ * The routine refresh touches pages 2 and 1 alone, which left the reverb and
+ * echo units and Room EQ with no cached value until the user wrote to one — and
+ * a dial with nothing cached has no value to step from.
+ */
+describe("page priming", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("touches a declared page and returns to its own", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.requirePage(3);
+		// Long enough for the visit and the dwell that follows it.
+		await delay(900);
+
+		const addresses = fake.received.map((m) => m.address);
+		expect(addresses).toContain("/3");
+		expect(addresses[addresses.length - 1]).toBe("/1");
+	});
+
+	/**
+	 * One page per visit, not all at once: each dump is a burst of datagrams,
+	 * and moving the slot again while the previous one is still arriving files
+	 * its tail under the wrong page.
+	 */
+	it("collects every declared page, one visit at a time", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		conn.requirePage(3);
+		conn.requirePage(4);
+		await delay(1200);
+
+		const addresses = fake.received.map((m) => m.address);
+		expect(addresses).toContain("/3");
+		expect(addresses).toContain("/4");
+	});
+
+	/**
+	 * Selecting page 4 also selects the Output bus, per RME's table. Left alone
+	 * that silently re-points every page-1 strip button in the plugin.
+	 */
+	it("puts the bus back after visiting page 4", async () => {
+		conn.send("/1/busPlayback", 1.0);
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.requirePage(4);
+		await delay(700);
+
+		const addresses = fake.received.map((m) => m.address);
+		expect(addresses).toContain("/4");
+		expect(addresses[addresses.length - 1]).toBe("/1/busPlayback");
+		expect(conn.viewMatches({ bus: "playback" })).toBe(true);
+	});
+
+	it("ignores the slot's own page, which needs no sweep", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.requirePage(1);
+		await delay(600);
+
+		expect(fake.received).toEqual([]);
+	});
+
+	it("sweeps once, not on every call", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		conn.requirePage(3);
+		await delay(900);
+
+		fake.received.length = 0;
+		conn.requirePage(3);
+		await delay(900);
+
+		expect(fake.received).toEqual([]);
+	});
+});
+
+/**
+ * One slot serves every button in the profile, and the bank start it holds is
+ * what page-1 addresses are relative to. A button that moves it unasked moves
+ * every strip button in the profile with it, which reads as volume dials
+ * showing the wrong channels.
+ */
+describe("the shared slot is not moved unasked", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("moves no bank while priming a view that pinned none", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		fake.received.length = 0;
+
+		// A page-2 button that chose a bus and a channel but no bank start.
+		conn.requireView({ bus: "output", offset: 2 });
+		await delay(700);
+
+		const addresses = fake.received.map((m) => m.address);
+		expect(addresses).toContain("/setOffsetInBank");
+		expect(addresses).not.toContain("/setBankStart");
+	});
+
+	it("moves the bank only for a view that pinned one", async () => {
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.requireView({ bus: "output", bank: 8, offset: 1 });
+		await delay(700);
+
+		const bank = fake.received.filter((m) => m.address === "/setBankStart");
+		expect(bank).toHaveLength(1);
+		expect(bank[0]!.value).toBe(8);
+	});
+
+	/**
+	 * A page move must carry no state of its own. Selecting a bus or a bank to
+	 * get onto a page would change what every other button is pointing at.
+	 */
+	it("changes no bus or bank when moving between pages", async () => {
+		conn.send("/1/busPlayback", 1.0);
+		conn.send("/setBankStart", 16);
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.requestFullRefresh();
+		await delay(60);
+
+		const addresses = fake.received.map((m) => m.address);
+		expect(addresses.some((a) => a.includes("bus"))).toBe(false);
+		expect(addresses).not.toContain("/setBankStart");
+		expect(addresses).not.toContain("/setOffsetInBank");
+		// And the view it left behind is the one it started from.
+		expect(conn.viewMatches({ bus: "playback", bank: 16 })).toBe(true);
+	});
+});
+
+/**
+ * A slot mirrors one page, and only the mirrored page's changes stream. Which
+ * page that should be is therefore decided by the buttons sharing the slot: an
+ * effect dial can only follow the mixer if the slot it is on mirrors page 3,
+ * which means giving those buttons a Remote Controller of their own.
+ */
+describe("resident page follows what the slot's buttons read", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/** The ordinary layout: page 1 stays resident and nothing changes. */
+	it("keeps page 1 resident for fader buttons", async () => {
+		conn.declarePage("a", 1);
+		conn.declarePage("b", 1);
+		await delay(80);
+		fake.received.length = 0;
+
+		conn.sendOffPage("/1/mainDim", 1.0);
+		await delay(400);
+
+		// A page-1 write needs no return trip at all.
+		expect(fake.received.map((m) => m.address)).toEqual(["/1/mainDim"]);
+	});
+
+	it("makes the effect page resident when only effect dials are on the slot", async () => {
+		conn.declarePage("a", 3);
+		conn.declarePage("b", 3);
+		// Becoming resident re-requests the page; let that land before asserting.
+		await delay(80);
+		fake.received.length = 0;
+
+		// Now a page-3 write is on the slot's own page, so it stays there and
+		// TotalMix keeps streaming the reverb and echo.
+		conn.sendOffPage("/3/reverbVolume", 0.4);
+		await delay(400);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/3/reverbVolume"]);
+	});
+
+	it("gives the majority the slot when the pages are mixed", async () => {
+		conn.declarePage("a", 1);
+		conn.declarePage("b", 1);
+		conn.declarePage("c", 3);
+		await delay(80);
+		fake.received.length = 0;
+
+		conn.sendOffPage("/3/reverbVolume", 0.4);
+		await delay(400);
+
+		// Page 3 is not resident, so the slot goes back to page 1 afterwards.
+		expect(fake.received.map((m) => m.address)).toContain("/1");
+	});
+
+	it("re-decides when a button leaves the screen", async () => {
+		conn.declarePage("a", 1);
+		conn.declarePage("b", 3);
+		conn.declarePage("c", 3);
+		conn.releasePage("b");
+		conn.releasePage("c");
+		await delay(80);
+		fake.received.length = 0;
+
+		conn.sendOffPage("/1/mainDim", 1.0);
+		await delay(400);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/1/mainDim"]);
+	});
+
+	/**
+	 * Re-declaring on every settings change must not accumulate votes, or one
+	 * button whose settings are edited a few times would take the slot from all
+	 * the others.
+	 */
+	it("counts one vote per button however often it declares", async () => {
+		conn.declarePage("a", 1);
+		for (let i = 0; i < 5; i++) conn.declarePage("b", 3);
+		await delay(80);
+		fake.received.length = 0;
+
+		// Short enough that the deferred collection of page 3 — which one button
+		// does still read — has not run.
+		conn.sendOffPage("/1/mainDim", 1.0);
+		await delay(150);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/1/mainDim"]);
+	});
+});
+
+/**
+ * A page selector is the page number on its own, with no type tag and no value.
+ *
+ * That is the form TotalMix uses itself — a page dump arrives as a bundle whose
+ * first element is the bare page address — and the only one that carries no
+ * state, which matters on a slot every button shares.
+ */
+describe("page selection", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("sends the page number alone, with no argument", async () => {
+		fake.received.length = 0;
+		conn.requestFullRefresh();
+		await delay(60);
+
+		expect(fake.received.map((m) => m.address)).toEqual(["/2", "/1"]);
+		for (const m of fake.received) expect(m.value).toBeNull();
+	});
+
+	it("names no parameter, so it can change nothing", async () => {
+		conn.send("/1/busPlayback", 1.0);
+		conn.send("/setBankStart", 8);
+		await delay(60);
+		fake.received.length = 0;
+
+		conn.requestFullRefresh();
+		await delay(60);
+
+		for (const m of fake.received) {
+			expect(String(m.address)).toMatch(/^\/[1-4]$/);
+		}
+		expect(conn.viewMatches({ bus: "playback", bank: 8 })).toBe(true);
+	});
+});
+
+/**
+ * Collecting a page means moving the slot onto it and waiting. A dump is a
+ * burst of datagrams, so selecting the page and reselecting the resident one in
+ * the same breath collects nothing — which is what made a dial's effect state
+ * update when its button was pressed, since a write defers the return, but
+ * never from the background rotation, which did not.
+ */
+describe("a page visit dwells before returning", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("does not select the page and leave it in one breath", async () => {
+		fake.received.length = 0;
+		conn.requirePage(3);
+
+		// Just after the visit: on page 3, and still there.
+		await delay(500);
+		expect(fake.received.map((m) => m.address)).toEqual(["/3"]);
+
+		// The return follows once the dump has had time to arrive.
+		await delay(300);
+		expect(fake.received.map((m) => m.address)).toEqual(["/3", "/1"]);
+	});
+
+	it("gives a page-2 channel visit the same window", async () => {
+		fake.received.length = 0;
+		conn.requireView({ bus: "output", offset: 2 });
+
+		await delay(500);
+		expect(fake.received.map((m) => m.address)).toEqual([
+			"/2/busOutput",
+			"/setOffsetInBank",
+		]);
+
+		await delay(300);
+		expect(fake.received.map((m) => m.address)).toEqual([
+			"/2/busOutput",
+			"/setOffsetInBank",
+			"/1",
+		]);
+	});
+});
+
+/**
+ * A dial felt as though the mixer were pulling against it. Two causes, both of
+ * them the plugin's own traffic arriving after the write it followed.
+ */
+describe("a turning dial is not fought", () => {
+	let fake: FakeTotalMix;
+	let conn: InstanceType<typeof TotalMixConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new TotalMixConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+		await fake.push(PLUGIN_PORT, "/1/mastervolume", 0.5);
+		await delay(60);
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	/**
+	 * A dump already on the wire when the write went out carries the old value.
+	 * Accepting it puts the parameter back and the next detent steps from the
+	 * wrong number.
+	 */
+	it("ignores a stale report of an address just written", async () => {
+		conn.sendCoalesced("/3/reverbVolume", 0.8);
+		await fake.push(PLUGIN_PORT, "/3/reverbVolume", 0.2);
+		await delay(60);
+
+		expect(conn.getNumber("/3/reverbVolume")).toBeCloseTo(0.8, 5);
+	});
+
+	it("accepts the mixer's value again once the write has settled", async () => {
+		conn.sendCoalesced("/3/reverbVolume", 0.8);
+		await delay(500);
+		await fake.push(PLUGIN_PORT, "/3/reverbVolume", 0.2);
+		await delay(60);
+
+		expect(conn.getNumber("/3/reverbVolume")).toBeCloseTo(0.2, 5);
+	});
+
+	/**
+	 * Touring every pinned bus and bank a quarter second after each turn is felt
+	 * as drag. Only a recall changes everything at once and warrants it.
+	 */
+	it("does not tour every view after an ordinary write", async () => {
+		conn.requireView({ bus: "input" });
+		conn.requireView({ bus: "output" });
+		await delay(1400);
+		fake.received.length = 0;
+
+		conn.sendOffPage("/3/reverbVolume", 0.4);
+		await delay(1400);
+
+		const busSelects = fake.received.filter((m) => String(m.address).startsWith("/1/bus"));
+		expect(busSelects).toEqual([]);
+	});
+
+	it("still tours every view after a snapshot recall", async () => {
+		conn.requireView({ bus: "input" });
+		conn.requireView({ bus: "output" });
+		await delay(1400);
+		fake.received.length = 0;
+
+		conn.toggle("/3/snapshots/7/1");
+		await delay(1600);
+
+		const busSelects = fake.received.map((m) => m.address).filter((a) => String(a).startsWith("/1/bus"));
+		expect(busSelects).toContain("/1/busInput");
+		expect(busSelects).toContain("/1/busOutput");
 	});
 });

@@ -1,33 +1,23 @@
-/**
- * The mute and solo wash painted over a dial's touch display.
- *
- * Shared by the classic and Global OSC volume actions, which render the same
- * layout and so must agree on its keys and colours. The two reach the state
- * differently — the classic protocol addresses a bank position, Global OSC an
- * absolute channel — so each decides *whether* to wash; this file owns what a
- * wash looks like.
- */
+/** Touch-display wash (mute/solo/fxOn) for layouts/volume.json, shared by all dial actions. */
 
 import type { FeedbackPayload } from "@elgato/streamdeck";
 
-/** The states a dial's touch display can be washed in. */
-export type Wash = "none" | "mute" | "solo";
+/** "mute"/"solo" wash the background; "fxOn" only tints text and bar. */
+export type Wash = "none" | "mute" | "solo" | "fxOn";
 
 /**
- * Wash colours, taken from the border of the lit buttons in the TotalMix UI.
- *
- * Kept as hexes because the rest of each palette is derived from them, so
- * retinting is a single edit here plus regenerating the images with
- * `node tools/make-wash.mjs --mute <hex> --solo <hex>` — the two must agree,
- * since the touch display takes a wash as an image file while the text and bar
- * colours go over the wire.
+ * Wash colours (TotalMix's lit-button borders). The palettes derive from them;
+ * imgs/muteWash.png and imgs/soloWash.png must use the same colours.
  */
 export const MUTE_WASH_COLOUR = "#6094FF";
 export const SOLO_WASH_COLOUR = "#F7931E";
 
+/** Ink for an enabled effect section. */
+export const FX_ON_COLOUR = "#F7931E";
+
 const MUTE_WASH = "imgs/muteWash.png";
 const SOLO_WASH = "imgs/soloWash.png";
-/** A fully transparent image of the same size, so clearing the wash swaps one valid file for another. */
+/** Transparent image of the same size; clearing the wash swaps files. */
 const CLEAR_WASH = "imgs/clearWash.png";
 
 const NORMAL_INK = "#FFFFFF";
@@ -57,21 +47,13 @@ function contrast(a: string, b: string): number {
 	return (high + 0.05) / (low + 0.05);
 }
 
-/**
- * Text colour that stays readable on a given background.
- *
- * Derived rather than fixed, so changing a wash colour cannot leave the dial
- * unreadable. The two candidates are white and a heavily darkened version of the
- * wash itself, and whichever contrasts more wins — a fixed luminance threshold
- * gets mid-tone blues wrong, choosing white at around 2.7:1 where dark ink would
- * have given 7:1.
- */
+/** White or a darkened shade of the background, whichever has the higher WCAG contrast. */
 export function readableInk(background: string): string {
 	const dark = shade(background, 0.14);
 	return contrast(background, dark) >= contrast(background, NORMAL_INK) ? dark : NORMAL_INK;
 }
 
-/** Everything a washed dial needs, derived from the one colour. */
+/** Derived palette for one wash. */
 type Palette = { readonly image: string; readonly ink: string; readonly barBg: string };
 
 function palette(colour: string, image: string): Palette {
@@ -83,27 +65,16 @@ const PALETTES: Readonly<Record<Wash, Palette | null>> = {
 	none: null,
 	mute: palette(MUTE_WASH_COLOUR, MUTE_WASH),
 	solo: palette(SOLO_WASH_COLOUR, SOLO_WASH),
+	// Transparent background; ink sits on the display's black.
+	fxOn: { image: CLEAR_WASH, ink: FX_ON_COLOUR, barBg: NORMAL_BAR_BG },
 };
 
 /**
- * Builds the whole touch-display payload, wash included.
- *
- * Every colour is written on every render, including the unwashed ones, rather
- * than only when it changes: setFeedback is sticky, so a dial left with dark ink
- * from a washed render keeps it afterwards and turns unreadable against the
- * black display. Omitting a colour does not restore the default.
- *
- * The header is on the layout key "name" rather than "title" for the reason it
- * has to be: "title" is reserved, and Stream Deck overrides its colour and font
- * with the user's title settings, so a colour sent for it is silently discarded
- * and the header disappears into the wash.
- *
- * The wash is an image file rather than an inline SVG or a background colour,
- * and is swapped for a transparent one of the same size rather than disabled. A
- * file path is the form the touch display accepts most reliably; an inline SVG
- * is documented but makes Stream Deck reject the whole layout.
- *
- * @param bar Position of the indicator, 0..100.
+ * Full touch-display payload. Every colour is written on every render because
+ * setFeedback is sticky. The header uses layout key "name": "title" is
+ * reserved and its colour is overridden by the user's title settings. The
+ * wash is a PNG path; inline SVG makes Stream Deck reject the layout.
+ * @param bar Indicator position, 0..100.
  */
 export function washFeedback(name: string, label: string, bar: number, wash: Wash): FeedbackPayload {
 	const paint = PALETTES[wash];
@@ -115,8 +86,7 @@ export function washFeedback(name: string, label: string, bar: number, wash: Was
 		value: { value: label, color: ink },
 		indicator: {
 			value: bar,
-			// Against a wash the bar's fill takes the ink colour: the normal blue
-			// would otherwise be the one element still fighting the background.
+			// Bar fill takes the ink colour on a wash.
 			bar_fill_c: paint === null ? NORMAL_BAR_FILL : ink,
 			bar_bg_c: paint?.barBg ?? NORMAL_BAR_BG,
 		},

@@ -4,11 +4,7 @@ import { num, str } from "../totalmix/settings.js";
 import * as g from "./addresses.js";
 import type { GlobalConnection } from "./connection.js";
 
-/**
- * Connection settings for global actions. Same shape as the classic helper but
- * with the Global OSC slot's defaults (TotalMix Remote Controller 2: 7002/9002),
- * so classic and global buttons coexist on separate sockets out of the box.
- */
+/** Global OSC slot defaults: TotalMix Remote Controller 2 (7002/9002). */
 export function globalConnectionOptions(s: {
 	host?: unknown;
 	sendPort?: unknown;
@@ -23,20 +19,14 @@ export function globalConnectionOptions(s: {
 
 export type ChannelItem = { value: string; label: string };
 
-/** Channels to list when TotalMix has not (yet) told us anything. */
+/** Channel count assumed before any /{bus}/{n}/name has been received. */
 const FALLBACK_CHANNEL_COUNT = 24;
 
 /**
- * Builds the channel dropdown for a bus from what TotalMix actually sent after
- * /sendall: names from /{bus}/{n}/name, stereo-ness from /{bus}/{n}/stereo.
- *
- * Values are the 0-based wire channel numbers the protocol wants; labels show
- * the 1-based numbers users see in TotalMix (the table's own example reads
- * "/output/2/faderlin sets fader of output 2 (channel 3)").
- *
- * Stereo pairs are addressed by their left number, so right halves are hidden —
- * except when includeRightHalves is set (for the L/R-split parameters phase and
- * gain, where right = left + 1 is a real, separately addressable target).
+ * Channel dropdown items for one bus from cached /{bus}/{n}/name and
+ * /{bus}/{n}/stereo. Values are 0-based wire numbers, labels 1-based.
+ * Stereo right halves (n+1) are listed only when includeRightHalves is set,
+ * for the L/R-split parameters.
  */
 export function buildChannelItems(
 	gm: GlobalConnection,
@@ -62,20 +52,13 @@ export function buildChannelItems(
 			if (includeRightHalves) {
 				items.push({ value: String(n + 1), label: name ? `${n + 2} · ${name} (R)` : `${n + 2} (R)` });
 			}
-			// The pair's right half occupies the next number; skip it so the loop
-			// doesn't list it a second time as an unnamed mono channel.
 			n++;
 		}
 	}
 	return items;
 }
 
-/**
- * Same datasource plumbing as the classic actions: the PI sends { event }, the
- * plugin replies
- * { event, items }. The connection is primed via /sendall on connect; the short
- * wait lets a just-opened socket's dump land before the list is built.
- */
+/** Datasource reply; the short wait lets a just-opened socket's /sendall dump land. */
 export async function replyGlobalChannelDatasource(
 	gm: GlobalConnection,
 	event: string,

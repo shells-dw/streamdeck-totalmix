@@ -13,19 +13,29 @@ import { iconFor } from "../totalmix/icons.js";
 import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
+import {
+	ALL_BUSES,
+	channelView,
+	focusChannel,
+	INPUTS_ONLY,
+	OUTPUTS_ONLY,
+	pinnedBank,
+	pinnedBus,
+	SOURCES,
+} from "../totalmix/focus.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 
 export type ToggleSettings = {
 	/** Which parameter to flip. */
 	parameter?: ToggleParameter;
-	/** 1-based strip within the current bank, for the per-strip parameters. */
+	/** 1-based fader position in the bank; also the page-2/4 channel offset. */
 	strip?: number;
 	/** Group or snapshot number (1-4 / 1-8), for those parameters. */
 	index?: number;
-	/** Optional: select this bus before acting, so strip numbers are predictable. */
+	/** Bus to select before acting; empty = follow the slot. */
 	bus?: "input" | "playback" | "output" | "";
-	/** Optional: pin the bank start (channel index, 0-based) before acting. */
+	/** Bank start (0-based channel index) to select before acting; empty = leave. */
 	bankStart?: number | string;
 	host?: string;
 	sendPort?: number;
@@ -53,6 +63,21 @@ export type ToggleParameter =
 	| "channelEq"
 	| "channelLowcut"
 	| "channelComp"
+	| "channelAutoLevel"
+	| "channelStereo"
+	| "channelPhase"
+	| "channelPhaseRight"
+	| "channelLoopback"
+	| "channelTalkbackSel"
+	| "channelNoTrim"
+	| "channelInstrument"
+	| "channelPad"
+	| "channelMsProc"
+	| "channelAutoset"
+	| "channelRecord"
+	| "recordStart"
+	| "recordPlayPause"
+	| "recordStop"
 	| "muteGroup"
 	| "soloGroup"
 	| "faderGroup"
@@ -61,25 +86,61 @@ export type ToggleParameter =
 	| "echo"
 	| "roomEq";
 
-/**
- * Generic on/off control.
- *
- * Two scale types hide behind these parameters, per RME's table, and they need
- * opposite treatment:
- *
- * - kOSCScaleToggle (main/global/page-2/groups): sending 1.0 FLIPS the state and
- *   TotalMix reports the result. No read needed, no race with the GUI.
- * - kOSCScaleOnOff (page-1 per-strip mute/solo/phantom/cue): sending 1.0 means
- *   SET ON, 0.0 means SET OFF. To toggle, the cached state must be read and the
- *   inverse sent. Sending 1.0 here just re-mutes forever
- */
-/** Page-1 per-strip parameters use kOSCScaleOnOff — see class comment. */
+/** Page-1 per-strip parameters are kOSCScaleOnOff: the value is the state, so the inverse of the cached state is sent. Everything else is kOSCScaleToggle: 1.0 flips. */
 const ONOFF_PARAMETERS: ReadonlySet<ToggleParameter> = new Set([
 	"stripMute",
 	"stripSolo",
 	"stripPhantom",
 	"stripCue",
 ]);
+
+/** Page-2 parameters; the channel is selected with bus, bank start and offset before writing. */
+const CHANNEL_PARAMETERS: ReadonlySet<ToggleParameter> = new Set([
+	"channelMute",
+	"channelSolo",
+	"channelPhantom",
+	"channelEq",
+	"channelLowcut",
+	"channelComp",
+	"channelAutoLevel",
+	"channelStereo",
+	"channelPhase",
+	"channelPhaseRight",
+	"channelLoopback",
+	"channelTalkbackSel",
+	"channelNoTrim",
+	"channelInstrument",
+	"channelPad",
+	"channelMsProc",
+	"channelAutoset",
+	"channelRecord",
+]);
+
+/** Room EQ is on page 4, which selects the Output bus as a side effect. */
+const isRoomEq = (p: ToggleParameter): boolean => p === "roomEq";
+
+
+const isChannelParam = (p: ToggleParameter): boolean => CHANNEL_PARAMETERS.has(p) || isRoomEq(p);
+
+/** Bus restrictions per the RME table; absent = all buses. */
+const PARAMETER_BUSES: Partial<Record<ToggleParameter, readonly ("input" | "playback" | "output")[]>> = {
+	stripSolo: SOURCES,
+	stripPhantom: INPUTS_ONLY,
+	stripCue: OUTPUTS_ONLY,
+	channelSolo: SOURCES,
+	channelPhantom: INPUTS_ONLY,
+	channelInstrument: INPUTS_ONLY,
+	channelPad: INPUTS_ONLY,
+	channelAutoset: INPUTS_ONLY,
+	channelMsProc: INPUTS_ONLY,
+	channelLoopback: OUTPUTS_ONLY,
+	channelTalkbackSel: OUTPUTS_ONLY,
+	channelNoTrim: OUTPUTS_ONLY,
+	roomEq: OUTPUTS_ONLY,
+};
+
+const busesFor = (p: ToggleParameter): readonly ("input" | "playback" | "output")[] =>
+	PARAMETER_BUSES[p] ?? ALL_BUSES;
 
 @action({ UUID: "de.shells.totalmixgen2.toggle" })
 export class Toggle extends SingletonAction<ToggleSettings> {
@@ -90,12 +151,6 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 		await this.setup(ev.action, ev.payload.settings);
 	}
 
-	/**
-	 * Settings changes arrive as their own event, not as a re-appear. Without this
-	 * handler the action keeps the address and icons captured at appearance — so a
-	 * dropdown change would keep showing (and toggling!) the previous parameter
-	 * until the profile switches.
-	 */
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<ToggleSettings>): Promise<void> {
 		await this.setup(ev.action, ev.payload.settings);
 	}
@@ -110,35 +165,31 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 
 		const icons = iconFor(settings.parameter ?? "mainDim");
 
-		// Pinned strip toggles read from their own view's retained slice, so the
-		// light stays correct even while the slot is parked on another bus.
-		const pinnedBus =
-			settings.bus === "input" || settings.bus === "playback" || settings.bus === "output"
-				? settings.bus
-				: undefined;
-		const pinnedBank =
-			settings.bankStart !== undefined && String(settings.bankStart).trim() !== ""
-				? num(settings.bankStart, 0)
-				: undefined;
-		const isStripParam = String(settings.parameter ?? "mainDim").startsWith("strip");
+		// Pinned buttons read their own view slice.
+		const bus = pinnedBus(settings);
+		const bank = pinnedBank(settings);
+		const parameter = settings.parameter ?? "mainDim";
+		const isStripParam = String(parameter).startsWith("strip");
 		const req = isStripParam
 			? {
-					...(pinnedBus !== undefined ? { bus: pinnedBus } : {}),
-					...(pinnedBank !== undefined ? { bank: pinnedBank } : {}),
+					...(bus !== undefined ? { bus } : {}),
+					...(bank !== undefined ? { bank } : {}),
 				}
-			: null;
+			: isChannelParam(parameter)
+				? channelView(settings, busesFor(parameter))
+				: null;
 
 		if (req !== null && (req.bus !== undefined || req.bank !== undefined)) {
 			tm.requireView(req);
 		}
 
+		// Non-resident pages are collected only when declared.
+		tm.declarePage(target.id, addr.pageOf(address));
+
 		const render = (): void => {
 			const on = asBool(tm.get(address, req) ?? 0);
 
-			// setState exists on keys only; a dial-placed toggle shows text instead.
 			if (target.isKey()) {
-				// The manifest can only declare one generic On/Off pair, so the
-				// parameter-specific artwork is applied here.
 				void target.setImage(on ? icons.on : icons.off);
 				void target.setState(on ? 1 : 0);
 			} else {
@@ -146,9 +197,6 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 			}
 		};
 
-		// Releasing first is what makes this safe to call on every settings
-		// change: the old address's subscription is dropped before the new one
-		// is added, so a re-parametered button cannot be driven by both.
 		this.releaseFor(target.id);
 		this.cleanup.set(target.id, [
 			tm.subscribe(address, render),
@@ -160,6 +208,8 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 
 	override onWillDisappear(ev: WillDisappearEvent<ToggleSettings>): void {
 		this.releaseFor(ev.action.id);
+		forgetAlertState(ev.action.id);
+		totalMixFor(connectionOptions(ev.payload.settings)).releasePage(ev.action.id);
 	}
 
 	override async onSendToPlugin(ev: SendToPluginEvent<{ event?: string }, ToggleSettings>): Promise<void> {
@@ -171,43 +221,32 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 	}
 
 	override onKeyDown(ev: KeyDownEvent<ToggleSettings>): void {
-		const tm = totalMixFor(connectionOptions(ev.payload.settings));
+		const s = ev.payload.settings;
+		const tm = totalMixFor(connectionOptions(s));
 		if (alertIfDown(ev.action, tm)) return;
-		const parameter = ev.payload.settings.parameter ?? "mainDim";
-		const address = this.addressFor(ev.payload.settings);
-
-		// Strip parameters address "the Nth fader currently shown" relative to
-		// bus and bank. Pinning both first turns a relative button into an
-		// absolute one: same channel every time, regardless of where the mixer
-		// was left. Messages are sent back-to-back; TotalMix processes in order.
-		if (ONOFF_PARAMETERS.has(parameter)) {
-			const s = ev.payload.settings;
-			if (s.bus === "input" || s.bus === "playback" || s.bus === "output") {
-				tm.toggle(addr.bus(s.bus));
-			}
-			if (s.bankStart !== undefined && String(s.bankStart).trim() !== "") {
-				tm.send(addr.SET_BANK_START, num(s.bankStart, 0));
-			}
-		}
+		const parameter = s.parameter ?? "mainDim";
+		const address = this.addressFor(s);
 
 		if (ONOFF_PARAMETERS.has(parameter)) {
-			// kOSCScaleOnOff: the value IS the state. Invert what we last saw —
-			// read from this strip's own view slice, since the bus/bank pins above
-			// have already been sent and the write lands on that view. With no
-			// cached state yet, turn on (matches user intent on a first press).
-			const s2 = ev.payload.settings;
+			// Pin bus/bank first; messages are processed in order.
+			const bus = pinnedBus(s);
+			const bank = pinnedBank(s);
+			if (bus !== undefined) tm.toggle(addr.bus(bus));
+			if (bank !== undefined) tm.send(addr.SET_BANK_START, bank);
+
+			// kOSCScaleOnOff: send the inverse of the cached state; no cache = set on.
 			const req = {
-				...(s2.bus === "input" || s2.bus === "playback" || s2.bus === "output"
-					? { bus: s2.bus }
-					: {}),
-				...(s2.bankStart !== undefined && String(s2.bankStart).trim() !== ""
-					? { bank: num(s2.bankStart, 0) }
-					: {}),
+				...(bus !== undefined ? { bus } : {}),
+				...(bank !== undefined ? { bank } : {}),
 			};
 			const next = asBool(tm.get(address, req) ?? 0) ? 0 : 1;
 			streamDeck.logger.info(`Key press: set ${address} = ${next}`);
 			tm.sendOffPage(address, next);
 			return;
+		}
+
+		if (isChannelParam(parameter)) {
+			focusChannel(tm, s, busesFor(parameter), isRoomEq(parameter) ? 4 : 2);
 		}
 
 		streamDeck.logger.info(`Key press: toggle ${address}`);
@@ -259,6 +298,36 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 				return addr.CH_LOWCUT_ENABLE;
 			case "channelComp":
 				return addr.CH_COMP_ENABLE;
+			case "channelAutoLevel":
+				return addr.CH_AUTOLEVEL_ENABLE;
+			case "channelStereo":
+				return addr.CH_STEREO;
+			case "channelPhase":
+				return addr.CH_PHASE;
+			case "channelPhaseRight":
+				return addr.CH_PHASE_RIGHT;
+			case "channelLoopback":
+				return addr.CH_LOOPBACK;
+			case "channelTalkbackSel":
+				return addr.CH_TALKBACK_SEL;
+			case "channelNoTrim":
+				return addr.CH_NO_TRIM;
+			case "channelInstrument":
+				return addr.CH_INSTRUMENT;
+			case "channelPad":
+				return addr.CH_PAD;
+			case "channelMsProc":
+				return addr.CH_MS_PROC;
+			case "channelAutoset":
+				return addr.CH_AUTOSET;
+			case "channelRecord":
+				return addr.CH_RECORD_ENABLE;
+			case "recordStart":
+				return addr.RECORD_START;
+			case "recordPlayPause":
+				return addr.RECORD_PLAY_PAUSE;
+			case "recordStop":
+				return addr.RECORD_STOP;
 			case "muteGroup":
 				return addr.muteGroup(index);
 			case "soloGroup":
@@ -272,7 +341,6 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 			case "echo":
 				return addr.ECHO_ENABLE;
 			case "roomEq":
-				// Page 4; sending it also selects the Output bus per RME's table.
 				return addr.ROOM_EQ_ENABLE;
 		}
 	}

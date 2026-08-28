@@ -290,8 +290,10 @@
       document.getElementById("row-step").hidden = t === "gain" || pan;
 
       // Press and touch are dial gestures; a key has no touch strip and its
-      // press is the nudge below.
+      // press is the nudge below. While the controller is unknown both rows
+      // show, which is cluttered but hides nothing that is needed.
       document.getElementById("row-gestures").hidden = controller === "Keypad";
+      document.getElementById("row-nudge").hidden = controller === "Encoder";
 
       // An option the target cannot perform is hidden rather than disabled, and
       // the plugin falls back to the default if an old setting survives a target

@@ -213,3 +213,42 @@ describe("GlobalConnection", () => {
 		expect(inputs.sort()).toEqual(["/input/0/name", "/input/2/name"]);
 	});
 });
+
+/**
+ * Global OSC has no pages to hop between, so it never generates the refresh
+ * traffic the classic connection does — but a change report can still be in
+ * flight when a value is written, and accepting it puts the parameter back.
+ */
+describe("a turning dial is not fought", () => {
+	let fake: FakeGlobalTotalMix;
+	let conn: InstanceType<typeof GlobalConnection>;
+
+	beforeEach(async () => {
+		fake = new FakeGlobalTotalMix();
+		await fake.start(TMX_PORT);
+		conn = new GlobalConnection();
+		await conn.connect({ host: "127.0.0.1", sendPort: TMX_PORT, receivePort: PLUGIN_PORT });
+	});
+
+	afterEach(() => {
+		conn.dispose();
+		fake.close();
+	});
+
+	it("ignores a stale report of an address just written", async () => {
+		conn.setCoalesced("/input/0/faderlin", 0.8);
+		await fake.push(PLUGIN_PORT, "/input/0/faderlin", 0.2);
+		await delay(60);
+
+		expect(conn.getNumber("/input/0/faderlin", 0)).toBeCloseTo(0.8, 5);
+	});
+
+	it("accepts the mixer's value again once the write has settled", async () => {
+		conn.setCoalesced("/input/0/faderlin", 0.8);
+		await delay(500);
+		await fake.push(PLUGIN_PORT, "/input/0/faderlin", 0.2);
+		await delay(60);
+
+		expect(conn.getNumber("/input/0/faderlin", 0)).toBeCloseTo(0.2, 5);
+	});
+});

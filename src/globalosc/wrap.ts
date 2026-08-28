@@ -1,11 +1,6 @@
 /**
- * Line-wraps a key title so long texts (device names, DURec state strings)
- * render across lines instead of being cut off at the key's edge.
- *
- * Stream Deck keys fit roughly 9-10 characters per line at the default title
- * size and up to three lines are comfortably readable. Words are kept whole
- * where possible; a word longer than a line is hard-split. Text beyond the
- * last line is ended with an ellipsis rather than silently dropped.
+ * Line-wraps a key title: ~9 characters per line, up to 3 lines, words kept
+ * whole where possible, overlong words hard-split, overflow ends in an ellipsis.
  */
 export function wrapTitle(text: string, maxChars = 9, maxLines = 3): string {
 	const words = text.trim().split(/\s+/);

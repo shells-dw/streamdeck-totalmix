@@ -1,4 +1,4 @@
 *.cmd linguist-vendored eol=crlf
 *.sh linguist-vendored
 *.ps1 linguist-vendored eol=crlf
-* text=auto eol=crlf
+* text=auto

@@ -4,14 +4,8 @@
   <meta charset="utf-8" />
   <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
   <style>
-    /*
-      sdpi-components injects only `body,html{background-color:#2d2d2d}` into the
-      light DOM. Its theme tokens (--font-color and friends) are declared inside
-      each component's shadow root, so plain HTML here cannot see them and falls
-      back to the browser default — black text on a dark background. Redeclare
-      them at :root, with the same values the library uses, so bare elements
-      match the components instead of disappearing.
-    */
+    /* sdpi-components declares its theme tokens inside each shadow root; these
+       redeclare them at :root for the bare elements below. */
     :root {
       --font-color: #969696;
       --input-font-color: #d8d8d8;
@@ -25,7 +19,7 @@
       font-size: var(--font-size);
     }
 
-    /* Collapsible section headers: brighter than labels, so they read as headings. */
+    /* Section headers. */
     summary {
       color: var(--input-font-color);
       font-family: var(--font-family);
@@ -74,13 +68,30 @@
         <option value="stripPhantom">Phantom power</option>
         <option value="stripCue">Cue</option>
       </optgroup>
-      <optgroup label="Selected channel">
+      <optgroup label="Channel">
         <option value="channelMute">Mute</option>
         <option value="channelSolo">Solo / PFL</option>
         <option value="channelPhantom">Phantom power</option>
         <option value="channelEq">EQ enable</option>
         <option value="channelLowcut">Low cut</option>
-        <option value="channelComp">Compressor / expander</option>
+        <option value="channelComp">Dynamics (compressor / expander)</option>
+        <option value="channelAutoLevel">Auto Level</option>
+        <option value="channelStereo">Stereo / mono</option>
+        <option value="channelPhase">Phase invert (left / mono)</option>
+        <option value="channelPhaseRight">Phase invert (right)</option>
+        <option value="channelInstrument">Instrument</option>
+        <option value="channelPad">Pad</option>
+        <option value="channelMsProc">M/S processing</option>
+        <option value="channelAutoset">AutoSet gain</option>
+        <option value="channelLoopback">Loopback</option>
+        <option value="channelTalkbackSel">Include in talkback</option>
+        <option value="channelNoTrim">Exclude from trim</option>
+        <option value="channelRecord">Record enable (DURec)</option>
+      </optgroup>
+      <optgroup label="DURec transport">
+        <option value="recordStart">Record</option>
+        <option value="recordPlayPause">Play / pause</option>
+        <option value="recordStop">Stop</option>
       </optgroup>
       <optgroup label="Groups and snapshots">
         <option value="muteGroup">Mute group</option>
@@ -91,7 +102,7 @@
       <optgroup label="Effects">
         <option value="reverb">Reverb</option>
         <option value="echo">Echo</option>
-        <option value="roomEq">Room EQ (selected output)</option>
+        <option value="roomEq">Room EQ</option>
       </optgroup>
     </sdpi-select>
   </sdpi-item>
@@ -100,22 +111,23 @@
     <sdpi-item label="Channel">
       <sdpi-select setting="strip" default="1" datasource="getStrips" loading="Reading channel names…" show-refresh></sdpi-select>
     </sdpi-item>
-    <sdpi-item label="Bus">
+    <sdpi-item label="Bus" id="bus-item">
       <sdpi-select setting="bus" default="">
-        <option value="">Leave as is</option>
-        <option value="input">Input</option>
-        <option value="playback">Playback</option>
-        <option value="output">Output</option>
+        <option value="" id="bus-asis">Leave as is</option>
+        <option value="follow" id="bus-follow">Follow TotalMix's selection</option>
+        <option value="input" id="bus-input">Input</option>
+        <option value="playback" id="bus-playback">Playback</option>
+        <option value="output" id="bus-output">Output</option>
       </sdpi-select>
     </sdpi-item>
     <sdpi-item label="Pin bank start">
       <sdpi-textfield setting="bankStart" placeholder="empty = leave as is"></sdpi-textfield>
     </sdpi-item>
-    <p class="hint">
-      Strip = fader position in the shown bank, not a fixed channel. To pin this
-      button to one channel forever: set Bus, set Pin bank start to 0, and Strip
-      to the channel's position on that bus (a stereo pair counts as one strip).
-    </p>
+    <p class="hint" id="hint-strip">Fader position in the shown bank, counting a
+    stereo pair as one.</p>
+    <p class="hint" id="hint-channel" hidden>Channel position on the bus, counting a
+    stereo pair as one.</p>
+    <p class="hint" id="hint-roomeq" hidden>Output channels only.</p>
   </div>
 
   <div id="row-index" hidden>
@@ -140,10 +152,8 @@
 
   <details>
     <summary>Defaults for new buttons</summary>
-    <p class="hint">Stored in Stream Deck itself, so they survive plugin updates.
-    Leave a field empty to use the value shown in grey. These are copied into each
-    button as you add it — buttons already on your Stream Deck keep what they were
-    created with, and are changed under Connection above.</p>
+    <p class="hint">Copied into each new button. Existing buttons are unaffected;
+    change those under Connection.</p>
     <sdpi-item label="Host">
       <sdpi-textfield setting="defaultHost" global placeholder="127.0.0.1"></sdpi-textfield>
     </sdpi-item>
@@ -157,9 +167,8 @@
 
   <script>
     (function () {
-      // Deliberately independent of sdpi-components internals: reads the rendered
-      // control's value straight from the DOM and re-applies visibility on user
-      // input and on a slow poll (covers programmatic/late initialisation).
+      // Reads the rendered control's value from the DOM; re-applied on input
+      // and on a poll, for late initialisation.
       function valueOf(setting, fallback) {
         var host = document.querySelector('[setting="' + setting + '"]');
         if (!host) return fallback;
@@ -180,11 +189,93 @@
     })();
   </script>
   <script>
+      // Writes a usable bus when a channel target has none stored, so the
+      // stored setting matches what the dropdown shows.
+      function ensureBus(allowed) {
+        var host = document.querySelector('[setting="bus"]');
+        if (!host) return;
+        var inner = host.querySelector("select");
+        var current = (host.value !== undefined && host.value !== null && host.value !== "")
+          ? host.value
+          : (inner && inner.value) || "";
+        if (current === "follow" || allowed.indexOf(current) !== -1) return;
+        var next = allowed[0];
+        if (host.value !== undefined) host.value = next;
+        if (inner) {
+          inner.value = next;
+          inner.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+
     __watchSettings(function (v) {
       var p = v("parameter", "mainDim");
       var STRIP = { stripMute: 1, stripSolo: 1, stripPhantom: 1, stripCue: 1 };
+      // Page-2 parameters. Mirrors CHANNEL_PARAMETERS in src/actions/toggle.ts.
+      var CHANNEL = {
+        channelMute: 1, channelSolo: 1, channelPhantom: 1,
+        channelEq: 1, channelLowcut: 1, channelComp: 1, channelAutoLevel: 1,
+        channelStereo: 1, channelPhase: 1, channelPhaseRight: 1,
+        channelInstrument: 1, channelPad: 1, channelMsProc: 1, channelAutoset: 1,
+        channelLoopback: 1, channelTalkbackSel: 1, channelNoTrim: 1,
+        channelRecord: 1
+      };
+      var roomEq = p === "roomEq";
+      var channelScoped = p in CHANNEL;
+      var picksChannel = channelScoped || roomEq;
       var INDEXED = { muteGroup: 4, soloGroup: 4, faderGroup: 4, snapshot: 8 };
-      document.getElementById("row-strip").hidden = !(p in STRIP);
+      document.getElementById("row-strip").hidden = !(p in STRIP || picksChannel);
+      document.getElementById("hint-strip").hidden = picksChannel;
+      document.getElementById("hint-channel").hidden = !channelScoped;
+      document.getElementById("hint-roomeq").hidden = !roomEq;
+
+      // Mirrors PARAMETER_BUSES in src/actions/toggle.ts. Absent means all three.
+      var BUSES = {
+        stripSolo: ["input", "playback"],
+        stripPhantom: ["input"],
+        stripCue: ["output"],
+        channelSolo: ["input", "playback"],
+        channelPhantom: ["input"],
+        channelInstrument: ["input"],
+        channelPad: ["input"],
+        channelAutoset: ["input"],
+        channelMsProc: ["input"],
+        channelLoopback: ["output"],
+        channelTalkbackSel: ["output"],
+        channelNoTrim: ["output"],
+        roomEq: ["output"]
+      };
+      var allowed = BUSES[p] || ["input", "playback", "output"];
+
+      // "Leave as is" applies to strip parameters, "Follow" to channel ones.
+      ["input", "playback", "output"].forEach(function (bus) {
+        var opt = document.getElementById("bus-" + bus);
+        if (opt) {
+          var ok = allowed.indexOf(bus) !== -1;
+          opt.hidden = !ok;
+          opt.disabled = !ok;
+        }
+      });
+      var asis = document.getElementById("bus-asis");
+      if (asis) { asis.hidden = picksChannel; asis.disabled = picksChannel; }
+      var follow = document.getElementById("bus-follow");
+      if (follow) { follow.hidden = !picksChannel; follow.disabled = !picksChannel; }
+
+      // With one allowed bus the control selects follow-or-fixed, not a bus.
+      var onlyBus = allowed.length === 1;
+      var busItem = document.getElementById("bus-item");
+      if (busItem) busItem.setAttribute("label", onlyBus ? "Channel" : "Bus");
+      var soleOption = onlyBus ? document.getElementById("bus-" + allowed[0]) : null;
+      if (soleOption) soleOption.textContent = "Use the channel below";
+      ["input", "playback", "output"].forEach(function (bus) {
+        if (onlyBus && bus === allowed[0]) return;
+        var opt = document.getElementById("bus-" + bus);
+        if (opt && allowed.indexOf(bus) !== -1) {
+          opt.textContent = bus.charAt(0).toUpperCase() + bus.slice(1);
+        }
+      });
+
+      if (picksChannel) ensureBus(allowed);
+
       document.getElementById("row-index").hidden = !(p in INDEXED);
       if (p in INDEXED) {
         var r = document.querySelector("#row-index sdpi-range");

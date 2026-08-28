@@ -74,7 +74,10 @@ describe("global addresses conform to the Global OSC table", () => {
 		["eq enable", g.channel("playback", 1, "eq/enable")],
 		["dynamics enable", g.channel("input", 2, "dynamics/enable")],
 		["autolevel enable", g.channel("input", 2, "autolevel/enable")],
-		["roomeq enable", g.channel("output", 2, "roomeq/enable")],
+		["roomeq enable", g.channelRoomEqEnable("output", 2)],
+		["roomeq band gain", g.channel("output", 2, "roomeq/band1gain")],
+		["roomeq band type", g.channel("output", 3, "roomeq/band9type")],
+		["roomeq loadpreset", g.channel("output", 0, "roomeq/loadpreset")],
 		["phase", g.channel("input", 0, "phase")],
 		["48v", g.channel("input", 0, "48v")],
 		["instrument", g.channel("input", 0, "instrument")],
@@ -154,6 +157,16 @@ describe("global addresses conform to the Global OSC table", () => {
 		expect(g.muteGroup(1)).toBe("/mutegroup/1");
 		expect(g.mixFaderlin("in", 0, 2)).toBe("/mix/in/0/2/faderlin");
 		expect(g.sendChan("input", 2)).toBe("/sendchan/input/2");
+	});
+
+	it("clamps group numbers to 1..4", () => {
+		expect(g.muteGroup(0)).toBe("/mutegroup/1");
+		expect(g.faderGroup(7)).toBe("/fadergroup/4");
+	});
+
+	it("carries the table's not-implemented flag for /snapshot/save", () => {
+		const n = spec.sections.numbered as Record<string, { implemented?: boolean }>;
+		expect(n["snapshotSave"]?.implemented).toBe(false);
 	});
 
 	it("marks the group addresses as receive-only, so buttons must self-track", () => {

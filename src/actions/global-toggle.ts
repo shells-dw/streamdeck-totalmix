@@ -19,7 +19,7 @@ import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { iconFor } from "../totalmix/icons.js";
 import type { ToggleParameter } from "./toggle.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 
 export type GlobalToggleSettings = {
 	parameter?: GlobalToggleParameter;
@@ -66,48 +66,40 @@ export type GlobalToggleParameter =
 	// Effects
 	| "reverb"
 	| "echo"
-	// Groups (receive-only in this protocol: no state feedback from TotalMix)
+	// Groups (receive only; no state feedback)
 	| "muteGroup"
 	| "soloGroup"
 	| "faderGroup";
 
-/** Parameters that live on a fixed bus regardless of the settings dropdown. */
+/** Parameters bound to one bus regardless of the settings dropdown. */
 const FORCED_BUS: Partial<Record<GlobalToggleParameter, g.GlobalBus>> = {
-	// Preamp hardware exists on inputs only.
 	chPhantom: "input",
 	chInstrument: "input",
 	chPad: "input",
 	chAutoset: "input",
-	// Room EQ exists on outputs only.
 	chRoomEq: "output",
 };
 
-/** L/R-split per the table: on stereo pairs, right = channel + 1. */
+/** L/R-split per the table (right = channel + 1). */
 const LR_PARAMETERS: ReadonlySet<GlobalToggleParameter> = new Set(["chPhase"]);
 
-const GROUP_PARAMETERS: ReadonlySet<GlobalToggleParameter> = new Set([
-	"muteGroup",
-	"soloGroup",
-	"faderGroup",
-]);
-
-/** Reuse the classic action's artwork; parameters map onto the same glyphs. */
+/** Classic-action icon for each parameter. */
 const ICON_ALIAS: Record<GlobalToggleParameter, ToggleParameter> = {
 	chMute: "stripMute",
-	chPhase: "trim",
+	chPhase: "channelPhase",
 	chPhantom: "stripPhantom",
-	chInstrument: "trim",
-	chPad: "trim",
-	chAutoset: "trim",
-	chMsProc: "trim",
-	chLoopback: "trim",
+	chInstrument: "channelInstrument",
+	chPad: "channelPad",
+	chAutoset: "channelAutoset",
+	chMsProc: "channelMsProc",
+	chLoopback: "channelLoopback",
 	chPfl: "stripSolo",
-	chStereo: "trim",
-	chRecord: "trim",
+	chStereo: "channelStereo",
+	chRecord: "channelRecord",
 	chLowcut: "channelLowcut",
 	chEq: "channelEq",
 	chDynamics: "channelComp",
-	chAutolevel: "channelComp",
+	chAutolevel: "channelAutoLevel",
 	chRoomEq: "roomEq",
 	dim: "mainDim",
 	mono: "mainMono",
@@ -126,13 +118,9 @@ const ICON_ALIAS: Record<GlobalToggleParameter, ToggleParameter> = {
 };
 
 /**
- * On/off control over the Global OSC protocol.
- *
- * Every parameter here is stateful-set (the value IS the state; there is no
- * kOSCScaleToggle "send 1 to flip" in this protocol), so a press reads the
- * cached state and sends the inverse. The connection caches its own writes
- * optimistically, which also covers the group addresses TotalMix never reports:
- * for those the button's own presses ARE the state, noted in the PI.
+ * Global OSC on/off control. Every parameter is stateful (the value is the
+ * state), so a press sends the inverse of the cached state. Group addresses
+ * are never reported by TotalMix; their state is the optimistic cache.
  */
 @action({ UUID: "de.shells.totalmixgen2.globaltoggle" })
 export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
@@ -175,6 +163,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 
 	override onWillDisappear(ev: WillDisappearEvent<GlobalToggleSettings>): void {
 		this.releaseFor(ev.action.id);
+		forgetAlertState(ev.action.id);
 	}
 
 	override async onSendToPlugin(
@@ -247,7 +236,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 			case "chAutolevel":
 				return g.channel(bus, ch, "autolevel/enable");
 			case "chRoomEq":
-				return g.channel(bus, ch, "roomeq/enable");
+				return g.channelRoomEqEnable(bus, ch);
 			case "dim":
 				return g.CR_DIM;
 			case "mono":
@@ -277,11 +266,6 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 			case "faderGroup":
 				return g.faderGroup(index);
 		}
-	}
-
-	/** Exposed for tests. */
-	static isGroupParameter(p: GlobalToggleParameter): boolean {
-		return GROUP_PARAMETERS.has(p);
 	}
 
 	private releaseFor(id: string): void {

@@ -10,7 +10,7 @@ import * as addr from "../totalmix/addresses.js";
 import { totalMixFor } from "../totalmix/connection.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 
 export type SelectSettings = {
 	mode?: "submix" | "bankStart" | "offsetInBank" | "bus" | "quickWorkspace" | "nav" | "snapshot";
@@ -23,9 +23,7 @@ export type SelectSettings = {
 	receivePort?: number;
 };
 
-/**
- * Direct selection of submix, bank position, bus and Quick Workspace.
- */
+/** Submix, bank start, offset, bus, Quick Workspace, snapshot and navigation keys. */
 @action({ UUID: "de.shells.totalmixgen2.select" })
 export class Select extends SingletonAction<SelectSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
@@ -45,10 +43,12 @@ export class Select extends SingletonAction<SelectSettings> {
 	): Promise<void> {
 		const tm = totalMixFor(connectionOptions(settings));
 
-		// Submix buttons show the active submix name, which is the one piece of
-		// feedback that makes a bank of them usable at a glance.
+		// Submix keys show the active submix name (/1/labelSubmix).
 		const render = (): void => {
-			if ((settings.mode ?? "submix") !== "submix") return;
+			if ((settings.mode ?? "submix") !== "submix") {
+				void target.setTitle("");
+				return;
+			}
 			const name = tm.getString(addr.LABEL_SUBMIX);
 			if (name !== undefined) void target.setTitle(name);
 		};
@@ -61,6 +61,7 @@ export class Select extends SingletonAction<SelectSettings> {
 
 	override onWillDisappear(ev: WillDisappearEvent<SelectSettings>): void {
 		this.releaseFor(ev.action.id);
+		forgetAlertState(ev.action.id);
 	}
 
 	override onKeyDown(ev: KeyDownEvent<SelectSettings>): void {
@@ -71,7 +72,7 @@ export class Select extends SingletonAction<SelectSettings> {
 
 		switch (s.mode ?? "submix") {
 			case "submix":
-				// Numbering starts at 0 for single channels.
+				// 0-based.
 				tm.send(addr.SET_SUBMIX, value);
 				return;
 			case "bankStart":
@@ -81,13 +82,10 @@ export class Select extends SingletonAction<SelectSettings> {
 				tm.send(addr.SET_OFFSET_IN_BANK, value);
 				return;
 			case "quickWorkspace":
-				// Valid range is 1..30.
 				tm.send(addr.LOAD_QUICK_WORKSPACE, Math.min(Math.max(value, 1), 30));
 				return;
 			case "snapshot":
-				// Snapshots are kOSCScaleToggle: 1.0 recalls. Range 1..8; the
-				// reversed grid indexing is handled inside addr.snapshot().
-				tm.toggle(addr.snapshot(Math.min(Math.max(value, 1), 8)));
+				tm.toggle(addr.snapshot(value));
 				return;
 			case "bus":
 				tm.toggle(addr.bus(s.bus ?? "output"));

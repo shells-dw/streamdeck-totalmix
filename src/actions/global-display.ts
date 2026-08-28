@@ -19,7 +19,7 @@ import { datasourceEvent } from "../totalmix/datasource.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { wrapTitle } from "../globalosc/wrap.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 import { washFeedback } from "./wash.js";
 
 export type GlobalDisplaySettings = {
@@ -41,29 +41,18 @@ export type GlobalDisplayMode =
 	| "durecTime"
 	| "durecState";
 
-/**
- * Peak meters can update many times a second even with TotalMix's send-side
- * change detection; the Stream Deck does not need repainting faster than this.
- */
+/** Repaint throttle for the level mode. */
 const LEVEL_RENDER_MS = 100;
 
 /** Meter bar span: -60 dB at empty, 0 dBFS at full. */
 const METER_FLOOR_DB = -60;
 
-/**
- * Read-only display of values the Global OSC protocol publishes without a
- * corresponding control: peak level meters (/level/…, dB, only changing values
- * sent), the status block (/status/device | connection | dsp, sent about once
- * per second), and the DURec time and state strings.
- *
- * A press requests /sendstate, the refresh trigger for all status messages
- * including DURec, plus a full refresh.
- */
+/** Read-only display of /level, /status and /durec time/state. A press requests a full refresh. */
 @action({ UUID: "de.shells.totalmixgen2.globaldisplay" })
 export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
-	/** Per-action render throttle for the fast-moving level mode. */
+	/** Per-action render throttle (level mode). */
 	private readonly lastRender = new Map<string, number>();
 	private readonly renderTimers = new Map<string, NodeJS.Timeout>();
 
@@ -91,8 +80,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 				void this.render(gm, target, settings);
 				return;
 			}
-			// Throttled path: paint at most every LEVEL_RENDER_MS, with one
-			// trailing paint so the meter always settles on the latest value.
+			// Throttled with a trailing paint.
 			const now = Date.now();
 			const last = this.lastRender.get(target.id) ?? 0;
 			if (now - last >= LEVEL_RENDER_MS) {
@@ -111,13 +99,10 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 			);
 		};
 
-		// Keys draw the value as the title; a blank background makes it readable
-		// instead of painting it over the plugin logo.
 		if (target.isKey()) void target.setImage("imgs/blank");
 
 		const unsubs = [gm.subscribe(address, render), gm.onConnectionChange(render)];
 		if (mode === "level") {
-			// The channel's name makes the meter identifiable on a dial.
 			unsubs.push(gm.subscribe(g.channelName(this.busOf(settings), num(settings.channel, 0)), render));
 		}
 
@@ -129,6 +114,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 
 	override onWillDisappear(ev: WillDisappearEvent<GlobalDisplaySettings>): void {
 		this.releaseFor(ev.action.id);
+		forgetAlertState(ev.action.id);
 	}
 
 	override async onSendToPlugin(
@@ -152,9 +138,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	}
 
 	private refresh(settings: GlobalDisplaySettings): void {
-		const gm = globalMixFor(globalConnectionOptions(settings));
-		gm.trigger(g.SEND_STATE, 1.0);
-		gm.requestFullRefresh();
+		globalMixFor(globalConnectionOptions(settings)).requestFullRefresh();
 	}
 
 	private busOf(settings: GlobalDisplaySettings): g.GlobalBus {
@@ -199,7 +183,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 		}
 	}
 
-	/** Formats the cached value for this mode; undefined = nothing received. */
+	/** Cached value formatted for the mode; undefined when nothing was received. */
 	private format(
 		gm: GlobalConnection,
 		settings: GlobalDisplaySettings,
@@ -212,8 +196,6 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 		switch (mode) {
 			case "level": {
 				const dB = gm.getNumber(address, METER_FLOOR_DB);
-				// Deep under-range represents silence; rendered as the meter's empty
-				// state.
 				const text = dB <= METER_FLOOR_DB ? "-oo" : `${dB.toFixed(1)} dB`;
 				const bar = Math.round(
 					Math.min(1, Math.max(0, (dB - METER_FLOOR_DB) / -METER_FLOOR_DB)) * 100,
@@ -223,7 +205,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 			case "statusConnection":
 				return { text: gm.getNumber(address, 0) >= 0.5 ? "Connected" : "No device" };
 			case "statusDsp": {
-				// Unit is not documented; show the number exactly as sent.
+				// Unit undocumented; shown as sent.
 				const v = gm.get(address);
 				return { text: typeof v === "number" ? `${v}` : String(v) };
 			}
@@ -243,21 +225,16 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	): Promise<void> {
 		const address = this.addressFor(settings);
 		const formatted = this.format(gm, settings, address);
-		// TotalMix transmits only changes, so silence is normal and the last known
-		// value remains current. Only an empty cache shows the dash.
 		const text = formatted?.text ?? "—";
 
 		if (target.isDial()) {
-			// Read-only, so never washed — but it shares the volume layout and so
-			// must use its keys and write its colours, or a wash left by another
-			// action's render would stick to this one.
+			// Shares the volume layout; colours must be written explicitly.
 			await target.setFeedback(
 				washFeedback(this.labelFor(gm, settings), text, formatted?.bar ?? 0, "none"),
 			);
 			return;
 		}
 
-		// Keys clip long text such as device names at the edge, so it is wrapped.
 		await target.setTitle(wrapTitle(text));
 	}
 

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  <style>
+    /*
+      sdpi-components injects only `body,html{background-color:#2d2d2d}` into the
+      light DOM. Its theme tokens (--font-color and friends) are declared inside
+      each component's shadow root, so plain HTML here cannot see them and falls
+      back to the browser default — black text on a dark background. Redeclare
+      them at :root, with the same values the library uses, so bare elements
+      match the components instead of disappearing.
+    */
+    :root {
+      --font-color: #969696;
+      --input-font-color: #d8d8d8;
+      --font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+      --font-size: 9pt;
+    }
+
+    body {
+      color: var(--font-color);
+      font-family: var(--font-family);
+      font-size: var(--font-size);
+    }
+
+    /* Collapsible section headers: brighter than labels, so they read as headings. */
+    summary {
+      color: var(--input-font-color);
+      font-family: var(--font-family);
+      font-size: var(--font-size);
+      cursor: pointer;
+      padding: 4px 0 4px 2px;
+      user-select: none;
+    }
+
+    summary:hover {
+      color: #ffffff;
+    }
+
+    details {
+      margin: 0 0 8px;
+    }
+
+    .hint {
+      color: var(--font-color);
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 2px 12px 8px;
+    }
+  </style>
+</head>
+<body>
+  <sdpi-item label="Parameter">
+    <sdpi-select setting="parameter" default="reverbVolume">
+      <optgroup label="FX send and return (per channel)">
+        <option value="fxSend">FX Send</option>
+        <option value="fxReturn">FX Return</option>
+      </optgroup>
+      <optgroup label="EQ (per channel)">
+        <option value="eqBand1Type">EQ1 Type</option>
+        <option value="eqBand1Gain">EQ1 Gain</option>
+        <option value="eqBand1Freq">EQ1 Freq</option>
+        <option value="eqBand1Q">EQ1 Q</option>
+        <option value="eqBand2Gain">EQ2 Gain</option>
+        <option value="eqBand2Freq">EQ2 Freq</option>
+        <option value="eqBand2Q">EQ2 Q</option>
+        <option value="eqBand3Type">EQ3 Type</option>
+        <option value="eqBand3Gain">EQ3 Gain</option>
+        <option value="eqBand3Freq">EQ3 Freq</option>
+        <option value="eqBand3Q">EQ3 Q</option>
+      </optgroup>
+      <optgroup label="Low cut (per channel)">
+        <option value="lowcutFreq">Low Cut</option>
+        <option value="lowcutSlope">LC Slope</option>
+      </optgroup>
+      <optgroup label="Dynamics (per channel)">
+        <option value="dynGain">Makeup Gain</option>
+        <option value="dynAttack">Attack</option>
+        <option value="dynRelease">Release</option>
+        <option value="dynCompThreshold">Comp Thresh</option>
+        <option value="dynCompRatio">Comp Ratio</option>
+        <option value="dynExpThreshold">Exp Thresh</option>
+        <option value="dynExpRatio">Exp Ratio</option>
+      </optgroup>
+      <optgroup label="Auto Level (per channel)">
+        <option value="autoMaxGain">AL Max Gain</option>
+        <option value="autoHeadroom">AL Headroom</option>
+        <option value="autoRiseTime">AL Rise</option>
+      </optgroup>
+      <optgroup label="Channel">
+        <option value="width">Width</option>
+        <option value="crossfeed">Crossfeed</option>
+        <option value="delay">Delay</option>
+        <option value="refLevel">Ref Level</option>
+      </optgroup>
+      <optgroup label="Reverb">
+        <option value="reverbType">Rev Type</option>
+        <option value="reverbVolume">Reverb Vol</option>
+        <option value="reverbPredelay">Predelay</option>
+        <option value="reverbLowcut">Rev LowCut</option>
+        <option value="reverbHighcut">Rev HiCut</option>
+        <option value="reverbRoomscale">Room Scale</option>
+        <option value="reverbSmooth">Smooth</option>
+        <option value="reverbWidth">Rev Width</option>
+        <option value="reverbTime">Rev Time</option>
+        <option value="reverbHighdamp">High Damp</option>
+        <option value="reverbAttack">Rev Attack</option>
+        <option value="reverbHold">Rev Hold</option>
+        <option value="reverbRelease">Rev Release</option>
+      </optgroup>
+      <optgroup label="Echo">
+        <option value="echoType">Echo Type</option>
+        <option value="echoVolume">Echo Vol</option>
+        <option value="echoDelay">Echo Delay</option>
+        <option value="echoFeedback">Feedback</option>
+        <option value="echoHighcut">Echo HiCut</option>
+        <option value="echoWidth">Echo Width</option>
+      </optgroup>
+    </sdpi-select>
+  </sdpi-item>
+
+  <div id="row-channel" hidden>
+    <sdpi-item label="Bus">
+      <sdpi-select setting="bus" default="input">
+        <option value="input">Input</option>
+        <option value="playback">Playback</option>
+        <option value="output">Output</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Channel">
+      <sdpi-select setting="channel" default="0" datasource="getChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+    </sdpi-item>
+  </div>
+
+  <div id="row-stepdb" hidden>
+    <sdpi-item label="dB per step">
+      <sdpi-range setting="stepDb" min="0.1" max="6" step="0.1" default="1" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="stepdb-value"></b></p>
+  </div>
+
+  <div id="row-stephz" hidden>
+    <sdpi-item label="Hz per step">
+      <sdpi-range setting="stepHz" min="1" max="500" step="1" default="20" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="stephz-value"></b>Range is 20 Hz to 20 kHz.</p>
+  </div>
+
+  <div id="row-steppos" hidden>
+    <sdpi-item label="Positions per step">
+      <sdpi-range setting="stepPositions" min="1" max="4" step="1" default="1" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="steppos-value"></b></p>
+  </div>
+
+  <div id="row-stepfine" hidden>
+    <sdpi-item label="Units per step">
+      <sdpi-range setting="stepFine" min="0.01" max="0.5" step="0.01" default="0.05" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="stepfine-value"></b></p>
+  </div>
+
+  <div id="row-steptenth" hidden>
+    <sdpi-item label="Units per step">
+      <sdpi-range setting="stepTenth" min="0.05" max="2" step="0.05" default="0.1" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="steptenth-value"></b></p>
+  </div>
+
+  <div id="row-stepwhole" hidden>
+    <sdpi-item label="Units per step">
+      <sdpi-range setting="stepWhole" min="1" max="20" step="1" default="1" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="stepwhole-value"></b></p>
+  </div>
+
+  <div id="row-stepten" hidden>
+    <sdpi-item label="Units per step">
+      <sdpi-range setting="stepTen" min="5" max="100" step="5" default="10" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="stepten-value"></b></p>
+  </div>
+
+  <div id="row-nudge" hidden>
+    <sdpi-item label="On press">
+      <sdpi-select setting="nudge" default="up">
+        <option value="up">Up (+)</option>
+        <option value="down">Down (−)</option>
+      </sdpi-select>
+    </sdpi-item>
+    <p class="hint">One step per press.</p>
+  </div>
+
+  <details>
+    <summary>Connection</summary>
+    <sdpi-item label="Host">
+      <sdpi-textfield setting="host" default="127.0.0.1" placeholder="127.0.0.1"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port incoming">
+      <sdpi-textfield setting="sendPort" default="7002"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="Port outgoing">
+      <sdpi-textfield setting="receivePort" default="9002"></sdpi-textfield>
+    </sdpi-item>
+  </details>
+
+
+  <script>
+    (function () {
+      function valueOf(setting, fallback) {
+        var host = document.querySelector('[setting="' + setting + '"]');
+        if (!host) return fallback;
+        if (host.value !== undefined && host.value !== null && host.value !== "") return host.value;
+        var inner = host.querySelector("select,input");
+        return inner && inner.value ? inner.value : fallback;
+      }
+
+      function watch(apply) {
+        var run = function () { try { apply(valueOf); } catch (e) {} };
+        document.addEventListener("change", run, true);
+        document.addEventListener("input", run, true);
+        setInterval(run, 250);
+        run();
+      }
+
+      window.__watchSettings = watch;
+    })();
+  </script>
+  <script>
+    var controller = null;
+    try {
+      SDPIComponents.streamDeckClient.getConnectionInfo().then(function (info) {
+        try { controller = info.actionInfo.payload.controller || null; } catch (e) {}
+      }).catch(function () {});
+    } catch (e) {}
+
+    // Unit, default step and whether the parameter takes a channel. Mirrors
+    // GLOBAL_FX in src/globalosc/fx.ts.
+      var META = {autoHeadroom:["db",1,1],autoMaxGain:["db",1,1],autoRiseTime:["native",0.1,1],
+        crossfeed:["native",1,1],delay:["native",1,1],dynAttack:["native",1,1],
+        dynCompRatio:["native",0.1,1],dynCompThreshold:["db",1,1],dynExpRatio:["native",0.1,1],
+        dynExpThreshold:["db",1,1],dynGain:["db",1,1],dynRelease:["native",10,1],
+        echoDelay:["native",1,0],echoFeedback:["native",1,0],echoHighcut:["hz",20,0],
+        echoType:["index",1,0],echoVolume:["db",1,0],echoWidth:["native",0.05,0],
+        eqBand1Freq:["hz",20,1],eqBand1Gain:["db",1,1],eqBand1Q:["native",0.1,1],
+        eqBand1Type:["index",1,1],eqBand2Freq:["hz",20,1],eqBand2Gain:["db",1,1],
+        eqBand2Q:["native",0.1,1],eqBand3Freq:["hz",20,1],eqBand3Gain:["db",1,1],
+        eqBand3Q:["native",0.1,1],eqBand3Type:["index",1,1],fxReturn:["db",1,1],
+        fxSend:["db",1,1],lowcutFreq:["hz",20,1],lowcutSlope:["index",1,1],
+        refLevel:["index",1,1],reverbAttack:["native",1,0],reverbHighcut:["hz",20,0],
+        reverbHighdamp:["hz",20,0],reverbHold:["native",1,0],reverbLowcut:["hz",20,0],
+        reverbPredelay:["native",1,0],reverbRelease:["native",1,0],
+        reverbRoomscale:["native",0.05,0],reverbSmooth:["native",1,0],
+        reverbTime:["native",0.1,0],reverbType:["index",1,0],reverbVolume:["db",1,0],
+        reverbWidth:["native",0.05,0],width:["native",0.05,1]};
+
+    var UNIT_LABEL = { db: "dB", hz: "Hz", index: "positions", native: "units" };
+
+    // Which slider carries this parameter's step. Mirrors stepSettingOf in
+    // src/globalosc/fx.ts: one row per unit, and one per default magnitude
+    // within "native" so every slider has a static default.
+    var ROWS = {
+      stepdb: "stepDb", stephz: "stepHz", steppos: "stepPositions",
+      stepfine: "stepFine", steptenth: "stepTenth",
+      stepwhole: "stepWhole", stepten: "stepTen"
+    };
+    var DEFAULTS = {
+      stepdb: 1, stephz: 20, steppos: 1,
+      stepfine: 0.05, steptenth: 0.1, stepwhole: 1, stepten: 10
+    };
+
+    function rowFor(m) {
+      if (m[0] === "db") return "stepdb";
+      if (m[0] === "hz") return "stephz";
+      if (m[0] === "index") return "steppos";
+      return m[1] <= 0.05 ? "stepfine" : m[1] <= 0.1 ? "steptenth" : m[1] <= 1 ? "stepwhole" : "stepten";
+    }
+
+    __watchSettings(function (v) {
+      var p = v("parameter", "reverbVolume");
+      var m = META[p] || ["native", 1, 0];
+
+      document.getElementById("row-channel").hidden = m[2] !== 1;
+      document.getElementById("row-nudge").hidden = controller === "Encoder";
+
+      var row = rowFor(m);
+      Object.keys(ROWS).forEach(function (id) {
+        document.getElementById("row-" + id).hidden = id !== row;
+      });
+
+      var step = v(ROWS[row], "") || String(DEFAULTS[row]);
+      var unit = UNIT_LABEL[m[0]] || "units";
+      document.getElementById(row + "-value").textContent =
+        (m[0] === "index" ? step + " per step" : step + " " + unit + " per step") + ". ";
+    });
+  </script>
+</body>
+</html>

@@ -53,6 +53,9 @@ describe("addresses conform to the RME spec", () => {
 		["bus(input)", addr.bus("input")],
 		["bus(playback)", addr.bus("playback")],
 		["bus(output)", addr.bus("output")],
+		["busPage2(input)", addr.busPage2("input")],
+		["busPage2(playback)", addr.busPage2("playback")],
+		["busPage2(output)", addr.busPage2("output")],
 		["volume(3)", addr.volume(3)],
 		["pan(3)", addr.pan(3)],
 		["mute(3)", addr.mute(3)],
@@ -102,10 +105,66 @@ describe("addresses conform to the RME spec", () => {
 		["ECHO_FEEDBACK", addr.ECHO_FEEDBACK],
 		["CH_REVERB_RETURN", addr.CH_REVERB_RETURN],
 		["CH_LOWCUT_FREQ", addr.CH_LOWCUT_FREQ],
+		["REVERB_LOWCUT", addr.REVERB_LOWCUT],
+		["REVERB_HIGHCUT", addr.REVERB_HIGHCUT],
+		["REVERB_ROOMSCALE", addr.REVERB_ROOMSCALE],
+		["REVERB_SMOOTH", addr.REVERB_SMOOTH],
+		["REVERB_HIGHDAMP", addr.REVERB_HIGHDAMP],
+		["REVERB_ATTACK", addr.REVERB_ATTACK],
+		["REVERB_HOLD", addr.REVERB_HOLD],
+		["REVERB_RELEASE", addr.REVERB_RELEASE],
+		["ECHO_WIDTH", addr.ECHO_WIDTH],
+		["CH_COMP_GAIN", addr.CH_COMP_GAIN],
+		["CH_COMP_ATTACK", addr.CH_COMP_ATTACK],
+		["CH_COMP_RELEASE", addr.CH_COMP_RELEASE],
+		["CH_COMP_THRESHOLD", addr.CH_COMP_THRESHOLD],
+		["CH_COMP_RATIO", addr.CH_COMP_RATIO],
+		["CH_EXP_THRESHOLD", addr.CH_EXP_THRESHOLD],
+		["CH_EXP_RATIO", addr.CH_EXP_RATIO],
+		["CH_AUTOLEVEL_ENABLE", addr.CH_AUTOLEVEL_ENABLE],
+		["CH_AUTOLEVEL_MAXGAIN", addr.CH_AUTOLEVEL_MAXGAIN],
+		["CH_AUTOLEVEL_HEADROOM", addr.CH_AUTOLEVEL_HEADROOM],
+		["CH_AUTOLEVEL_RISETIME", addr.CH_AUTOLEVEL_RISETIME],
+		["CH_EQ_TYPE1", addr.CH_EQ_TYPE1],
+		["CH_EQ_GAIN1", addr.CH_EQ_GAIN1],
+		["CH_EQ_FREQ1", addr.CH_EQ_FREQ1],
+		["CH_EQ_Q1", addr.CH_EQ_Q1],
+		["CH_EQ_GAIN2", addr.CH_EQ_GAIN2],
+		["CH_EQ_FREQ2", addr.CH_EQ_FREQ2],
+		["CH_EQ_Q2", addr.CH_EQ_Q2],
+		["CH_EQ_TYPE3", addr.CH_EQ_TYPE3],
+		["CH_EQ_GAIN3", addr.CH_EQ_GAIN3],
+		["CH_EQ_FREQ3", addr.CH_EQ_FREQ3],
+		["CH_EQ_Q3", addr.CH_EQ_Q3],
+		["CH_LOWCUT_GRADE", addr.CH_LOWCUT_GRADE],
+		["CH_PHASE_RIGHT", addr.CH_PHASE_RIGHT],
+		["CH_TALKBACK_SEL", addr.CH_TALKBACK_SEL],
+		["CH_NO_TRIM", addr.CH_NO_TRIM],
+		["CH_MS_PROC", addr.CH_MS_PROC],
+		["CH_AUTOSET", addr.CH_AUTOSET],
+		["RECORD_TIME", addr.RECORD_TIME],
+		["RECORD_STATE", addr.RECORD_STATE],
+		["ROOM_EQ_TRACK_NAME", addr.ROOM_EQ_TRACK_NAME],
 	];
 
 	it.each(emitted)("%s -> %s exists in the RME table", (_name, address) => {
 		expect(pageless.has(address) || valid.has(address), `${address} not in spec`).toBe(true);
+	});
+});
+
+describe("group and snapshot indices", () => {
+	it("reverses the grid index", () => {
+		expect(addr.muteGroup(1)).toBe("/3/muteGroups/4/1");
+		expect(addr.faderGroup(4)).toBe("/3/faderGroups/1/1");
+		expect(addr.snapshot(1)).toBe("/3/snapshots/8/1");
+		expect(addr.snapshot(8)).toBe("/3/snapshots/1/1");
+	});
+
+	it("clamps out-of-range numbers to the table's ranges", () => {
+		expect(addr.muteGroup(0)).toBe(addr.muteGroup(1));
+		expect(addr.soloGroup(9)).toBe(addr.soloGroup(4));
+		expect(addr.snapshot(0)).toBe(addr.snapshot(1));
+		expect(addr.snapshot(12)).toBe(addr.snapshot(8));
 	});
 });
 

@@ -4,14 +4,8 @@
   <meta charset="utf-8" />
   <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
   <style>
-    /*
-      sdpi-components injects only `body,html{background-color:#2d2d2d}` into the
-      light DOM. Its theme tokens (--font-color and friends) are declared inside
-      each component's shadow root, so plain HTML here cannot see them and falls
-      back to the browser default — black text on a dark background. Redeclare
-      them at :root, with the same values the library uses, so bare elements
-      match the components instead of disappearing.
-    */
+    /* sdpi-components declares its theme tokens inside each shadow root; these
+       redeclare them at :root for the bare elements below. */
     :root {
       --font-color: #969696;
       --input-font-color: #d8d8d8;
@@ -25,7 +19,7 @@
       font-size: var(--font-size);
     }
 
-    /* Collapsible section headers: brighter than labels, so they read as headings. */
+    /* Section headers. */
     summary {
       color: var(--input-font-color);
       font-family: var(--font-family);
@@ -49,28 +43,81 @@
       line-height: 1.4;
       margin: 2px 12px 8px;
     }
+
+    /* Live value printed at the head of a step control's hint. */
+    .hint b {
+      color: var(--input-font-color);
+      display: block;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+
+    .hint b:empty {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <sdpi-item label="Target">
     <sdpi-select setting="target" default="main">
-      <option value="main">Main / Control Room</option>
-      <option value="strip">Strip in current bank</option>
-      <option value="channel">Selected channel (page 2)</option>
+      <option value="main">Main / Control Room volume</option>
+      <option value="strip">Volume (strip in current bank)</option>
+      <option value="channel">Volume (channel)</option>
       <option value="gain">Input gain (preamp)</option>
-      <option value="pan">Pan (selected channel)</option>
+      <option value="pan">Pan (channel)</option>
       <option value="stripPan">Pan (strip in current bank)</option>
-      <optgroup label="Effects">
-        <option value="fxReverbSend">Reverb send (selected channel)</option>
-        <option value="fxReverbReturn">Reverb return</option>
+      <optgroup label="Per channel">
+        <option value="fxReverbSend">FX send (inputs and playbacks)</option>
+        <option value="fxReverbReturn">FX return (outputs)</option>
+      </optgroup>
+      <optgroup label="EQ (per channel)">
+        <option value="fxEqType1">Band 1 type</option>
+        <option value="fxEqGain1">Band 1 gain</option>
+        <option value="fxEqFreq1">Band 1 frequency</option>
+        <option value="fxEqQ1">Band 1 Q</option>
+        <option value="fxEqGain2">Band 2 gain</option>
+        <option value="fxEqFreq2">Band 2 frequency</option>
+        <option value="fxEqQ2">Band 2 Q</option>
+        <option value="fxEqType3">Band 3 type</option>
+        <option value="fxEqGain3">Band 3 gain</option>
+        <option value="fxEqFreq3">Band 3 frequency</option>
+        <option value="fxEqQ3">Band 3 Q</option>
+        <option value="fxLowcutFreq">Low cut frequency</option>
+        <option value="fxLowcutGrade">Low cut slope</option>
+      </optgroup>
+      <optgroup label="Dynamics (per channel)">
+        <option value="fxCompThreshold">Compressor threshold</option>
+        <option value="fxCompRatio">Compressor ratio</option>
+        <option value="fxCompAttack">Attack</option>
+        <option value="fxCompRelease">Release</option>
+        <option value="fxCompGain">Make-up gain</option>
+        <option value="fxExpThreshold">Expander threshold</option>
+        <option value="fxExpRatio">Expander ratio</option>
+      </optgroup>
+      <optgroup label="Auto Level (per channel)">
+        <option value="fxAutoLevelMaxGain">Maximum gain</option>
+        <option value="fxAutoLevelHeadroom">Headroom</option>
+        <option value="fxAutoLevelRise">Rise speed</option>
+      </optgroup>
+      <optgroup label="Reverb">
         <option value="fxReverbVolume">Reverb volume</option>
-        <option value="fxReverbTime">Reverb time</option>
         <option value="fxReverbPredelay">Reverb pre-delay</option>
         <option value="fxReverbWidth">Reverb width</option>
+        <option value="fxReverbRoomscale">Reverb room scale</option>
+        <option value="fxReverbSmooth">Reverb smoothness</option>
+        <option value="fxReverbLowcut">Reverb low cut</option>
+        <option value="fxReverbHighcut">Reverb high cut</option>
+        <option value="fxReverbTime">Reverb time — Space type only</option>
+        <option value="fxReverbHighdamp">Reverb high damp — Space type only</option>
+        <option value="fxReverbAttack">Reverb attack — Envelope types only</option>
+        <option value="fxReverbHold">Reverb hold — Envelope types only</option>
+        <option value="fxReverbRelease">Reverb release — Envelope types only</option>
+      </optgroup>
+      <optgroup label="Echo">
         <option value="fxEchoVolume">Echo volume</option>
         <option value="fxEchoDelay">Echo delay</option>
         <option value="fxEchoFeedback">Echo feedback</option>
-        <option value="fxLowcutFreq">Low cut frequency (selected channel)</option>
+        <option value="fxEchoWidth">Echo width</option>
       </optgroup>
     </sdpi-select>
   </sdpi-item>
@@ -82,21 +129,21 @@
     <div id="row-bus">
       <sdpi-item label="Bus">
         <sdpi-select setting="bus" default="">
-          <option value="">Leave as is</option>
-          <option value="input">Input</option>
-          <option value="playback">Playback</option>
-          <option value="output">Output</option>
+          <option value="" id="bus-asis">Leave as is</option>
+          <option value="follow" id="bus-follow">Follow TotalMix's selection</option>
+          <option value="input" id="bus-input">Input</option>
+          <option value="playback" id="bus-playback">Playback</option>
+          <option value="output" id="bus-output">Output</option>
         </sdpi-select>
       </sdpi-item>
     </div>
     <sdpi-item label="Pin bank start">
       <sdpi-textfield setting="bankStart" placeholder="empty = leave as is"></sdpi-textfield>
     </sdpi-item>
-    <p class="hint">
-      Strip = fader position in the shown bank. To pin this dial to one channel:
-      set Bus, Pin bank start to 0, and Strip to the channel's position on that
-      bus (a stereo pair counts as one strip).
-    </p>
+    <p class="hint" id="hint-strip">Fader position in the shown bank, counting a
+    stereo pair as one.</p>
+    <p class="hint" id="hint-channel" hidden>Channel position on the bus, counting a
+    stereo pair as one.</p>
   </div>
 
   <div id="row-gestures" hidden>
@@ -113,6 +160,7 @@
           <option value="unity" data-kinds="main strip channel">Set to 0 dB</option>
           <option value="center" data-kinds="pan">Centre the pan</option>
           <option value="bypass" data-kinds="fx">Bypass the effect</option>
+          <option value="neutral" data-kinds="fx">Back to neutral</option>
         </optgroup>
         <optgroup label="Control room">
           <option value="dim">Dim</option>
@@ -142,6 +190,7 @@
           <option value="unity" data-kinds="main strip channel">Set to 0 dB</option>
           <option value="center" data-kinds="pan">Centre the pan</option>
           <option value="bypass" data-kinds="fx">Bypass the effect</option>
+          <option value="neutral" data-kinds="fx">Back to neutral</option>
         </optgroup>
         <optgroup label="Control room">
           <option value="dim">Dim</option>
@@ -168,9 +217,7 @@
         <option value="down">Nudge down (−)</option>
       </sdpi-select>
     </sdpi-item>
-    <p class="hint" id="nudge-hint">Each press moves the value one step. Place a second
-    button with the opposite direction for a +/− pair. Step: dB for faders and gain,
-    percent of range for FX.</p>
+    <p class="hint" id="nudge-hint">One step per press.</p>
   </div>
 
   <div id="row-device">
@@ -192,16 +239,45 @@
         <option value="babyface">Babyface (original) — 60 dB</option>
       </sdpi-select>
     </sdpi-item>
-    <p class="hint">Sets how far one detent travels, since this protocol sends gain
-    as 0..1 with no dB meaning attached and carries no way to identify your
-    interface. The value shown on the key is always TotalMix's own reading, so this
-    only affects how the dial feels, never what it displays.</p>
+    <p class="hint">Preamp span, for the dial's step size only. Does not affect the
+    displayed value.</p>
   </div>
 
   <div id="row-step">
     <sdpi-item label="dB per step">
       <sdpi-range setting="stepDb" min="0.5" max="6" step="0.5" default="1.5" showlabels></sdpi-range>
     </sdpi-item>
+    <p class="hint"><b id="step-value"></b></p>
+  </div>
+
+  <div id="row-fxstep" hidden>
+    <sdpi-item label="% of range per step">
+      <sdpi-range setting="fxPercent" min="0.1" max="10" step="0.1" default="2" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="fxstep-value"></b></p>
+  </div>
+
+  <div id="row-fxdb" hidden>
+    <sdpi-item label="dB per step">
+      <sdpi-range setting="fxStepDb" min="0.1" max="6" step="0.1" default="1" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="fxdb-value"></b>Scale is measured at runtime; the first
+    detent after a restart is a probe.</p>
+  </div>
+
+  <div id="row-fxfreq" hidden>
+    <sdpi-item label="Hz per step">
+      <sdpi-range setting="fxHz" min="1" max="500" step="1" default="20" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="fxfreq-value"></b>Range is 20 Hz to 20 kHz.</p>
+  </div>
+
+  <div id="row-fxpositions" hidden>
+    <sdpi-item label="Positions">
+      <sdpi-range setting="fxPositions" min="2" max="8" step="1" default="4" showlabels></sdpi-range>
+    </sdpi-item>
+    <p class="hint"><b id="fxpositions-value"></b>Set to the number your interface
+    offers.</p>
   </div>
 
   <details>
@@ -219,10 +295,8 @@
 
   <details>
     <summary>Defaults for new buttons</summary>
-    <p class="hint">Stored in Stream Deck itself, so they survive plugin updates.
-    Leave a field empty to use the value shown in grey. These are copied into each
-    button as you add it — buttons already on your Stream Deck keep what they were
-    created with, and are changed under Connection above.</p>
+    <p class="hint">Copied into each new button. Existing buttons are unaffected;
+    change those under Connection.</p>
     <sdpi-item label="Host">
       <sdpi-textfield setting="defaultHost" global placeholder="127.0.0.1"></sdpi-textfield>
     </sdpi-item>
@@ -235,13 +309,18 @@
     <sdpi-item label="dB per step">
       <sdpi-textfield setting="defaultStepDb" global placeholder="1.5"></sdpi-textfield>
     </sdpi-item>
+    <sdpi-item label="% per step for FX">
+      <sdpi-textfield setting="defaultFxPercent" global placeholder="2"></sdpi-textfield>
+    </sdpi-item>
+    <sdpi-item label="dB per step for FX">
+      <sdpi-textfield setting="defaultFxStepDb" global placeholder="1"></sdpi-textfield>
+    </sdpi-item>
   </details>
 
   <script>
     (function () {
-      // Deliberately independent of sdpi-components internals: reads the rendered
-      // control's value straight from the DOM and re-applies visibility on user
-      // input and on a slow poll (covers programmatic/late initialisation).
+      // Reads the rendered control's value from the DOM; re-applied on input
+      // and on a poll, for late initialisation.
       function valueOf(setting, fallback) {
         var host = document.querySelector('[setting="' + setting + '"]');
         if (!host) return fallback;
@@ -259,12 +338,19 @@
       }
 
       window.__watchSettings = watch;
+
+      // Prints a control's current value above its hint; blank while hidden.
+      window.readout = function (id, value, format) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var row = el.closest("div");
+        el.textContent = row && row.hidden ? "" : format(String(value));
+      };
     })();
   </script>
   <script>
-    // Which controller is this instance on? Documented sdpi-components API; when
-    // it fails we fall back to showing key-only fields with their hint, which is
-    // ugly but can never hide a control someone needs.
+    // Controller type for this instance. On failure, key-only fields stay
+    // visible rather than being hidden.
     var controller = null;
     try {
       SDPIComponents.streamDeckClient.getConnectionInfo().then(function (info) {
@@ -272,39 +358,123 @@
       }).catch(function () {});
     } catch (e) {}
 
+      // Writes a usable bus when a channel target has none stored, so the
+      // stored setting matches what the dropdown shows.
+      function ensureBus(allowed) {
+        var host = document.querySelector('[setting="bus"]');
+        if (!host) return;
+        var inner = host.querySelector("select");
+        var current = (host.value !== undefined && host.value !== null && host.value !== "")
+          ? host.value
+          : (inner && inner.value) || "";
+        if (current === "follow" || allowed.indexOf(current) !== -1) return;
+        var next = allowed[0];
+        if (host.value !== undefined) host.value = next;
+        if (inner) {
+          inner.value = next;
+          inner.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+
     __watchSettings(function (v) {
       var t = v("target", "main");
       var fx = t.indexOf("fx") === 0;
       var onKey = controller === "Keypad";
       var onDial = controller === "Encoder";
 
-      // Gain shares the strip picker but is input-bus only, so the bus selector
-      // disappears (the plugin pins Input itself). FX targets need neither.
-      var positional = t === "strip" || t === "gain" || t === "stripPan";
-      document.getElementById("row-strip").hidden = !positional || fx;
-      document.getElementById("row-bus").hidden = t === "gain" || fx;
+      // Page-2 targets. Mirrors isChannelScoped in src/actions/volume.ts.
+      var CHANNEL = {
+        channel: 1, pan: 1,
+        fxReverbSend: 1, fxReverbReturn: 1,
+        fxLowcutFreq: 1, fxLowcutGrade: 1,
+        fxEqType1: 1, fxEqGain1: 1, fxEqFreq1: 1, fxEqQ1: 1,
+        fxEqGain2: 1, fxEqFreq2: 1, fxEqQ2: 1,
+        fxEqType3: 1, fxEqGain3: 1, fxEqFreq3: 1, fxEqQ3: 1,
+        fxCompThreshold: 1, fxCompRatio: 1, fxCompAttack: 1, fxCompRelease: 1,
+        fxCompGain: 1, fxExpThreshold: 1, fxExpRatio: 1,
+        fxAutoLevelMaxGain: 1, fxAutoLevelHeadroom: 1, fxAutoLevelRise: 1
+      };
+      var channelScoped = t in CHANNEL;
 
-      // Nudge direction only means anything on a key.
+      // Mirrors TARGET_BUSES in src/actions/volume.ts. Absent means all three.
+      var BUSES = {
+        fxReverbSend: ["input", "playback"],
+        fxReverbReturn: ["output"]
+      };
+      var allowed = BUSES[t] || ["input", "playback", "output"];
+
+      // Gain is input-bus only and pinned by the plugin.
+      var positional = t === "strip" || t === "gain" || t === "stripPan";
+      document.getElementById("row-strip").hidden = !(positional || channelScoped);
+      document.getElementById("row-bus").hidden =
+        t === "gain" || (channelScoped && allowed.length === 1);
+      document.getElementById("hint-strip").hidden = channelScoped;
+      document.getElementById("hint-channel").hidden = !channelScoped;
+
+      // "Leave as is" applies to strip targets, "Follow" to channel targets.
+      ["input", "playback", "output"].forEach(function (bus) {
+        var opt = document.getElementById("bus-" + bus);
+        var ok = !channelScoped || allowed.indexOf(bus) !== -1;
+        if (opt) { opt.hidden = !ok; opt.disabled = !ok; }
+      });
+      var asis = document.getElementById("bus-asis");
+      if (asis) { asis.hidden = channelScoped; asis.disabled = channelScoped; }
+      var follow = document.getElementById("bus-follow");
+      if (follow) { follow.hidden = !channelScoped; follow.disabled = !channelScoped; }
+
+      if (channelScoped) ensureBus(allowed);
+
       document.getElementById("row-nudge").hidden = onDial;
       document.getElementById("nudge-hint").hidden = onKey; // hint only when unsure
 
       var pan = t === "pan" || t === "stripPan";
 
-      // Keys: the step is configurable for every target. Dials: gain, FX and pan
-      // use fixed steps (their ranges are device- or parameter-defined).
-      document.getElementById("row-step").hidden = onDial ? (t === "gain" || fx || pan) : false;
+      // dB step applies to the mix faders only.
+      // Mirrors the unit column of FX_TARGETS in src/actions/volume.ts.
+      var DB_SCALED = {
+        fxReverbSend: 1, fxReverbReturn: 1, fxReverbVolume: 1, fxEchoVolume: 1,
+        fxEqGain1: 1, fxEqGain2: 1, fxEqGain3: 1,
+        fxCompThreshold: 1, fxCompGain: 1, fxExpThreshold: 1,
+        fxAutoLevelMaxGain: 1, fxAutoLevelHeadroom: 1
+      };
+      var FREQ_SCALED = {
+        fxLowcutFreq: 1, fxEqFreq1: 1, fxEqFreq2: 1, fxEqFreq3: 1,
+        fxReverbLowcut: 1, fxReverbHighcut: 1, fxReverbHighdamp: 1
+      };
+      var SELECTION = { fxLowcutGrade: 1, fxEqType1: 1, fxEqType3: 1 };
 
-      // The device only sets the gain span, so it is noise on every other target.
+      var fxInDb = fx && t in DB_SCALED;
+      var fxInOctaves = fx && t in FREQ_SCALED;
+      var fxIsSelection = fx && t in SELECTION;
+      var fxUnitless = fx && !fxInDb && !fxInOctaves && !fxIsSelection;
+
+      document.getElementById("row-step").hidden = fx || pan || (onDial && t === "gain");
+      document.getElementById("row-fxstep").hidden = !fxUnitless;
+      document.getElementById("row-fxdb").hidden = !fxInDb;
+      document.getElementById("row-fxfreq").hidden = !fxInOctaves;
+      document.getElementById("row-fxpositions").hidden = !fxIsSelection;
+
+      readout("step-value", v("stepDb", "1.5"), function (n) {
+        return n + " dB per step";
+      });
+      readout("fxstep-value", v("fxPercent", "2"), function (n) {
+        return n + " % of the range per step";
+      });
+      readout("fxdb-value", v("fxStepDb", "1"), function (n) {
+        return n + " dB per step";
+      });
+      readout("fxfreq-value", v("fxHz", "20"), function (n) {
+        return n + " Hz per step";
+      });
+      readout("fxpositions-value", v("fxPositions", "4"), function (n) {
+        return n + " positions, one per step";
+      });
+
       document.getElementById("row-device").hidden = t !== "gain";
 
-      // Press and touch are dial gestures; a key has no touch strip and its press
-      // is the nudge above.
       document.getElementById("row-gestures").hidden = onKey;
 
-      // An option the target cannot perform is hidden rather than disabled, and
-      // the plugin falls back to the default if an old setting survives a target
-      // change. Both sides have to agree: this list mirrors GESTURES in
-      // src/actions/gestures.ts.
+      // Mirrors GESTURES in src/actions/gestures.ts.
       var kind = fx ? "fx" : pan ? "pan" : t;
       var applicable = {};
       Array.prototype.forEach.call(document.querySelectorAll("#row-gestures option"), function (opt) {
@@ -315,21 +485,18 @@
         if (ok) applicable[opt.value] = true;
       });
 
-      // Optgroups whose every option went away would otherwise leave a stray label.
       Array.prototype.forEach.call(document.querySelectorAll("#row-gestures optgroup"), function (group) {
         group.hidden = !group.querySelector("option:not([hidden])");
       });
 
       document.getElementById("gesture-hint").textContent =
         pan
-          ? "Default: press mutes the channel; touch centres the pan."
+          ? "Default: press mutes, touch centres."
           : t === "main"
-          ? "Default: press mutes by dropping the fader to \u2212\u221e and remembering the level " +
-            "(the classic OSC protocol has no main-out mute); touch dims."
+          ? "Default: press drops the fader to \u2212\u221e and back, touch dims."
           : fx
-            ? "Default: press bypasses the effect; touch sets the parameter to its minimum."
-            : "Default: press mutes; touch drops the fader to \u2212\u221e, which silences the " +
-              "channel without touching its mute state or its mute group. Press or tap again to restore.";
+            ? "Default: press bypasses, touch returns to neutral."
+            : "Default: press mutes, touch drops the fader to \u2212\u221e and back.";
     });
   </script>
 </body>

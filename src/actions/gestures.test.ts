@@ -26,14 +26,23 @@ describe("classic defaults", () => {
 		expect(defaultGesture("main", "touch", CLASSIC)).toBe("dim");
 	});
 
-	it("taps to -oo everywhere else, leaving the mute state alone", () => {
-		for (const kind of ["strip", "channel", "gain", "fx"] as const) {
+	it("taps to -oo on the level targets, leaving the mute state alone", () => {
+		for (const kind of ["strip", "channel", "gain"] as const) {
 			expect(defaultGesture(kind, "touch", CLASSIC)).toBe("infinity");
 		}
 	});
 
 	it("taps to centre on a pan, which is its neutral rather than -oo", () => {
 		expect(defaultGesture("pan", "touch", CLASSIC)).toBe("center");
+	});
+
+	/**
+	 * An effect parameter's bottom is rarely where anyone wants it back: a low
+	 * cut at 20 Hz or an EQ gain at full cut is not a resting position, so the
+	 * tap returns it to neutral instead.
+	 */
+	it("taps back to neutral on an effect parameter", () => {
+		expect(defaultGesture("fx", "touch", CLASSIC)).toBe("neutral");
 	});
 });
 

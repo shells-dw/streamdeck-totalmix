@@ -35,8 +35,9 @@ import { datasourceEvent } from "../totalmix/datasource.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
 import { asBool } from "../osc/codec.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 import { washFeedback, type Wash } from "./wash.js";
+import { nudgeIcon } from "../totalmix/icons.js";
 import {
 	GESTURE_LABELS,
 	GLOBAL,
@@ -47,23 +48,15 @@ import {
 } from "./gestures.js";
 
 export type GlobalVolumeSettings = {
-	/** What to control. "main" follows the Control Room's Main Out assignment. */
+	/** "main" follows /controlroom/mainout. */
 	target?: "main" | "channel" | "mixNode" | "gain" | "pan" | "mixPan";
 	/** Bus for target "channel". */
 	bus?: g.GlobalBus | "";
 	/** 0-based channel for target "channel". */
 	channel?: number | string;
-	/**
-	 * Output whose submix an input/playback fader belongs to. Input and playback
-	 * faders exist only as mix nodes, one per submix. "auto" or empty follows
-	 * /controlroom/mainout; a number pins a specific output channel's submix.
-	 */
+	/** Output whose submix an input/playback fader belongs to; "auto"/empty follows /controlroom/mainout. */
 	submixOut?: number | string;
-	/**
-	 * 0-based channel for target "gain". Separate from "channel" because the
-	 * property inspector renders one dropdown per target, and two dropdowns bound
-	 * to the same setting overwrite each other's stored value.
-	 */
+	/** 0-based channel for target "gain" (separate PI dropdown). */
 	gainChannel?: number | string;
 	/** Mix node source: hardware input or software playback. */
 	mixSrcBus?: "in" | "pb";
@@ -71,7 +64,7 @@ export type GlobalVolumeSettings = {
 	mixSrc?: number | string;
 	/** 0-based output channel for target "mixNode". */
 	mixOut?: number | string;
-	/** dB moved per dial detent, or per key press. Faders only; gain is fixed at 1 dB. */
+	/** dB per detent or press; faders only (gain is fixed at 1 dB). */
 	stepDb?: number;
 	/** Key placement only: whether a press nudges the value up or down. */
 	nudge?: "up" | "down";
@@ -86,39 +79,26 @@ export type GlobalVolumeSettings = {
 
 const DEFAULT_STEP_DB = 1.5;
 
-
 /**
- * Volume control over the Global OSC protocol.
- *
- * Addressing is absolute except for the "main" target: Global OSC has no
- * mastervolume address because the Main Out is an output channel, identified by
- * /controlroom/mainout as a 0-based output channel number. The action re-targets
- * when that assignment changes.
- *
- * Channel faders address /{input|playback|output}/{ch}/faderlin for all three
- * buses. State prefers faderlin; where only the dB sibling has arrived (mix
- * "fader", channel "volume") it is converted through the published curve. Writes
- * are always faderlin.
+ * Global OSC level control. "main" resolves to the output channel named by
+ * /controlroom/mainout. Levels are read from whichever form TotalMix
+ * transmitted (faderlin, or the dB sibling "fader"/"volume") and written back
+ * in that same form.
  */
 @action({ UUID: "de.shells.totalmixgen2.globalvolume" })
 export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
+	/** Last key image sent per action, so an unchanged icon is not re-sent. */
+	private readonly keyImages = new Map<string, string>();
+
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
-	/**
-	 * Last Main Out assignment seen per "main"-target action. Re-setup runs only
-	 * on an actual change; the cached-value delivery of a fresh subscription
-	 * would otherwise re-trigger setup indefinitely.
-	 */
+	/** Last /controlroom/mainout value per "main" action; setup re-runs on change only. */
 	private readonly lastMainOut = new Map<string, number>();
 
 	/** Channels already primed with /sendchan this session, per connection. */
 	private readonly primedChannels = new Set<string>();
 
-	/**
-	 * Last audible level seen per level address, so a level sent to -oo can be put
-	 * back where it was. Keyed by address, so two dials on the same channel share
-	 * one memory. See the classic action for the reasoning.
-	 */
+	/** Last audible faderlin level per address (restore point for -oo). */
 	private readonly lastAudible = new Map<string, number>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalVolumeSettings>): Promise<void> {
@@ -145,8 +125,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const unsubs: Array<() => void> = [gm.onConnectionChange(render)];
 
 		if ((settings.target ?? "channel") === "main") {
-			// Track the Main Out assignment; when it moves, re-subscribe to the
-			// new output channel's addresses.
+			// Re-subscribe when the Main Out assignment moves.
 			unsubs.push(
 				gm.subscribe(g.CR_MAINOUT, (v) => {
 					const ch = typeof v === "number" ? Math.round(v) : undefined;
@@ -166,7 +145,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			for (const c of this.levelCandidates(settings, gm, address)) {
 				unsubs.push(gm.subscribe(c.address, render));
 			}
-			// The Main Out assignment shifts which mix node is a candidate.
 			if ((settings.target ?? "channel") === "channel") {
 				unsubs.push(gm.subscribe(g.CR_MAINOUT, render));
 			}
@@ -176,25 +154,18 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			unsubs.push(gm.subscribe(nameAddress, render));
 		}
 
-		// Balance is not one of the level candidates, so it needs its own watch.
 		const pan = this.panAddress(settings, gm);
 		if (pan !== undefined) unsubs.push(gm.subscribe(pan, render));
 
-		// Mute and solo drive the display wash. Unlike the classic protocol, both
-		// report their state here, so the wash tracks the mixer on every target.
 		for (const flag of this.washAddresses(settings, gm)) {
 			unsubs.push(gm.subscribe(flag, render));
 		}
 
-		// Requests this channel's parameters once. The bulk /sendall at connect
-		// can be lost if the plugin starts before TotalMix.
 		this.primeChannel(gm, settings);
 
 		this.releaseFor(target.id);
 		this.cleanup.set(target.id, unsubs);
 
-		// Both gestures are configurable and mean different things per target, so
-		// the manifest's single pair of hints cannot be right for every button.
 		if (target.isDial()) {
 			void target.setTriggerDescription({
 				rotate: "Adjust level",
@@ -206,6 +177,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		render();
 	}
 
+	/** Requests this target's channel and submix once per connection (/sendchan, /sendsubmix 1). */
 	private primeChannel(gm: GlobalConnection, settings: GlobalVolumeSettings): void {
 		const spec = this.channelSpec(settings, gm);
 		if (spec !== undefined) {
@@ -216,8 +188,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			}
 		}
 
-		// Input/playback channel faders arrive as mix nodes; pull their Main
-		// Out submix so the dial has a starting value.
+		// Input/playback faders are transmitted as mix nodes of the submix.
 		if ((settings.target ?? "channel") === "channel") {
 			const bus = this.busOf(settings);
 			if (bus === "input" || bus === "playback") {
@@ -230,8 +201,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			}
 		}
 
-		// Mix-node targets request the whole submix. Value 1 requests all nodes;
-		// value 2 would omit nodes below -65 dB, which a dial still needs.
 		const node = this.mixNodeSpec(settings);
 		if (node !== undefined) {
 			const key = `${gm.options_.host}:${gm.options_.sendPort}:submix:${node.out}`;
@@ -245,6 +214,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	override onWillDisappear(ev: WillDisappearEvent<GlobalVolumeSettings>): void {
 		this.releaseFor(ev.action.id);
 		this.lastMainOut.delete(ev.action.id);
+		forgetAlertState(ev.action.id);
 	}
 
 	override async onSendToPlugin(
@@ -270,7 +240,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		} else if (event === "getGlobalOutChannels") {
 			await replyGlobalChannelDatasource(gm, event, "output", false);
 		} else if (event === "getGlobalSubmixChoices") {
-			// Output list with "follow Main Out" prepended, for the submix picker.
 			await new Promise((r) => setTimeout(r, 250));
 			const items = [
 				{ value: "auto", label: "Main Out (auto)" },
@@ -297,7 +266,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const gm = globalMixFor(globalConnectionOptions(settings));
 		if (alertIfDown(ev.action, gm)) return;
 
-		// Balance is its own scale and its own address; nothing below applies.
 		if (this.isPan(settings)) {
 			if (this.stepPan(gm, settings, ticks)) void this.render(gm, ev.action, settings);
 			return;
@@ -307,7 +275,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const isGain = (settings.target ?? "channel") === "gain";
 
 		if (address === undefined) {
-			// Before /controlroom/mainout arrives the target fader is unknown.
 			streamDeck.logger.warn("Ignoring move: Main Out assignment not received yet");
 			gm.requestFullRefresh();
 			return;
@@ -315,14 +282,11 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 		let level = this.resolveLevel(gm, settings, address);
 		if (level === undefined && (settings.target ?? "channel") === "channel") {
-			// TotalMix 2.1 beta 2 does not transmit fader state for these channels
-			// on any request. Seeds at -oo, the only value that cannot be louder
-			// than intended, and steps from subsequent writes.
+			// No fader state received for this channel: seed at -oo and step locally.
 			streamDeck.logger.info(
 				`No fader state from TotalMix for ${address}; starting from -oo and stepping locally.`,
 			);
-			// Seeds on the last candidate: for input/playback that is the Main Out
-			// mix node, the only fader form transmitted.
+			// Last candidate: for input/playback the mix node into the submix.
 			const candidates = this.levelCandidates(settings, gm, address);
 			const seedOn = candidates[candidates.length - 1] ?? { kind: "faderlin" as const, address };
 			level = { kind: "faderlin", address: seedOn.kind === "faderlin" ? seedOn.address : address, value: 0 };
@@ -344,7 +308,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			return;
 		}
 
-		// Step in the representation TotalMix reported (or the seed).
 		let next01: number;
 		if (level.kind === "faderlin") {
 			next01 = stepDb(level.value, ticks * perTick);
@@ -355,30 +318,16 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			next01 = dbToFader(nextDb);
 		}
 
-		// Wire capture confirmed the device's dialect: output levels live on
-		// /output/N/faderlin, input/playback levels ONLY on the /mix tree —
-		// the channel-tree fader forms for in/pb are never transmitted. The
-		// resolved candidate above already IS the confirmed form, so the single
-		// write to level.address is the whole job.
-
 		void this.render(gm, ev.action, settings, next01);
 	}
 
-	/**
-	 * The level parameter to step, in the representation TotalMix actually used
-	 * for this channel: faderlin (0..1 curve) where reported, otherwise the dB
-	 * sibling (mix "fader", channel "volume"). Gain reports itself.
-	 */
+	/** First level candidate with a cached numeric value: faderlin, else the dB sibling. */
 	private resolveLevel(
 		gm: GlobalConnection,
 		settings: GlobalVolumeSettings,
 		address: string,
 	): { kind: "faderlin" | "db"; address: string; value: number } | undefined {
-		// Try every address TotalMix might have used for this level, and answer
-		// on the one it actually spoke. Which one that is depends on the Global
-		// OSC Detailed Settings ("Send faders in linear scale") and on the bus:
-		// output faders arrive as channel faderlin/volume, while input/playback
-		// levels are observed to arrive as mix-tree messages.
+		// Which form arrives depends on the slot's "Send faders in linear scale" option and the bus.
 		for (const c of this.levelCandidates(settings, gm, address)) {
 			const v = gm.get(c.address);
 			if (typeof v === "number") return { kind: c.kind, address: c.address, value: v };
@@ -386,7 +335,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return undefined;
 	}
 
-	/** All addresses this target's level may arrive on, most specific first. */
+	/** Addresses the level may arrive on, most specific first. */
 	private levelCandidates(
 		settings: GlobalVolumeSettings,
 		gm: GlobalConnection,
@@ -398,8 +347,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const dbSibling = this.volumeFallbackFor(settings, gm);
 		if (dbSibling !== undefined) out.push({ kind: "db", address: dbSibling });
 
-		// Input/playback channel faders: also accept the channel's node into the
-		// Main Out submix — the form TotalMix transmits for these buses.
+		// Input/playback: also the mix node into the submix.
 		if ((settings.target ?? "channel") === "channel") {
 			const bus = this.busOf(settings);
 			if (bus === "input" || bus === "playback") {
@@ -413,7 +361,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return out;
 	}
 
-	/** The current value as faderlin 0..1, for display, whatever the source. */
+	/** Current level as faderlin 0..1. */
 	private currentValue(
 		gm: GlobalConnection,
 		settings: GlobalVolumeSettings,
@@ -425,10 +373,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return dbToFader(Math.min(Math.max(level.value, MIN_DB), MAX_DB));
 	}
 
-	/**
-	 * The dB sibling of a faderlin address, where one exists: mix nodes carry
-	 * "fader" (documented [dB]); output channels carry "volume".
-	 */
+	/** dB sibling of the faderlin address: mix "fader" ([dB]) or channel "volume". */
 	private volumeFallbackFor(
 		settings: GlobalVolumeSettings,
 		gm: GlobalConnection,
@@ -441,7 +386,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return g.channel(spec.bus, spec.ch, "volume");
 	}
 
-	/** The mix node the explicit mixNode target resolves to. */
+
 	private mixNodeSpec(
 		settings: GlobalVolumeSettings,
 	): { src: g.MixSourceBus; in_: number; out: number } | undefined {
@@ -453,7 +398,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		};
 	}
 
-	/** Resolves the bus + channel a channel-scoped target points at. */
+	/** Bus and channel of a channel-scoped target; undefined for mixNode or an unknown Main Out. */
 	private channelSpec(
 		settings: GlobalVolumeSettings,
 		gm: GlobalConnection,
@@ -461,11 +406,9 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		switch (settings.target ?? "channel") {
 			case "channel":
 			case "pan":
-				// A channel pan hangs off the same channel picker as its fader.
 				return { bus: this.busOf(settings), ch: num(settings.channel, 0) };
 			case "gain":
-				// Legacy fallback: pre-4.1.1 configs stored the gain channel in
-				// "channel" before the setting was split.
+				// Pre-4.1.1 settings stored the gain channel in "channel".
 				return { bus: "input", ch: num(settings.gainChannel ?? settings.channel, 0) };
 			case "main": {
 				const assigned = gm.get(g.CR_MAINOUT);
@@ -477,7 +420,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		}
 	}
 
-	/** The output channel whose submix an in/pb fader targets. */
+	/** Output channel whose submix an input/playback fader targets. */
 	private submixOutOf(settings: GlobalVolumeSettings, gm: GlobalConnection): number {
 		const raw = settings.submixOut;
 		if (raw !== undefined && String(raw).trim() !== "" && String(raw) !== "auto") {
@@ -503,23 +446,18 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return target === "gain" ? g.channelGain(spec.ch) : g.channelFaderlin(spec.bus, spec.ch);
 	}
 
-	/** The kind of thing this button points at, which is what gesture rules key off. */
+	/** Target class for the gesture rules. */
 	private kindOfTarget(settings: GlobalVolumeSettings): GlobalKind {
 		return settings.target ?? "channel";
 	}
 
-	/** True for the two balance targets, whose value is -1..+1 rather than a fader. */
+	/** True for the balpan targets (-1..+1). */
 	private isPan(settings: GlobalVolumeSettings): boolean {
 		const target = settings.target ?? "channel";
 		return target === "pan" || target === "mixPan";
 	}
 
-	/**
-	 * The balance address this dial controls, or undefined when it is not a pan.
-	 *
-	 * A channel pan and a mix node's pan are different parameters: the first is
-	 * the channel's own position, the second its position within one submix.
-	 */
+	/** balpan address for the pan targets, or undefined. */
 	private panAddress(settings: GlobalVolumeSettings, gm: GlobalConnection): string | undefined {
 		const target = settings.target ?? "channel";
 		if (target === "mixPan") {
@@ -536,7 +474,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return spec === undefined ? undefined : g.channel(spec.bus, spec.ch, "balpan");
 	}
 
-	/** Steps a balance, snapped to the grid so centre is reachable by turning. */
+	/** Steps balpan, snapped to the step grid. */
 	private stepPan(gm: GlobalConnection, settings: GlobalVolumeSettings, ticks: number): boolean {
 		const address = this.panAddress(settings, gm);
 		if (address === undefined) return false;
@@ -548,7 +486,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return true;
 	}
 
-	/** The gesture this button performs in the given slot, after defaults and applicability. */
+	/** Resolved gesture for a slot. */
 	private gestureFor(settings: GlobalVolumeSettings, slot: GestureSlot): Gesture {
 		return resolveGesture(
 			slot === "press" ? settings.press : settings.touch,
@@ -558,21 +496,15 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		);
 	}
 
-	/** Pressing the dial mutes, unless the user has bound the press to something else. */
 	override onDialDown(ev: DialDownEvent<GlobalVolumeSettings>): void {
 		this.gesture(ev, "press");
 	}
 
-	/**
-	 * Tapping the touch display above the dial. Dims on the main out and drops to
-	 * -oo elsewhere, unless bound otherwise — the same pairing the classic action
-	 * uses, so a deck mixing both protocols behaves consistently.
-	 */
 	override onTouchTap(ev: TouchTapEvent<GlobalVolumeSettings>): void {
 		this.gesture(ev, "touch");
 	}
 
-	/** Runs one of the two dial gestures and repaints if it moved the level. */
+	/** Runs a dial gesture and repaints when it moved the level. */
 	private gesture(
 		ev: DialDownEvent<GlobalVolumeSettings> | TouchTapEvent<GlobalVolumeSettings>,
 		slot: GestureSlot,
@@ -585,14 +517,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		if (next !== undefined) void this.render(gm, ev.action, settings, next);
 	}
 
-	/**
-	 * Carries out one resolved gesture.
-	 *
-	 * Returns the level written as faderlin 0..1 so the caller can repaint before
-	 * TotalMix confirms, or undefined when the gesture did not move this dial's
-	 * own value. Every on/off here is stateful and reported, so toggleSet reads
-	 * the cached state and sends its inverse rather than sending a blind flip.
-	 */
+	/** Performs a gesture. Returns the level written as faderlin 0..1, or undefined. */
 	private perform(
 		gm: GlobalConnection,
 		settings: GlobalVolumeSettings,
@@ -601,7 +526,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const target = settings.target ?? "channel";
 		const spec = this.channelSpec(settings, gm);
 
-		/** Flips a switch on this dial's own channel, where it has one. */
 		const flipChannel = (param: string): undefined => {
 			if (spec !== undefined) gm.toggleSet(g.channel(spec.bus, spec.ch, param));
 			return undefined;
@@ -613,10 +537,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 			case "mute":
 				if (target === "main") {
-					// Global OSC's control room has dim, mono, talkback, speaker B,
-					// external in, mute FX and recall — and no mute. So muting the
-					// main out means the same here as classically: drop the fader to
-					// -oo and remember where it was.
+					// No control-room mute in the table: fader to -oo and back.
 					return this.toggleSilence(gm, settings);
 				}
 				return flipChannel("mute");
@@ -640,7 +561,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				return this.writeLevel(gm, settings, 0);
 
 			case "center": {
-				// Balance is -1..+1, so dead centre is exactly zero.
 				const pan = this.panAddress(settings, gm);
 				if (pan !== undefined) gm.set(pan, 0);
 				return undefined;
@@ -665,7 +585,8 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				gm.toggleSet(g.CR_MUTE_FX);
 				return undefined;
 			case "recall":
-				gm.toggleSet(g.CR_RECALL);
+				// (f) trigger, receive only.
+				gm.trigger(g.CR_RECALL, 1.0);
 				return undefined;
 			case "globalMute":
 				gm.toggleSet(g.GLOBAL_MUTE);
@@ -675,19 +596,11 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				return undefined;
 
 			default:
-				// auto never survives resolveGesture; cue, centre and bypass are not
-				// in this protocol's vocabulary and cannot be resolved to here.
 				return undefined;
 		}
 	}
 
-	/**
-	 * Writes a level in dB, in whichever representation TotalMix reported for this
-	 * dial, and returns it as faderlin 0..1.
-	 *
-	 * The two are not interchangeable: output channels report a 0..1 faderlin and
-	 * mix nodes a dB "fader", and writing the wrong one addresses nothing.
-	 */
+	/** Writes a level in dB in the form TotalMix reported (faderlin or dB); returns faderlin 0..1. */
 	private writeLevel(
 		gm: GlobalConnection,
 		settings: GlobalVolumeSettings,
@@ -713,12 +626,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return dbToFader(next);
 	}
 
-	/**
-	 * Drops this dial's level to -oo, or puts it back where it was.
-	 *
-	 * Returns the value written as faderlin 0..1, or undefined when nothing was
-	 * sent — already down and no earlier level known, so nowhere to restore to.
-	 */
+	/** Level to -oo, or back to the last audible level. Returns faderlin 0..1, or undefined. */
 	private toggleSilence(
 		gm: GlobalConnection,
 		settings: GlobalVolumeSettings,
@@ -742,14 +650,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return this.writeLevel(gm, settings, faderToDb(restore));
 	}
 
-	/**
-	 * The mute and solo flags this dial's wash reads, most significant first.
-	 *
-	 * A mix node has solo but no mute of its own — it is a send, and muting one
-	 * means pulling it down — so it contributes only the solo. The control room's
-	 * Main target has neither: dim is its equivalent and belongs to its own
-	 * button, exactly as global mute and global solo do.
-	 */
+	/** Wash flags, solo first: mix nodes have solo only; main has none. */
 	private washAddresses(settings: GlobalVolumeSettings, gm: GlobalConnection): string[] {
 		const target = settings.target ?? "channel";
 
@@ -763,13 +664,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return [g.channel(spec.bus, spec.ch, "pfl"), g.channelMute(spec.bus, spec.ch)];
 	}
 
-	/**
-	 * Which wash this dial should be painted in.
-	 *
-	 * Solo outranks mute, as in the classic action: a solo left on is what
-	 * silences everything else and is easy to forget, while a mute announces
-	 * itself by that channel being quiet. washAddresses returns solo first.
-	 */
+	/** Wash: solo > mute > none. */
 	private washFor(settings: GlobalVolumeSettings, gm: GlobalConnection): Wash {
 		const [solo, mute] = this.washAddresses(settings, gm);
 		if (solo !== undefined && asBool(gm.get(solo) ?? 0)) return "solo";
@@ -777,7 +672,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return "none";
 	}
 
-	/** Name addresses whose arrival should refresh this action's title. */
+	/** Name addresses that refresh the title. */
 	private nameAddresses(settings: GlobalVolumeSettings, gm: GlobalConnection): string[] {
 		const target = settings.target ?? "channel";
 		if (target === "mixNode" || target === "mixPan") {
@@ -844,11 +739,9 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			return;
 		}
 
-		// No Val strings in this protocol; both formats are exact from the table:
-		// faderlin via the published curve, gain as the whole-dB value it is.
+		// No Val strings in this protocol: faderlin via the curve, gain as dB.
 		const label = isGain ? `${Math.round(value)} dB` : formatDb(value);
-		// The fill bar shares the stepping ceiling, so on a 65 dB device the dial
-		// reads full at 65 rather than stopping at 87% of its travel.
+		// Gain bar spans the device ceiling.
 		const bar = isGain
 			? Math.round(Math.min(1, Math.max(0, value / detectedMaxGainDb(GAIN_MAX_DB))) * 100)
 			: faderToBar(value);
@@ -865,16 +758,29 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			return;
 		}
 
+		this.applyNudgeIcon(target, settings.nudge);
 		await target.setTitle(gm.connected ? label : "—");
 	}
 
 	/**
-	 * Paints a balance dial.
+	 * Key image showing which way a press moves the value.
 	 *
-	 * Separate from the fader path because nothing is shared: the value runs
-	 * -1..+1 rather than 0..1, the readout is TotalMix's L/C/R notation rather
-	 * than dB, and the position bar has to be mapped from a centred range.
+	 * Sent once per change: renders run on every inbound OSC message, and the
+	 * guidelines cap programmatic calls at ten a second.
 	 */
+	private applyNudgeIcon(
+		target: { id: string; isKey: () => boolean; setImage: (path?: string) => Promise<void> },
+		nudge?: "up" | "down",
+	): void {
+		if (!target.isKey()) return;
+		const icon = nudgeIcon(nudge);
+		if (this.keyImages.get(target.id) === icon) return;
+		this.keyImages.set(target.id, icon);
+		void target.setImage(icon);
+	}
+
+
+	/** Paints a balpan dial (-1..+1, L/C/R notation). */
 	private async renderPan(
 		gm: GlobalConnection,
 		target: WillAppearEvent<GlobalVolumeSettings>["action"] | DialAction<GlobalVolumeSettings>,
@@ -905,10 +811,12 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			return;
 		}
 
+		this.applyNudgeIcon(target, settings.nudge);
 		await target.setTitle(label);
 	}
 
 	private releaseFor(id: string): void {
+		this.keyImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

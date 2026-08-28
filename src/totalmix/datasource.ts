@@ -4,23 +4,11 @@ import type { TotalMixConnection } from "./connection.js";
 import { num } from "./settings.js";
 
 /**
- * Supplies the property inspector's strip dropdown with real channel names.
- *
- * sdpi-components' datasource protocol: the PI sends { event: "<name>" } via
- * sendToPlugin, and expects { event: "<name>", items: [{ value, label }] } back.
- * Answered with the tracknames TotalMix mirrors for the visible bank, so the
- * user picks "3 · Phones" instead of guessing that Phones is fader 3.
- *
- * If the action pins a bus/bank, that view is asserted first and given a moment
- * to arrive, so the listed names match what the button will actually control.
- * Strips TotalMix hasn't named (or beyond the mirrored bank) fall back to plain
- * numbers — the dropdown is never worse than the slider it replaces.
+ * sdpi-components datasource protocol: the PI sends { event }, the plugin
+ * replies { event, items: [{ value, label }] }.
  */
-/**
- * Extracts the datasource event name from whatever shape the PI sent. sdpi's
- * exact payload framing has varied ("getStrips" bare, { event }, or nested), and
- * a mismatch here silently kills the dropdown, so accept all of them.
- */
+
+/** Extracts the datasource event name; the PI payload shape has varied. */
 export function datasourceEvent(payload: unknown): string | undefined {
 	if (typeof payload === "string") return payload;
 	if (payload && typeof payload === "object") {
@@ -31,6 +19,10 @@ export function datasourceEvent(payload: unknown): string | undefined {
 	return undefined;
 }
 
+/**
+ * Replies with the 24 page-1 strips, labelled with cached tracknames. Pins
+ * bus/bank first when the settings name them, then waits for the page dump.
+ */
 export async function replyStripDatasource(
 	tm: TotalMixConnection,
 	event: string,
@@ -45,7 +37,6 @@ export async function replyStripDatasource(
 		tm.send(addr.SET_BANK_START, num(settings.bankStart, 0));
 	}
 
-	// Give the page re-send triggered by the pin a moment to land in the cache.
 	await new Promise((r) => setTimeout(r, 250));
 
 	const items = [];

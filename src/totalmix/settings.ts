@@ -1,15 +1,6 @@
 /**
- * Property-inspector values arrive as strings.
- *
- * sdpi-textfield and sdpi-range persist what the DOM gives them, so a port typed
- * as 9001 is stored as "9001" and a slider position as "3". The action settings
- * types declare `number`, which is not what arrives. Every numeric setting is
- * coerced here at the point of use.
- *
- * This is not cosmetic. A string port makes `connect()` believe the port changed
- * on every action appearance ("9001" !== 9001), tearing down and reopening the
- * shared socket each time — and a send racing a mid-close socket throws, killing
- * the key press silently.
+ * Setting coercion. The property inspector stores DOM values, so numeric
+ * settings arrive as strings ("9001"); every numeric read goes through num().
  */
 
 export function num(v: unknown, fallback: number): number {
@@ -32,6 +23,7 @@ export interface ConnectionSettings {
 	receivePort?: unknown;
 }
 
+/** Classic OSC slot defaults: TotalMix Remote Controller 1 (7001/9001). */
 export function connectionOptions(s: ConnectionSettings): {
 	host: string;
 	sendPort: number;

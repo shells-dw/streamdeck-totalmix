@@ -1,26 +1,20 @@
 /**
- * Preamp gain ranges per device.
+ * Preamp gain spans per device.
  *
- * Classic OSC carries gain as kOSCScaleLin01 (0..1, no dB meaning) and contains
- * no device identifier, so dB-per-detent requires the preamp span from
- * elsewhere. Global OSC carries gain in dB and reports /status/device, so it
- * needs a ceiling rather than a span.
- *
- * The span affects dial travel only; displayed values come from TotalMix.
+ * Classic OSC: gain is kOSCScaleLin01 with no device identifier, so the dB
+ * per detent needs the span from the configured device. Global OSC: gain is
+ * treated as dB (unit unspecified in the table) and /status/device gives the
+ * ceiling. Displayed values always come from TotalMix.
  */
 
 /** Used when the device is unknown. The most common RME preamp span. */
 export const FALLBACK_GAIN_DB = 65;
 
 /**
- * One entry per device. `id` is what is stored in an action's settings.
- *
- * `gainDb` is the span of TotalMix's gain control, not the marketed figure: the
- * Babyface Pro FS is listed as 76 dB including an 11 dB PAD, while its gain
- * control runs 0..65.
- *
- * `sourced` marks figures confirmed against manufacturer documentation. The rest
- * are inferred from a device sharing the same preamp generation.
+ * `id` is stored in action settings. `gainDb` is the span of TotalMix's gain
+ * control (Babyface Pro FS: 0..65, not the marketed 76 dB incl. PAD).
+ * `sourced`: confirmed in RME documentation; otherwise inferred from the
+ * preamp generation.
  */
 export interface RmeDevice {
 	id: string;
@@ -133,13 +127,7 @@ export const DEVICES: readonly RmeDevice[] = [
 /** Escapes regex metacharacters that appear in model names ("UFX+", "M-1610"). */
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
 
-/**
- * Fragment matchers, ordered longest first and anchored to word boundaries.
- *
- * Length ordering prevents "ucx" matching "Fireface UCX II". Boundary anchoring
- * prevents "fireface uc" — the longer fragment — matching it either, while still
- * allowing "ufx+" and "12mic-d".
- */
+/** Fragment matchers, longest first, anchored to alphanumeric boundaries ("ucx" must not match "UCX II"). */
 const MATCHERS: ReadonlyArray<{ pattern: RegExp; device: RmeDevice }> = DEVICES.flatMap((device) =>
 	device.match.map((fragment) => ({ fragment, device })),
 )
@@ -158,10 +146,7 @@ export function matchDevice(name: string): RmeDevice | undefined {
 /** Looks up a device by the id stored in an action's settings. */
 export const deviceById = (id: string): RmeDevice | undefined => DEVICES.find((d) => d.id === id);
 
-/**
- * Last device reported by /status/device on any Global OSC connection.
- * Undefined when no Global OSC connection has reported one.
- */
+/** Last device reported by /status/device on any Global OSC connection. */
 let detected: RmeDevice | undefined;
 let lastUnknown: string | undefined;
 
@@ -176,7 +161,7 @@ export function rememberDevice(name: string, warn?: (msg: string) => void): void
 		return;
 	}
 
-	// Logged once per distinct name so the table can be extended from reports.
+	// Logged once per distinct name.
 	if (lastUnknown !== trimmed) {
 		lastUnknown = trimmed;
 		warn?.(`Unknown RME device "${trimmed}"; using ${FALLBACK_GAIN_DB} dB for gain steps.`);
@@ -192,13 +177,7 @@ export function resetDeviceDetection(): void {
 	lastUnknown = undefined;
 }
 
-/**
- * Gain span for a classic gain dial: the configured device, or the fallback.
- *
- * Detection is not consulted. The device name exists only on the Global OSC
- * slot, so using it here would make dial travel depend on whether an unrelated
- * controller slot is connected.
- */
+/** Classic gain span: configured device or fallback. Global OSC detection is not consulted. */
 export function gainRangeDb(settingId?: string): number {
 	if (settingId !== undefined && settingId !== "") {
 		const picked = deviceById(settingId);
@@ -207,13 +186,7 @@ export function gainRangeDb(settingId?: string): number {
 	return FALLBACK_GAIN_DB;
 }
 
-/**
- * Gain ceiling in dB for Global OSC, taken from the reported device.
- *
- * Global OSC carries gain in dB, so it needs a ceiling rather than a span, and
- * that ceiling is device-specific. /status/device arrives on the same
- * connection.
- */
+/** Global OSC gain ceiling in dB from the detected device, or `fallback`. */
 export function detectedMaxGainDb(fallback: number): number {
 	return detectedDevice()?.gainDb ?? fallback;
 }

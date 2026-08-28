@@ -1,15 +1,9 @@
 import type { ToggleParameter } from "../actions/toggle.js";
 
 /**
- * Icon lookup for the Toggle action.
- *
- * The v3 plugin shipped a separate action per parameter, so each could declare its
- * own On/Off images in the manifest. v4 collapses them into one action with a
- * parameter dropdown, which means the manifest can only carry a generic pair — so
- * the specific icon is applied at runtime with setImage().
- *
- * Paths are relative to the plugin folder and omit the extension: Stream Deck
- * resolves ".png" and the "@2x" variant itself.
+ * Per-parameter On/Off icons for the Toggle actions, applied with setImage()
+ * because the manifest carries one generic pair. Paths are plugin-relative,
+ * without extension (Stream Deck resolves .png and @2x).
  */
 
 export interface IconPair {
@@ -55,9 +49,25 @@ const ICONS: Partial<Record<ToggleParameter, IconPair>> = {
 	channelEq: pair("Eq"),
 	channelLowcut: pair("Eq"),
 	channelComp: pair("Comp"),
+	channelAutoLevel: pair("AutoLev"),
+	channelPhase: pair("phase"),
+	channelPhaseRight: pair("phaseRight"),
+	// Two rings when the channel is stereo, one when it is mono.
+	channelStereo: pair("stereo"),
+	// Single-glyph artwork; state is carried by setState only.
+	channelLoopback: { on: img("loopback"), off: img("loopback") },
+	channelAutoset: { on: img("autoset"), off: img("autoset") },
+	channelInstrument: { on: img("gain"), off: img("gain") },
+	channelPad: { on: img("gain"), off: img("gain") },
+	channelMsProc: { on: img("stereo"), off: img("stereo") },
+	channelRecord: pair("rec"),
 
-	// Groups and snapshots have no dedicated artwork in the v3 set; the mixer
-	// glyph reads better than a mute symbol for these.
+	// DURec transport.
+	recordStart: pair("rec"),
+	recordPlayPause: pair("play"),
+	recordStop: pair("stop"),
+
+	// Groups and snapshots have no dedicated artwork.
 	muteGroup: pair("mute"),
 	soloGroup: pair("solo"),
 	faderGroup: pair("mixer"),
@@ -71,7 +81,14 @@ const ICONS: Partial<Record<ToggleParameter, IconPair>> = {
 
 export const iconFor = (parameter: ToggleParameter): IconPair => ICONS[parameter] ?? GENERIC;
 
-/** Icons used by the other actions, for setImage where a static state won't do. */
+/**
+ * Key image for a nudge button: the arrow points the way a press moves the
+ * value, so a pair of keys reads as up and down without needing titles.
+ */
+export const nudgeIcon = (nudge?: "up" | "down"): string =>
+	nudge === "down" ? ACTION_ICONS.volumeLower : ACTION_ICONS.volumeRaise;
+
+/** Icons used by other actions via setImage. */
 export const ACTION_ICONS = {
 	volume: img("volume"),
 	volumeRaise: img("volumeRaise"),

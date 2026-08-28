@@ -1,5 +1,6 @@
 import streamDeck from "@elgato/streamdeck";
 import { GlobalDisplay } from "./actions/global-display.js";
+import { GlobalFx } from "./actions/global-fx.js";
 import { GlobalToggle } from "./actions/global-toggle.js";
 import { GlobalTrigger } from "./actions/global-trigger.js";
 import { GlobalVolume } from "./actions/global-volume.js";
@@ -9,29 +10,29 @@ import { Volume } from "./actions/volume.js";
 import { disposeAllGlobal } from "./globalosc/connection.js";
 import { disposeAll } from "./totalmix/connection.js";
 
+// Classic OSC (TotalMix FX 1.96 table).
 streamDeck.actions.registerAction(new Volume());
 streamDeck.actions.registerAction(new Toggle());
 streamDeck.actions.registerAction(new Select());
-// Global OSC actions (TotalMix FX 2.1+): absolute addressing, own controller slot.
+// Global OSC (TotalMix FX 2.1+), separate controller slot.
 streamDeck.actions.registerAction(new GlobalVolume());
 streamDeck.actions.registerAction(new GlobalToggle());
 streamDeck.actions.registerAction(new GlobalTrigger());
 streamDeck.actions.registerAction(new GlobalDisplay());
+streamDeck.actions.registerAction(new GlobalFx());
 
-// A UDP listener must survive anything TotalMix or the network throws at it.
-// Without these, one unexpected rejection takes the whole plugin down and every
-// button goes dead until the user restarts Stream Deck.
+// Log instead of crash: an unhandled error would take every action down.
 process.on("uncaughtException", (err) => {
-    streamDeck.logger.error(`Uncaught exception: ${err.stack ?? err.message}`);
+	streamDeck.logger.error(`Uncaught exception: ${err.stack ?? err.message}`);
 });
 
 process.on("unhandledRejection", (reason) => {
-    streamDeck.logger.error(`Unhandled rejection: ${String(reason)}`);
+	streamDeck.logger.error(`Unhandled rejection: ${String(reason)}`);
 });
 
 process.on("exit", () => {
-    disposeAll();
-    disposeAllGlobal();
+	disposeAll();
+	disposeAllGlobal();
 });
 
 await streamDeck.connect();

@@ -29,10 +29,10 @@
   ],
   "Actions": [
     {
-      "Name": "Volume & Pan",
+      "Name": "Levels & Parameters",
       "UUID": "de.shells.totalmixgen2.volume",
       "Icon": "imgs/iconVolume",
-      "Tooltip": "Control a fader, pan, input gain or FX parameter. Dial: rotate to adjust; press and touch are configurable, and default to mute and dim/centre/-oo. Key: nudge up or down per press.",
+      "Tooltip": "Control a fader, pan, input gain, an effect parameter or a dynamics setting. Dial: rotate to adjust; press and touch are configurable, and default to mute and dim/centre/-oo. Key: nudge up or down per press.",
       "PropertyInspectorPath": "ui/volume.html",
       "Controllers": [
         "Keypad",
@@ -157,7 +157,33 @@
       "DisableAutomaticStates": true
     },
     {
+      "Name": "FX & Dynamics (TotalMix 2.1+)",
+      "UUID": "de.shells.totalmixgen2.globalfx",
+      "Icon": "imgs/iconGlobalFx",
+      "Tooltip": "Global OSC (TotalMix FX 2.1+): reverb, echo, EQ, dynamics and Auto Level parameters by absolute channel number. Dial: rotate to adjust; press or touch switches the section on or off.",
+      "PropertyInspectorPath": "ui/global-fx.html",
+      "Controllers": [
+        "Keypad",
+        "Encoder"
+      ],
+      "Encoder": {
+        "layout": "layouts/volume.json",
+        "TriggerDescription": {
+          "Rotate": "Adjust",
+          "Push": "Section on/off",
+          "Touch": "Section on/off"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/fx",
+          "TitleAlignment": "bottom"
+        }
+      ]
+    },
+    {
       "Name": "Display (TotalMix 2.1+)",
+      "SupportedInMultiActions": false,
       "UUID": "de.shells.totalmixgen2.globaldisplay",
       "Icon": "imgs/iconGlobalDisplay",
       "Tooltip": "Global OSC (TotalMix FX 2.1+): read-only display of channel peak levels, device status, DSP load and DURec time/state. Press to refresh.",

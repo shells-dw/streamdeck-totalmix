@@ -12,16 +12,33 @@ import streamDeck, {
 	type WillAppearEvent,
 	type WillDisappearEvent,
 } from "@elgato/streamdeck";
-import { asBool, asNumber } from "../osc/codec.js";
-import { dbToFader, faderToBar, formatDb, formatPan, isMinusInfinity, stepDb } from "../osc/curves.js";
+import { asBool } from "../osc/codec.js";
+import { DbScale, parseDb } from "../osc/dbscale.js";
+import {
+	dbToFader,
+	faderToBar,
+	formatDb,
+	formatPan,
+	freqToValue,
+	isMinusInfinity,
+	stepDb,
+	valueToFreq,
+} from "../osc/curves.js";
 import * as addr from "../totalmix/addresses.js";
-import { totalMixFor, type TotalMixConnection } from "../totalmix/connection.js";
+import { totalMixFor, type TotalMixConnection, type ViewRequirement } from "../totalmix/connection.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { computeNext, formatGain, FX_STEP, PAN_STEP } from "../osc/steps.js";
 import { gainRangeDb } from "../totalmix/devices.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
+import {
+	ALL_BUSES,
+	channelView,
+	focusChannel,
+	OUTPUTS_ONLY,
+	SOURCES,
+} from "../totalmix/focus.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 import {
 	CLASSIC,
 	GESTURE_LABELS,
@@ -31,19 +48,27 @@ import {
 	type GestureSlot,
 } from "./gestures.js";
 import { washFeedback, type Wash } from "./wash.js";
+import { nudgeIcon } from "../totalmix/icons.js";
 
 export type VolumeSettings = {
-	/** What to control. "main" is the Control Room main out; "gain" is the input
-	 *  preamp of a strip (input bus only); "fx*" are the effects parameters. */
+	/** "main" = mastervolume; "gain" = strip preamp (input bus only); "fx*" = effect parameters. */
 	target?: "main" | "strip" | "channel" | "gain" | "pan" | "stripPan" | FxTarget;
 	/** 1-based strip within the current bank, when target is "strip" or "stripPan". */
 	strip?: number;
-	/** Optional: select this bus before acting, so strip numbers are predictable. */
+	/** Bus to select before acting; empty = follow the slot. */
 	bus?: "input" | "playback" | "output" | "";
-	/** Optional: pin the bank start (channel index, 0-based) before acting. */
+	/** Bank start (0-based channel index) to select before acting; empty = leave. */
 	bankStart?: number | string;
 	/** dB moved per dial detent, or per key press. */
 	stepDb?: number;
+	/** dB per detent or press for the effect parameters TotalMix displays in dB. */
+	fxStepDb?: number;
+	/** Hz per detent for kOSCScaleFreq parameters. */
+	fxHz?: number;
+	/** Position count of a selection parameter (device dependent). */
+	fxPositions?: number;
+	/** Percent of range per detent for unitless kOSCScaleLin01 parameters. */
+	fxPercent?: number;
 	/** RME device id, for the gain span. Empty or "auto" means detect. */
 	device?: string;
 	/** Key placement only: whether a press nudges the value up or down. */
@@ -52,48 +77,124 @@ export type VolumeSettings = {
 	press?: Gesture;
 	/** Dial placement only: what tapping the touch display does. Unset means the target's default. */
 	touch?: Gesture;
-	/** Host/port overrides; normally taken from global settings. */
 	host?: string;
 	sendPort?: number;
 	receivePort?: number;
 };
 
-/** Step per detent when the user has not set one. Coarse enough to cross the throw in a few turns, fine enough to trim a monitor level. */
+/** Default dB per detent/press. */
 const DEFAULT_STEP_DB = 1.5;
 
-/** Re-pin bus/bank at most this often per action — once per gesture, not per tick. */
+/** Minimum interval between bus/bank pins per action (once per gesture, not per tick). */
 const PIN_INTERVAL_MS = 400;
 
 export type FxTarget = keyof typeof FX_TARGETS;
 
 /**
- * Continuous FX parameters, all linear 0..1 on the wire (lowcut frequency is on
- * TotalMix's log curve, but as we step the wire value and display TotalMix's own
- * Val string, the same linear stepping applies cleanly). Press toggles the
- * parameter's natural enable. Displays use the Val string, so units (ms, Hz, %)
- * are always TotalMix's truth.
+ * Continuous effect parameters. `press` is the section enable a dial press
+ * flips; `scope` "channel" = page 2 (needs a channel selected), "global" =
+ * page 3 units. `unit` selects the stepping law; readouts use TotalMix's Val
+ * string.
  */
 const FX_TARGETS = {
-	fxReverbSend: { address: addr.CH_REVERB_SEND, press: addr.REVERB_ENABLE, label: "Rev Send" },
-	fxReverbReturn: { address: addr.CH_REVERB_RETURN, press: addr.REVERB_ENABLE, label: "Rev Return" },
-	fxReverbVolume: { address: addr.REVERB_VOLUME, press: addr.REVERB_ENABLE, label: "Reverb Vol" },
-	fxReverbTime: { address: addr.REVERB_TIME, press: addr.REVERB_ENABLE, label: "Rev Time" },
-	fxReverbPredelay: { address: addr.REVERB_PREDELAY, press: addr.REVERB_ENABLE, label: "Predelay" },
-	fxReverbWidth: { address: addr.REVERB_WIDTH, press: addr.REVERB_ENABLE, label: "Rev Width" },
-	fxEchoVolume: { address: addr.ECHO_VOLUME, press: addr.ECHO_ENABLE, label: "Echo Vol" },
-	fxEchoDelay: { address: addr.ECHO_DELAY, press: addr.ECHO_ENABLE, label: "Echo Delay" },
-	fxEchoFeedback: { address: addr.ECHO_FEEDBACK, press: addr.ECHO_ENABLE, label: "Feedback" },
-	fxLowcutFreq: { address: addr.CH_LOWCUT_FREQ, press: addr.CH_LOWCUT_ENABLE, label: "Low Cut" },
+	// Per channel (page 2).
+	fxReverbSend: { address: addr.CH_REVERB_SEND, press: addr.REVERB_ENABLE, label: "FX Send", scope: "channel", unit: "db" },
+	fxReverbReturn: { address: addr.CH_REVERB_RETURN, press: addr.REVERB_ENABLE, label: "FX Return", scope: "channel", unit: "db" },
+	// Low cut, per channel (page 2).
+	fxLowcutFreq: { address: addr.CH_LOWCUT_FREQ, press: addr.CH_LOWCUT_ENABLE, label: "Low Cut", scope: "channel", unit: "freq" },
+	fxLowcutGrade: { address: addr.CH_LOWCUT_GRADE, press: addr.CH_LOWCUT_ENABLE, label: "LC Slope", scope: "channel", unit: "selection" },
+
+	// Parametric EQ (page 2); types on bands 1 and 3 only.
+	fxEqType1: { address: addr.CH_EQ_TYPE1, press: addr.CH_EQ_ENABLE, label: "EQ1 Type", scope: "channel", unit: "selection" },
+	fxEqGain1: { address: addr.CH_EQ_GAIN1, press: addr.CH_EQ_ENABLE, label: "EQ1 Gain", scope: "channel", unit: "db" },
+	fxEqFreq1: { address: addr.CH_EQ_FREQ1, press: addr.CH_EQ_ENABLE, label: "EQ1 Freq", scope: "channel", unit: "freq" },
+	fxEqQ1: { address: addr.CH_EQ_Q1, press: addr.CH_EQ_ENABLE, label: "EQ1 Q", scope: "channel", unit: "raw" },
+	fxEqGain2: { address: addr.CH_EQ_GAIN2, press: addr.CH_EQ_ENABLE, label: "EQ2 Gain", scope: "channel", unit: "db" },
+	fxEqFreq2: { address: addr.CH_EQ_FREQ2, press: addr.CH_EQ_ENABLE, label: "EQ2 Freq", scope: "channel", unit: "freq" },
+	fxEqQ2: { address: addr.CH_EQ_Q2, press: addr.CH_EQ_ENABLE, label: "EQ2 Q", scope: "channel", unit: "raw" },
+	fxEqType3: { address: addr.CH_EQ_TYPE3, press: addr.CH_EQ_ENABLE, label: "EQ3 Type", scope: "channel", unit: "selection" },
+	fxEqGain3: { address: addr.CH_EQ_GAIN3, press: addr.CH_EQ_ENABLE, label: "EQ3 Gain", scope: "channel", unit: "db" },
+	fxEqFreq3: { address: addr.CH_EQ_FREQ3, press: addr.CH_EQ_ENABLE, label: "EQ3 Freq", scope: "channel", unit: "freq" },
+	fxEqQ3: { address: addr.CH_EQ_Q3, press: addr.CH_EQ_ENABLE, label: "EQ3 Q", scope: "channel", unit: "raw" },
+
+	// Dynamics (page 2); one enable for compressor and expander.
+	fxCompThreshold: { address: addr.CH_COMP_THRESHOLD, press: addr.CH_COMP_ENABLE, label: "Comp Thresh", scope: "channel", unit: "db" },
+	fxCompRatio: { address: addr.CH_COMP_RATIO, press: addr.CH_COMP_ENABLE, label: "Comp Ratio", scope: "channel", unit: "raw" },
+	fxCompAttack: { address: addr.CH_COMP_ATTACK, press: addr.CH_COMP_ENABLE, label: "Attack", scope: "channel", unit: "raw" },
+	fxCompRelease: { address: addr.CH_COMP_RELEASE, press: addr.CH_COMP_ENABLE, label: "Release", scope: "channel", unit: "raw" },
+	fxCompGain: { address: addr.CH_COMP_GAIN, press: addr.CH_COMP_ENABLE, label: "Makeup Gain", scope: "channel", unit: "db" },
+	fxExpThreshold: { address: addr.CH_EXP_THRESHOLD, press: addr.CH_COMP_ENABLE, label: "Exp Thresh", scope: "channel", unit: "db" },
+	fxExpRatio: { address: addr.CH_EXP_RATIO, press: addr.CH_COMP_ENABLE, label: "Exp Ratio", scope: "channel", unit: "raw" },
+
+	// Auto Level, per channel (page 2).
+	fxAutoLevelMaxGain: { address: addr.CH_AUTOLEVEL_MAXGAIN, press: addr.CH_AUTOLEVEL_ENABLE, label: "AL Max Gain", scope: "channel", unit: "db" },
+	fxAutoLevelHeadroom: { address: addr.CH_AUTOLEVEL_HEADROOM, press: addr.CH_AUTOLEVEL_ENABLE, label: "AL Headroom", scope: "channel", unit: "db" },
+	fxAutoLevelRise: { address: addr.CH_AUTOLEVEL_RISETIME, press: addr.CH_AUTOLEVEL_ENABLE, label: "AL Rise", scope: "channel", unit: "raw" },
+
+	// Reverb unit (page 3).
+	fxReverbVolume: { address: addr.REVERB_VOLUME, press: addr.REVERB_ENABLE, label: "Reverb Vol", scope: "global", unit: "db" },
+	fxReverbPredelay: { address: addr.REVERB_PREDELAY, press: addr.REVERB_ENABLE, label: "Predelay", scope: "global", unit: "raw" },
+	fxReverbWidth: { address: addr.REVERB_WIDTH, press: addr.REVERB_ENABLE, label: "Rev Width", scope: "global", unit: "raw" },
+	fxReverbRoomscale: { address: addr.REVERB_ROOMSCALE, press: addr.REVERB_ENABLE, label: "Room Scale", scope: "global", unit: "raw" },
+	fxReverbSmooth: { address: addr.REVERB_SMOOTH, press: addr.REVERB_ENABLE, label: "Smooth", scope: "global", unit: "raw" },
+	fxReverbLowcut: { address: addr.REVERB_LOWCUT, press: addr.REVERB_ENABLE, label: "Rev LowCut", scope: "global", unit: "freq" },
+	fxReverbHighcut: { address: addr.REVERB_HIGHCUT, press: addr.REVERB_ENABLE, label: "Rev HiCut", scope: "global", unit: "freq" },
+	// Space reverb type only.
+	fxReverbTime: { address: addr.REVERB_TIME, press: addr.REVERB_ENABLE, label: "Rev Time", scope: "global", unit: "raw" },
+	fxReverbHighdamp: { address: addr.REVERB_HIGHDAMP, press: addr.REVERB_ENABLE, label: "High Damp", scope: "global", unit: "freq" },
+	// Envelope reverb types only.
+	fxReverbAttack: { address: addr.REVERB_ATTACK, press: addr.REVERB_ENABLE, label: "Rev Attack", scope: "global", unit: "raw" },
+	fxReverbHold: { address: addr.REVERB_HOLD, press: addr.REVERB_ENABLE, label: "Rev Hold", scope: "global", unit: "raw" },
+	fxReverbRelease: { address: addr.REVERB_RELEASE, press: addr.REVERB_ENABLE, label: "Rev Release", scope: "global", unit: "raw" },
+
+	// Echo unit (page 3).
+	fxEchoVolume: { address: addr.ECHO_VOLUME, press: addr.ECHO_ENABLE, label: "Echo Vol", scope: "global", unit: "db" },
+	fxEchoDelay: { address: addr.ECHO_DELAY, press: addr.ECHO_ENABLE, label: "Echo Delay", scope: "global", unit: "raw" },
+	fxEchoFeedback: { address: addr.ECHO_FEEDBACK, press: addr.ECHO_ENABLE, label: "Feedback", scope: "global", unit: "raw" },
+	fxEchoWidth: { address: addr.ECHO_WIDTH, press: addr.ECHO_ENABLE, label: "Echo Width", scope: "global", unit: "raw" },
 } as const;
 
-/** Narrows a settings string to an FX target, so FX_TARGETS can be indexed safely. */
+/** Step unit of an FX target, or null for non-FX targets. */
+const unitOf = (target: string): "db" | "freq" | "selection" | "raw" | null =>
+	isFx(target) ? FX_TARGETS[target].unit : null;
+
+const isDbScaled = (target: string): boolean => unitOf(target) === "db";
+
+/** Levels into/out of the FX bus; "engaged" is their own value > 0. */
+const FX_SEND_TARGETS: ReadonlySet<string> = new Set(["fxReverbSend", "fxReverbReturn"]);
+
+/** Default dB per detent for dB-scaled FX parameters. */
+const DEFAULT_FX_STEP_DB = 1;
+
+/** Default Hz per detent for kOSCScaleFreq parameters (converted through the published curve). */
+const DEFAULT_HZ_STEP = 20;
+
+/** kOSCScaleFreq span. */
+const MIN_HZ = 20;
+const MAX_HZ = 20000;
+
+/** Default position count for selection parameters (kOSCScaleLin01 spread evenly; device dependent). */
+const DEFAULT_SELECTION_POSITIONS = 4;
+
+/** Wire step for a dB-scaled parameter until its dB mapping is measured. */
+const FX_PROBE_STEP = 0.005;
+
 const isFx = (t: string): t is FxTarget => t in FX_TARGETS;
 
-/**
- * Which stepping law a target obeys. Only mix faders follow RME's dB curve;
- * gain and FX are linear on the wire, and applying the fader curve to them
- * would make their steps wrong at both ends of the range.
- */
+/** Page-2 targets, which need bus/bank/offset selected. */
+const isChannelScoped = (target: string): boolean =>
+	target === "channel" || target === "pan" || (isFx(target) && FX_TARGETS[target].scope === "channel");
+
+/** Bus restrictions per the RME table; absent = all buses. */
+const TARGET_BUSES: Partial<Record<string, readonly ("input" | "playback" | "output")[]>> = {
+	fxReverbSend: SOURCES,
+	fxReverbReturn: OUTPUTS_ONLY,
+};
+
+const busesFor = (target: string): readonly ("input" | "playback" | "output")[] =>
+	TARGET_BUSES[target] ?? ALL_BUSES;
+
+/** Stepping law: only mix faders follow the RME fader curve. */
 const kindOf = (target: string): "fader" | "gain" | "fx" | "pan" =>
 	isFx(target)
 		? "fx"
@@ -103,39 +204,27 @@ const kindOf = (target: string): "fader" | "gain" | "fx" | "pan" =>
 				? "pan"
 				: "fader";
 
-/**
- * Volume control for a key or a Stream Deck+ dial.
- *
- * Rotation steps a fixed number of dB rather than a fixed amount of the 0..1 wire
- * value, because the TotalMix fader curve is strongly non-linear — a linear step
- * moves 4.4x further in dB at the bottom of the throw than at the top.
- */
+/** Classic OSC continuous control (fader, pan, gain, FX) for keys and dials. Faders step in dB on the RME curve. */
 @action({ UUID: "de.shells.totalmixgen2.volume" })
 export class Volume extends SingletonAction<VolumeSettings> {
-	/** Unsubscribe callbacks, keyed by action id, released on disappear. */
+	/** Last key image sent per action, so an unchanged icon is not re-sent. */
+	private readonly keyImages = new Map<string, string>();
+
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
-	/** Last bus/bank pin per action id, to rate-limit pinning during dial bursts. */
+	/** Last bus/bank pin time per action id. */
 	private readonly lastPin = new Map<string, number>();
 
-	/**
-	 * Last audible level seen per fader address, so a level sent to -oo can be put
-	 * back where it was.
-	 *
-	 * Keyed by address rather than by action id deliberately: two dials pointed at
-	 * the same channel share one memory, so silencing on either restores correctly
-	 * from the other. Populated by every render, not only by the gesture, so a
-	 * fader already sitting at -oo when the plugin starts still has somewhere to
-	 * come back to as soon as TotalMix has reported a level once.
-	 */
+	/** Last audible level per fader address (restore point for -oo); fed by every render. */
 	private readonly lastAudible = new Map<string, number>();
 
-	/**
-	 * Strip addresses are relative to bus and bank. When the settings pin either,
-	 * assert them before acting — but during a dial burst only on the first tick
-	 * of the gesture, since rotation events arrive far faster than the view can
-	 * meaningfully change underneath them.
-	 */
+	/** Measured value→dB mappings per address; fed by render(). */
+	private readonly dbScales = new Map<string, DbScale>();
+
+	/** Most recent (value, dB) reading per address, used to locate 0 dB. */
+	private readonly lastDbReading = new Map<string, { value: number; db: number }>();
+
+	/** Selects bus/bank (page 1) or the channel (page 2) before a write, rate-limited unless forced. */
 	private pinIfConfigured(
 		tm: TotalMixConnection,
 		id: string,
@@ -143,16 +232,20 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		force = false,
 	): void {
 		const target = settings.target ?? "main";
-		// Positional targets only: everything else addresses a fixed control.
-		if (target !== "strip" && target !== "gain" && target !== "stripPan") return;
+		const positional = target === "strip" || target === "gain" || target === "stripPan";
+		if (!positional && !isChannelScoped(target)) return;
 
 		const now = Date.now();
 		if (!force && now - (this.lastPin.get(id) ?? 0) < PIN_INTERVAL_MS) return;
 		this.lastPin.set(id, now);
 
+		if (!positional) {
+			focusChannel(tm, settings, busesFor(target));
+			return;
+		}
+
 		if (target === "gain") {
-			// Gain only exists on the input bus — always pin it, ignoring any bus
-			// setting, so the dial cannot silently tweak a playback/output strip.
+			// Gain exists on the input bus only.
 			tm.toggle(addr.bus("input"));
 		} else if (settings.bus === "input" || settings.bus === "playback" || settings.bus === "output") {
 			tm.toggle(addr.bus(settings.bus));
@@ -162,27 +255,16 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 	}
 
-	/**
-	 * Seeds the user's saved defaults into a freshly placed button before wiring
-	 * it up, so a new key inherits their host, ports and step rather than the
-	 * factory ones.
-	 */
 	override async onWillAppear(ev: WillAppearEvent<VolumeSettings>): Promise<void> {
-		await seedDefaults(ev.action, ev.payload.settings, "classic", { stepDb: true });
+		await seedDefaults(ev.action, ev.payload.settings, "classic", { stepDb: true, fxSteps: true });
 		await this.setup(ev.action, ev.payload.settings);
 	}
 
-	/** Re-run setup when the user changes settings in the property inspector. */
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<VolumeSettings>): Promise<void> {
 		await this.setup(ev.action, ev.payload.settings);
 	}
 
-	/**
-	 * (Re)binds one button to the connection and addresses its settings imply.
-	 *
-	 * Runs on appear and on every settings change, so it must be idempotent: the
-	 * previous subscriptions are released at the end, once the new ones exist.
-	 */
+	/** (Re)binds one button; idempotent, runs on appear and settings change. */
 	private async setup(
 		target: WillAppearEvent<VolumeSettings>["action"],
 		settings: VolumeSettings,
@@ -202,47 +284,40 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			tm.onConnectionChange(render),
 		];
 
-		// The title comes from trackname/channel-name addresses that arrive in
-		// the page dump in their own order — often after this action's value.
-		// Without subscribing to them, a name landing late never triggers a
-		// re-render and the "Strip N" fallback sticks until something else moves.
+		// Track names arrive in their own order; re-render when they land.
 		const tgt = settings.target ?? "main";
 		if (tgt === "strip" || tgt === "gain" || tgt === "stripPan") {
 			unsubs.push(tm.subscribe(addr.trackName(num(settings.strip, 1)), render));
-		} else if (tgt === "channel" || tgt === "pan") {
+		} else if (isChannelScoped(tgt)) {
 			unsubs.push(tm.subscribe(addr.CH_TRACK_NAME, render));
 		}
 
-		// The wash is driven by the mute and solo flags as well as the level, so a
-		// switch flipped in TotalMix, or from a Toggle key, has to repaint this dial.
-		const flags = [this.muteAddressFor(settings), this.soloAddressFor(settings)].filter(
-			(a): a is string => a !== null,
-		);
+		// Mute/solo flags and the FX enable drive the wash.
+		const fxTarget = settings.target ?? "main";
+		const flags = [
+			this.muteAddressFor(settings),
+			this.soloAddressFor(settings),
+			isFx(fxTarget) ? FX_TARGETS[fxTarget].press : null,
+		].filter((a): a is string => a !== null);
 		for (const flag of flags) unsubs.push(tm.subscribe(flag, render));
 
-		// Pairs with the connection's "First arrival" line: together they show
-		// whether a flag that never lights is one TotalMix does not send, or one it
-		// sends under a view this dial is not reading.
 		streamDeck.logger.info(
 			`Volume dial ${target.id} watching ${this.addressFor(settings)}` +
 				`${flags.length > 0 ? ` and ${flags.join(", ")}` : ""}` +
 				`, view ${JSON.stringify(this.requiredView(settings))}`,
 		);
 
-		// Register this dial's view for startup priming. The connection visits
-		// every required view once, serially, filling each slice, so values and
-		// names are prefilled without appear-time pin races.
 		const startupReq = this.requiredView(settings);
 		if (startupReq !== null) tm.requireView(startupReq);
 
-		// Replace any subscriptions left over from a previous appearance or from
-		// the previous settings — old-address subscriptions must not linger.
+		tm.declarePage(target.id, addr.pageOf(address));
+		// The enable may live on another page (FX send: page 2, enable: page 3).
+		const fxTgt = settings.target ?? "main";
+		if (isFx(fxTgt)) tm.requirePage(addr.pageOf(FX_TARGETS[fxTgt].press));
+
 		this.releaseFor(target.id);
 		this.cleanup.set(target.id, unsubs);
 
-		// Both gestures are configurable and mean different things per target, so
-		// the manifest's single pair of hints cannot be right for every button.
-		// Correct them to what this one will actually do.
 		if (target.isDial()) {
 			void target.setTriggerDescription({
 				rotate: "Adjust level",
@@ -254,14 +329,14 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		render();
 	}
 
-	/** The kind of thing this button points at, which is what gesture rules key off. */
+	/** Target class for the gesture rules. */
 	private kindOfTarget(settings: VolumeSettings): ClassicKind {
 		const target = settings.target ?? "main";
 		if (isFx(target)) return "fx";
 		return target === "pan" || target === "stripPan" ? "pan" : target;
 	}
 
-	/** The gesture this button performs in the given slot, after defaults and applicability. */
+	/** Resolved gesture for a slot. */
 	private gestureFor(settings: VolumeSettings, slot: GestureSlot): Gesture {
 		return resolveGesture(
 			slot === "press" ? settings.press : settings.touch,
@@ -271,19 +346,14 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		);
 	}
 
-	/** Drops subscriptions when the button leaves the screen — profile switches would otherwise accumulate them. */
 	override onWillDisappear(ev: WillDisappearEvent<VolumeSettings>): void {
 		this.releaseFor(ev.action.id);
+		this.lastPin.delete(ev.action.id);
+		forgetAlertState(ev.action.id);
+		totalMixFor(connectionOptions(ev.payload.settings)).releasePage(ev.action.id);
 	}
 
-	/**
-	 * Answers the property inspector's request for the channel dropdown, filling
-	 * it from live cache so the user picks real channel names instead of numbers.
-	 */
 	override async onSendToPlugin(ev: SendToPluginEvent<{ event?: string }, VolumeSettings>): Promise<void> {
-		// Always log what the PI sends: whether this line appears is the fact that
-		// splits "request never arrives" from "reply is wrong" when the channel
-		// dropdown misbehaves.
 		streamDeck.logger.info(`PI -> plugin: ${JSON.stringify(ev.payload).slice(0, 160)}`);
 		if (datasourceEvent(ev.payload) !== "getStrips") return;
 		const settings = await ev.action.getSettings();
@@ -291,35 +361,23 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		await replyStripDatasource(tm, "getStrips", settings, (settings.target ?? "main") === "gain");
 	}
 
-	/**
-	 * Steps the value by the configured amount per detent — dB for faders and
-	 * gain, a fixed fraction of range for FX — and repaints optimistically.
-	 *
-	 * Writes are coalesced, so spinning fast costs one datagram per tick window
-	 * rather than one per detent.
-	 */
+	/** Steps the value per detent (coalesced write) and repaints optimistically. */
 	override onDialRotate(ev: DialRotateEvent<VolumeSettings>): void {
 		const settings = ev.payload.settings;
 		const tm = totalMixFor(connectionOptions(settings));
 		if (alertIfDown(ev.action, tm)) return;
 		const req = this.requiredView(settings);
-		// Pin hard when the slot is parked elsewhere: the write below must land on
-		// this dial's view, and message ordering guarantees the bus/bank selects
-		// are processed first.
+		// Force the pin when the slot shows another view.
 		this.pinIfConfigured(tm, ev.action.id, settings, req !== null && !tm.viewMatches(req));
 
 		const target = settings.target ?? "main";
 		const address = this.addressFor(settings);
-		// Gain and pan have fixed steps: neither has a dB scale the setting could
-		// mean anything against.
+		// Gain and pan use a fixed step.
 		const perTick =
 			target === "gain" || kindOf(target) === "pan" ? DEFAULT_STEP_DB : num(settings.stepDb, DEFAULT_STEP_DB);
+		const fxFraction = this.fxFractionFor(settings);
 
-		// The value is read from this dial's view slice, retained per bus/bank, so
-		// it is this channel's own last value even while the slot is parked
-		// elsewhere. A flat cache would be wrong here: another bus's dump carries
-		// zeros for micgain. Only a view that has never delivered data blocks the
-		// gesture.
+		// Read from this dial's own view slice; no data yet blocks the gesture.
 		if (tm.get(address, req) === undefined) {
 			streamDeck.logger.warn(`Ignoring dial move on ${address}: no data for its view yet`);
 			tm.requestFullRefresh();
@@ -327,40 +385,31 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 
 		const current = tm.getNumber(address, 0, req);
-		const next = computeNext(
-			kindOf(target),
-			current,
-			ev.payload.ticks,
-			perTick,
-			FX_STEP,
-			gainRangeDb(settings.device),
-		);
+		const next =
+			this.stepByUnit(settings, address, current, ev.payload.ticks) ??
+			computeNext(
+				kindOf(target),
+				current,
+				ev.payload.ticks,
+				perTick,
+				fxFraction,
+				gainRangeDb(settings.device),
+			);
 
-		// Coalesced: rotation fires far faster than TotalMix needs telling, and only
-		// the latest position matters.
 		tm.sendCoalesced(address, next);
 
 		void this.render(tm, ev.action, settings, next);
 	}
 
-	/** Pressing the dial mutes, unless the user has bound the press to something else. */
 	override onDialDown(ev: DialDownEvent<VolumeSettings>): void {
 		this.gesture(ev, "press");
 	}
 
-	/**
-	 * Tapping the touch display above the dial.
-	 *
-	 * Dims on the main out and drops to -oo elsewhere, unless bound otherwise.
-	 * -oo is the one thing the fader can do that its mute cannot: it silences a
-	 * channel without disturbing the mute state, and so without disturbing a mute
-	 * group the channel belongs to.
-	 */
 	override onTouchTap(ev: TouchTapEvent<VolumeSettings>): void {
 		this.gesture(ev, "touch");
 	}
 
-	/** Runs one of the two dial gestures and repaints if it moved the fader. */
+	/** Runs a dial gesture and repaints when it moved the fader. */
 	private gesture(
 		ev: DialDownEvent<VolumeSettings> | TouchTapEvent<VolumeSettings>,
 		slot: GestureSlot,
@@ -369,8 +418,6 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		const tm = totalMixFor(connectionOptions(settings));
 		if (alertIfDown(ev.action, tm)) return;
 
-		// Pin hard when the slot is parked elsewhere, for the same reason rotation
-		// does: a per-strip write must land on this dial's own view.
 		const req = this.requiredView(settings);
 		this.pinIfConfigured(tm, ev.action.id, settings, req !== null && !tm.viewMatches(req));
 
@@ -379,34 +426,20 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	}
 
 	/**
-	 * Carries out one resolved gesture.
-	 *
-	 * Returns the fader value written, so the caller can repaint before TotalMix
-	 * confirms, or undefined when the gesture did not move this dial's own value.
-	 *
-	 * The page-1 per-strip switches are kOSCScaleOnOff and take an explicit 0 or
-	 * 1, so their state has to be inverted from cache; their page-2 counterparts
-	 * are kOSCScaleToggle and flip on any 1.0. Getting these two the wrong way
-	 * round is silent — TotalMix ignores what it cannot parse — so they are kept
-	 * apart deliberately rather than unified.
+	 * Performs a gesture. Returns the value written to this dial's own address,
+	 * or undefined. Page-1 strip switches are kOSCScaleOnOff (explicit 0/1);
+	 * page-2 ones are kOSCScaleToggle (1.0 flips).
 	 */
 	private perform(tm: TotalMixConnection, settings: VolumeSettings, gesture: Gesture): number | undefined {
 		const target = settings.target ?? "main";
 		const strip = num(settings.strip, 1);
 
-		/** Flips a page-1 on/off switch from its cached state. */
 		const flipOnOff = (address: string): undefined => {
 			tm.sendOffPage(address, asBool(tm.get(address, this.requiredView(settings)) ?? 0) ? 0 : 1);
 			return undefined;
 		};
 
-		/**
-		 * Flips a switch belonging to this dial's channel, on whichever page it lives.
-		 *
-		 * "channel" and "pan" both address the selected channel on page 2; the
-		 * strip-scoped targets address a bank position on page 1.
-		 */
-		const onPage2 = target === "channel" || target === "pan";
+		const onPage2 = isChannelScoped(target);
 		const flipChannel = (page2: string, page1: (n: number) => string): undefined => {
 			if (onPage2) {
 				tm.toggle(page2);
@@ -421,10 +454,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 
 			case "mute":
 				if (target === "main") {
-					// The classic OSC protocol has no mute for the main out — page 1
-					// carries dim, mono, talkback and speaker B, and nothing else.
-					// Muting therefore means dropping the fader to -oo and
-					// remembering where it was, so a second press puts it back.
+					// No main-out mute in the table: fader to -oo and back.
 					return this.toggleSilence(tm, settings);
 				}
 				return flipChannel(addr.CH_MUTE, addr.mute);
@@ -448,13 +478,19 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			}
 
 			case "center":
-				// Pan is kOSCScaleLin01, so dead centre is exactly the midpoint.
 				tm.sendOffPage(this.addressFor(settings), 0.5);
 				return 0.5;
 
 			case "bypass":
 				if (isFx(target)) tm.toggle(FX_TARGETS[target].press);
 				return undefined;
+
+			case "neutral": {
+				const value = this.neutralFor(settings);
+				if (value === undefined) return undefined;
+				tm.sendOffPage(this.addressFor(settings), value);
+				return value;
+			}
 
 			case "dim":
 				tm.toggle(addr.MAIN_DIM);
@@ -485,17 +521,37 @@ export class Volume extends SingletonAction<VolumeSettings> {
 				return undefined;
 
 			case "auto":
-				// resolveGesture never returns this; the case keeps the switch total.
 				return undefined;
 		}
 	}
 
 	/**
-	 * Drops this target's fader to -oo, or puts it back where it was.
-	 *
-	 * Returns the value written, or undefined when nothing was sent — the fader is
-	 * already down and no earlier level is known, leaving nowhere to restore to.
+	 * Neutral value for an FX parameter: 0 dB (from the measured mapping, else
+	 * 0.5) for dB units, position 0 for selections, 0.5 otherwise. The table
+	 * publishes no factory defaults.
 	 */
+	private neutralFor(settings: VolumeSettings): number | undefined {
+		const target = settings.target ?? "main";
+		if (!isFx(target)) return undefined;
+
+		switch (FX_TARGETS[target].unit) {
+			case "db": {
+				const scale = this.dbScales.get(this.addressFor(settings));
+				const slope = scale?.slope;
+				if (slope === undefined) return 0.5;
+				const known = this.lastDbReading.get(this.addressFor(settings));
+				if (known === undefined) return 0.5;
+				const unity = known.value - known.db / slope;
+				return unity < 0 ? 0 : unity > 1 ? 1 : unity;
+			}
+			case "selection":
+				return 0;
+			default:
+				return 0.5;
+		}
+	}
+
+	/** Fader to -oo, or back to the last audible level. Returns the value written, or undefined. */
 	private toggleSilence(tm: TotalMixConnection, settings: VolumeSettings): number | undefined {
 		const address = this.addressFor(settings);
 		const current = tm.getNumber(address, 0, this.requiredView(settings));
@@ -516,28 +572,20 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		return restore;
 	}
 
-	/**
-	 * On a key (no dial), each press nudges the value by the configured step in
-	 * the configured direction — the only way to set a level on non-+ decks.
-	 * The step setting applies as dB for faders and gain, and as percentage
-	 * points of range for FX. Mute on keys belongs to the Toggle action.
-	 */
+	/** Key placement: one step per press in the configured direction. */
 	override onKeyDown(ev: KeyDownEvent<VolumeSettings>): void {
 		const settings = ev.payload.settings;
 		const tm = totalMixFor(connectionOptions(settings));
 		if (alertIfDown(ev.action, tm)) return;
-		this.pinIfConfigured(tm, ev.action.id, settings);
+
+		const reqView = this.requiredView(settings);
+		this.pinIfConfigured(tm, ev.action.id, settings, reqView !== null && !tm.viewMatches(reqView));
 
 		const target = settings.target ?? "main";
 		const address = this.addressFor(settings);
 		const ticks = (settings.nudge ?? "up") === "down" ? -1 : 1;
 		const dbStep = num(settings.stepDb, DEFAULT_STEP_DB);
 
-		// Same view scoping as dial rotation — see the comment there.
-		const reqView = this.requiredView(settings);
-		if (reqView !== null && !tm.viewMatches(reqView)) {
-			this.pinIfConfigured(tm, ev.action.id, settings, true);
-		}
 		if (tm.get(address, reqView) === undefined) {
 			streamDeck.logger.warn(`Ignoring nudge on ${address}: no data for its view yet`);
 			tm.requestFullRefresh();
@@ -545,25 +593,85 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 
 		const current = tm.getNumber(address, 0, reqView);
-		const next = computeNext(
-			kindOf(target),
-			current,
-			ticks,
-			dbStep,
-			kindOf(target) === "pan" ? PAN_STEP : dbStep / 100,
-			gainRangeDb(settings.device),
-		);
+		const next =
+			this.stepByUnit(settings, address, current, ticks) ??
+			computeNext(
+				kindOf(target),
+				current,
+				ticks,
+				dbStep,
+				kindOf(target) === "pan" ? PAN_STEP : this.fxFractionFor(settings),
+				gainRangeDb(settings.device),
+			);
 
 		streamDeck.logger.info(`Key press: nudge ${address} ${ticks > 0 ? "+" : "-"}${dbStep}`);
 		tm.sendOffPage(address, next);
 		void this.render(tm, ev.action, settings, next);
 	}
 
-	/**
-	 * The OSC address this button controls. Falls back to main volume for an
-	 * unrecognised target, so settings written by an older build stay harmless
-	 * rather than addressing nothing.
-	 */
+	/** Wire fraction per detent for unitless FX parameters; dB-scaled ones use the probe step until measured. */
+	private fxFractionFor(settings: VolumeSettings): number {
+		if (isDbScaled(settings.target ?? "main")) return FX_PROBE_STEP;
+
+		const percent = num(settings.fxPercent, FX_STEP * 100);
+		return percent > 0 && percent <= 100 ? percent / 100 : FX_STEP;
+	}
+
+	/** Next value for a unit-stepped FX parameter (dB, Hz, selection), or undefined to step by wire fraction. */
+	private stepByUnit(
+		settings: VolumeSettings,
+		address: string,
+		current: number,
+		ticks: number,
+	): number | undefined {
+		switch (unitOf(settings.target ?? "main")) {
+			case "db":
+				return this.stepInDb(settings, address, current, ticks);
+
+			case "freq": {
+				const per = num(settings.fxHz, DEFAULT_HZ_STEP);
+				const hz = valueToFreq(current) + ticks * (per > 0 ? per : DEFAULT_HZ_STEP);
+				return freqToValue(Math.min(Math.max(hz, MIN_HZ), MAX_HZ));
+			}
+
+			case "selection": {
+				// Snapped to the position grid.
+				const positions = Math.max(2, Math.round(num(settings.fxPositions, DEFAULT_SELECTION_POSITIONS)));
+				const last = positions - 1;
+				const index = Math.round(current * last) + ticks;
+				return Math.min(Math.max(index, 0), last) / last;
+			}
+
+			default:
+				return undefined;
+		}
+	}
+
+	/** dB at `value` from the measured slope and the last reported reading, or undefined while unmeasured. */
+	private predictDb(address: string, value: number): number | undefined {
+		const slope = this.dbScales.get(address)?.slope;
+		const known = this.lastDbReading.get(address);
+		if (slope === undefined || known === undefined) return undefined;
+		return known.db + slope * (value - known.value);
+	}
+
+	/** Next wire value for a dB-scaled FX parameter, or undefined while its mapping is unmeasured. */
+	private stepInDb(
+		settings: VolumeSettings,
+		address: string,
+		current: number,
+		ticks: number,
+	): number | undefined {
+		if (!isDbScaled(settings.target ?? "main")) return undefined;
+		const scale = this.dbScales.get(address);
+		if (scale === undefined) return undefined;
+
+		const perTick = num(settings.fxStepDb, DEFAULT_FX_STEP_DB);
+		const step = perTick > 0 ? perTick : DEFAULT_FX_STEP_DB;
+		return scale.step(current, ticks * step);
+	}
+
+	/** Address for the target; unknown targets fall back to mastervolume. */
 	private addressFor(settings: VolumeSettings): string {
 		const target = settings.target ?? "main";
 		switch (target) {
@@ -584,17 +692,8 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		}
 	}
 
-	/**
-	 * The view this action's settings require, or null if it needs no particular
-	 * one.
-	 *
-	 * Gain is always input-bus regardless of the bus setting, because the preamp
-	 * only exists there. Strips require a view only when the user pinned a bus or
-	 * bank; unpinned, they follow whatever the slot shows, which is the point of
-	 * leaving those settings empty. Main, channel and FX targets are not
-	 * positional at all and so require nothing.
-	 */
-	private requiredView(settings: VolumeSettings): { bus?: "input" | "playback" | "output"; bank?: number } | null {
+	/** View the settings require, or null (follow the slot). Gain is always input bus. */
+	private requiredView(settings: VolumeSettings): ViewRequirement | null {
 		const tgt = settings.target ?? "main";
 		const bank =
 			settings.bankStart !== undefined && String(settings.bankStart).trim() !== ""
@@ -612,19 +711,11 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			if (bus === undefined && bank === undefined) return null;
 			return { ...(bus !== undefined ? { bus } : {}), ...(bank !== undefined ? { bank } : {}) };
 		}
+		if (isChannelScoped(tgt)) return channelView(settings, busesFor(tgt));
 		return null;
 	}
 
-	/**
-	 * Paints the key or dial from cache.
-	 *
-	 * Prefers TotalMix's own "...Val" display string over a locally computed one:
-	 * TotalMix is authoritative about how it formats a level, and matching it keeps
-	 * the Stream Deck consistent with the on-screen mixer.
-	 *
-	 * `override` is the value just written by a gesture, shown before TotalMix
-	 * confirms it so the dial tracks the finger rather than the network.
-	 */
+	/** Paints from cache. Prefers the "...Val" string; `override` is a just-written value. */
 	private async render(
 		tm: TotalMixConnection,
 		target: WillAppearEvent<VolumeSettings>["action"] | DialAction<VolumeSettings>,
@@ -635,14 +726,13 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		const tgt = settings.target ?? "main";
 		const isGain = tgt === "gain";
 
-		// Reads are scoped to the view this dial REQUIRES, not whatever view is
-		// current — retained values from its own bus keep showing (with the right
-		// channel names) while another dial has the slot parked elsewhere. The
-		// placeholder only appears when that view has never delivered data.
 		const req = this.requiredView(settings);
 		if (override === undefined && tm.get(address, req) === undefined) {
 			if (target.isDial()) {
-				await target.setFeedback(washFeedback(this.labelFor(tm, settings), "—", 0, "none"));
+				// Type-specific reverb parameters never report under other types; the enable is still shown.
+				await target.setFeedback(
+					washFeedback(this.labelFor(tm, settings), "—", 0, this.washFor(tm, settings, 0)),
+				);
 			} else {
 				await target.setTitle("—");
 			}
@@ -651,27 +741,50 @@ export class Volume extends SingletonAction<VolumeSettings> {
 
 		const value = override ?? tm.getNumber(address, 0, req);
 
-		// Every level TotalMix reports is a candidate restore point, not just the
-		// one captured by a gesture — so a fader found at -oo on startup still has
-		// somewhere to come back to once it has been audible at least once.
 		if (kindOf(tgt) === "fader" && !isMinusInfinity(value)) this.lastAudible.set(address, value);
-		// The Val string is TotalMix's own formatting and, for gain, the only
-		// meaningful display: the 0..1 wire value has no fixed dB meaning. Gain
-		// is rounded to a whole number and keeps its unit ("60 dB").
-		const raw = tm.getString(addr.displayOf(address), req);
-		// Page-1 strip pans are kOSCScaleNoSend and have no ...Val string, so their
-		// readout is computed; the selected-channel pan does send one and it wins.
+
+		// The value and its "...Val" string arrive as separate messages, and
+		// TotalMix does not always re-send the string when the value changes.
+		// A string that arrived before the value it labels is discarded, so the
+		// readout falls back to one computed from the value itself.
+		const displayAddress = addr.displayOf(address);
+		const current = tm.sequenceOf(displayAddress, req) >= tm.sequenceOf(address, req);
+		const reported = current ? tm.getString(displayAddress, req) : undefined;
+
+		// An override is a value written but not yet reported, so any cached
+		// string still describes the level before the gesture.
+		const raw = override === undefined ? reported : undefined;
+
+		// Feed the dB mapping from reported readings only, never from overrides.
+		if (isDbScaled(tgt) && override === undefined && raw !== undefined) {
+			const db = parseDb(raw);
+			if (db !== undefined) {
+				let scale = this.dbScales.get(address);
+				if (scale === undefined) {
+					scale = new DbScale();
+					this.dbScales.set(address, scale);
+				}
+				scale.observe(value, db);
+				this.lastDbReading.set(address, { value, db });
+			}
+		}
+		// Page-1 pans have no Val string; page-2 pan does.
 		const isPan = kindOf(tgt) === "pan";
+		// dB-scaled targets have no fixed wire-to-dB curve, so without a string
+		// the readout comes from the mapping measured off earlier readings.
+		const predicted = raw === undefined && isDbScaled(tgt) ? this.predictDb(address, value) : undefined;
 		const label =
 			raw !== undefined
 				? isGain
 					? formatGain(raw)
 					: raw
-				: isPan
-					? formatPan(value)
-					: isGain || isFx(tgt)
-						? `${Math.round(value * 100)} %`
-						: formatDb(value);
+				: predicted !== undefined
+					? `${isGain ? Math.round(predicted) : predicted.toFixed(1)} dB`
+					: isPan
+						? formatPan(value)
+						: isGain || isFx(tgt)
+							? `${Math.round(value * 100)} %`
+							: formatDb(value);
 		const name = this.labelFor(tm, settings);
 
 		if (target.isDial()) {
@@ -686,15 +799,29 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			return;
 		}
 
+		this.applyNudgeIcon(target, settings.nudge);
 		await target.setTitle(tm.connected ? label : "—");
 	}
 
 	/**
-	 * The title shown above the value. Prefers the channel name TotalMix
-	 * reports — read through this action's own view, so it is this strip's name
-	 * even when the slot is parked on another bus — and falls back to a
-	 * positional label until that name arrives.
+	 * Key image showing which way a press moves the value.
+	 *
+	 * Sent once per change: renders run on every inbound OSC message, and the
+	 * guidelines cap programmatic calls at ten a second.
 	 */
+	private applyNudgeIcon(
+		target: { id: string; isKey: () => boolean; setImage: (path?: string) => Promise<void> },
+		nudge?: "up" | "down",
+	): void {
+		if (!target.isKey()) return;
+		const icon = nudgeIcon(nudge);
+		if (this.keyImages.get(target.id) === icon) return;
+		this.keyImages.set(target.id, icon);
+		void target.setImage(icon);
+	}
+
+
+	/** Header: cached channel name from this action's own view, else a positional label. */
 	private labelFor(tm: TotalMixConnection, settings: VolumeSettings): string {
 		const req = this.requiredView(settings);
 		const target = settings.target ?? "main";
@@ -702,9 +829,9 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			case "main":
 				return "Main";
 			case "channel":
-				return tm.getString(addr.CH_TRACK_NAME) ?? "Channel";
+				return tm.getString(addr.CH_TRACK_NAME, req) ?? "Channel";
 			case "pan":
-				return tm.getString(addr.CH_TRACK_NAME) ?? "Pan";
+				return tm.getString(addr.CH_TRACK_NAME, req) ?? "Pan";
 			case "strip":
 			case "stripPan":
 				return (
@@ -716,28 +843,23 @@ export class Volume extends SingletonAction<VolumeSettings> {
 					tm.getString(addr.trackName(num(settings.strip, 1)), req) ??
 					`Gain ${num(settings.strip, 1)}`
 				);
-			default:
-				return isFx(target) ? FX_TARGETS[target].label : "Main";
+			default: {
+				if (!isFx(target)) return "Main";
+				const fx = FX_TARGETS[target];
+				if (fx.scope !== "channel") return fx.label;
+				const name = tm.getString(addr.CH_TRACK_NAME, req);
+				return name === undefined ? fx.label : `${name} · ${fx.label}`;
+			}
 		}
 	}
 
-	/**
-	 * Which wash this dial should be painted in.
-	 *
-	 * Solo outranks mute deliberately. A solo left on is the state that silences
-	 * everything else and is easy to forget about, so it is the one worth seeing
-	 * from across the room; a mute announces itself by the channel being quiet.
-	 * Swapping the two checks below reverses that.
-	 *
-	 * Both routes to silence count for the mute wash, because the user has one of
-	 * each: the mute flag (a dial press, a Toggle key, or the mixer itself) and a
-	 * fader parked at -oo (a touch tap). Gain and pan are exempt from the fader
-	 * test — a preamp at minimum still passes signal and a pan hard left is not
-	 * silence — and FX parameters have no notion of either state.
-	 */
+	/** Wash: solo > mute (flag or fader at -oo; not for gain/pan) > none; FX: section enabled. */
 	private washFor(tm: TotalMixConnection, settings: VolumeSettings, value: number): Wash {
 		const target = settings.target ?? "main";
-		if (isFx(target)) return "none";
+		if (isFx(target)) {
+			const engaged = FX_SEND_TARGETS.has(target) ? value > 0 : this.fxEnabled(tm, settings);
+			return engaged ? "fxOn" : "none";
+		}
 
 		const view = this.requiredView(settings);
 		const isOn = (address: string | null): boolean =>
@@ -750,22 +872,19 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		return silencedByFader ? "mute" : "none";
 	}
 
-	/**
-	 * The solo flag belonging to this target, or null where it has none.
-	 *
-	 * Two limits come from RME's table rather than from here. Per-strip Solo/PFL
-	 * is "Inputs and Playbacks only", and since 1.96 TotalMix re-sends 0 for
-	 * parameters that do not apply to the current bus — so an output-bus strip
-	 * reads 0 forever and can never show the wash. And CH_SOLO is a page-2
-	 * address: the slot mirrors page 1, TotalMix transmits only the mirrored
-	 * page, so it arrives only in the bursts that follow a page-2 command.
-	 *
-	 * The main out has none of its own — it is what everything is soloed into.
-	 * It deliberately does not borrow the global flag: the wash reports the state
-	 * of the channel a dial points at, and global solo, like global mute, belongs
-	 * to its own button rather than to every main dial on the deck.
-	 */
+	/** Whether the target's section enable is on; page-2 enables are read through the channel slice. */
+	private fxEnabled(tm: TotalMixConnection, settings: VolumeSettings): boolean {
+		const target = settings.target ?? "main";
+		if (!isFx(target)) return false;
+		const enable = FX_TARGETS[target].press;
+		const req = addr.pageOf(enable) === 2 ? this.requiredView(settings) : null;
+		return asBool(tm.get(enable, req) ?? 0);
+	}
+
+	/** Solo flag for the target, or null (outputs, main, FX). Solo/PFL is inputs and playbacks only per the table. */
 	private soloAddressFor(settings: VolumeSettings): string | null {
+		if (this.busOf(settings) === "output") return null;
+
 		switch (settings.target ?? "main") {
 			case "channel":
 			case "pan":
@@ -775,12 +894,21 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			case "stripPan":
 				return addr.solo(num(settings.strip, 1));
 			default:
-				// Main and FX parameters have no channel to solo.
 				return null;
 		}
 	}
 
-	/** The mute flag belonging to this target, or null where it has none. */
+	/** Bus the button acts on, or undefined when following the slot. */
+	private busOf(settings: VolumeSettings): "input" | "playback" | "output" | undefined {
+		const target = settings.target ?? "main";
+		if (target === "gain") return "input";
+		if (isChannelScoped(target)) return channelView(settings, busesFor(target))?.bus;
+		return settings.bus === "input" || settings.bus === "playback" || settings.bus === "output"
+			? settings.bus
+			: undefined;
+	}
+
+	/** Mute flag for the target, or null (main, FX). */
 	private muteAddressFor(settings: VolumeSettings): string | null {
 		switch (settings.target ?? "main") {
 			case "channel":
@@ -792,13 +920,12 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			case "stripPan":
 				return addr.mute(num(settings.strip, 1));
 			default:
-				// Main is silenced by its fader; FX parameters not at all.
 				return null;
 		}
 	}
 
-	/** Runs and forgets one button's unsubscribe callbacks. Safe to call twice. */
 	private releaseFor(id: string): void {
+		this.keyImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();
@@ -806,10 +933,4 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	}
 }
 
-/** Reads a numeric OSC value defensively; exported for tests. */
-export const readLevel = (v: unknown): number => asNumber(v as never);
-
-// Re-exported so tests can reach the stepping helpers through the action they
-// belong to. Importing them from here rather than from osc/steps.js keeps the
-// test asserting what this action actually uses.
 export { computeNext, formatGain };

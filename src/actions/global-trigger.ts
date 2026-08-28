@@ -7,11 +7,11 @@ import streamDeck, {
 	type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import * as g from "../globalosc/addresses.js";
-import { globalMixFor, type GlobalConnection } from "../globalosc/connection.js";
+import { globalMixFor } from "../globalosc/connection.js";
 import { globalConnectionOptions } from "../globalosc/datasource.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { num } from "../totalmix/settings.js";
-import { alertIfDown } from "./alert.js";
+import { alertIfDown, forgetAlertState } from "./alert.js";
 
 export type GlobalTriggerSettings = {
 	mode?: GlobalTriggerMode;
@@ -37,7 +37,7 @@ export type GlobalTriggerMode =
 	| "showWindow"
 	| "hideWindow";
 
-/** DURec keys light up when /durec/state carries their matching string. */
+/** /durec/state string that lights each transport key. */
 const DUREC_STATE_MATCH: Partial<Record<GlobalTriggerMode, string>> = {
 	durecPlay: "Play",
 	durecPause: "Pause",
@@ -45,26 +45,21 @@ const DUREC_STATE_MATCH: Partial<Record<GlobalTriggerMode, string>> = {
 	durecRecord: "Record",
 };
 
-/**
- * State artwork. mixerOff is the red glyph, mixerOn the green one: red while a
- * snapshot is not loaded or a transport state is not current, green while it is.
- * Applied with setImage because the manifest declares one pair for the whole
- * action. DisableAutomaticStates is set, so state follows TotalMix's reports
- * rather than key presses.
- */
+/** Snapshot state artwork (DisableAutomaticStates: state follows TotalMix reports). */
 const STATE_IMG = { on: "imgs/mixerOn", off: "imgs/mixerOff" } as const;
 
+/** Transport artwork per mode; absent = STATE_IMG. */
+const MODE_IMG: Partial<Record<string, { on: string; off: string }>> = {
+	durecRecord: { on: "imgs/recOn", off: "imgs/recOff" },
+	durecPlay: { on: "imgs/playOn", off: "imgs/playOff" },
+	durecPause: { on: "imgs/playOn", off: "imgs/playOff" },
+	durecStop: { on: "imgs/stopOn", off: "imgs/stopOff" },
+};
+
 /**
- * One-shot commands over the Global OSC protocol: everything typed (f) in the
- * table (value below 0.5 ignored, no state carried by the outgoing value), plus
- * the show/hide window pair, which is a plain f.
- *
- * Feedback where the protocol offers it:
- * - Snapshots: TotalMix signals 0 (off), 2 (active) or 3 (changed) on the same
- *   /snapshot/load/N address, so a snapshot key lights when its snapshot is
- *   active — including after loads from the GUI or a /snapshot/save.
- * - DURec transport: /durec/state carries "Not ready"/"Stop"/"Record"/"Play"/
- *   "Pause"; each transport key lights while its state is current.
+ * Global OSC (f) commands (value < 0.5 ignored) plus /showwindow (plain f).
+ * Snapshot keys light on /snapshot/load/N >= 2; transport keys on the
+ * matching /durec/state string.
  */
 @action({ UUID: "de.shells.totalmixgen2.globaltrigger" })
 export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
@@ -93,8 +88,7 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 		if (mode === "snapshot") {
 			const address = g.snapshotLoad(this.snapshotNumber(settings));
 			const render = (): void => {
-				// 0 = off, 2 = active, 3 = changed; active and changed both mean
-				// this is the loaded snapshot.
+				// 0 = off, 2 = active, 3 = changed.
 				const on = gm.getNumber(address, 0) >= 2;
 				if (target.isKey()) {
 					void target.setImage(on ? STATE_IMG.on : STATE_IMG.off);
@@ -104,19 +98,18 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 			unsubs.push(gm.subscribe(address, render), gm.onConnectionChange(render));
 			render();
 		} else if (DUREC_STATE_MATCH[mode] !== undefined) {
+			const img = MODE_IMG[mode] ?? STATE_IMG;
 			const render = (): void => {
 				const on = gm.getString(g.DUREC_STATE) === DUREC_STATE_MATCH[mode];
 				if (target.isKey()) {
-					void target.setImage(on ? STATE_IMG.on : STATE_IMG.off);
+					void target.setImage(on ? img.on : img.off);
 					void target.setState(on ? 1 : 0);
 				}
 			};
 			unsubs.push(gm.subscribe(g.DUREC_STATE, render), gm.onConnectionChange(render));
 			render();
 		} else if (target.isKey()) {
-			// One-shot modes (undo, layouts, show/hide window) carry no state, so
-			// the icon must not move: the manifest or user artwork is restored and
-			// the action parked on its neutral state.
+			// Stateless modes: restore the manifest/user image.
 			void target.setImage();
 			void target.setState(0);
 		}
@@ -127,6 +120,7 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 
 	override onWillDisappear(ev: WillDisappearEvent<GlobalTriggerSettings>): void {
 		this.releaseFor(ev.action.id);
+		forgetAlertState(ev.action.id);
 	}
 
 	override onKeyDown(ev: KeyDownEvent<GlobalTriggerSettings>): void {
@@ -138,7 +132,6 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 
 		switch (mode) {
 			case "snapshot":
-				// The table: "only receive-value accepted: 1".
 				gm.trigger(g.snapshotLoad(this.snapshotNumber(settings)), 1.0);
 				return;
 			case "layout":
@@ -160,9 +153,7 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 				gm.trigger(g.DUREC_PAUSE, 1.0);
 				return;
 			case "durecStop":
-				// 1.0, never above 10: per the table, stopping a running recording
-				// takes two presses, and a value above 10 bypasses that
-				// confirmation.
+				// 1.0: stopping a recording needs two presses; > 10 would bypass that.
 				gm.trigger(g.DUREC_STOP, 1.0);
 				return;
 			case "durecRecord":
@@ -175,7 +166,6 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 				gm.trigger(g.DUREC_PREVIOUS, 1.0);
 				return;
 			case "showWindow":
-				// Plain f, not (f): 1 shows, 0 hides.
 				gm.trigger(g.SHOW_WINDOW, 1.0);
 				return;
 			case "hideWindow":
@@ -185,13 +175,7 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 	}
 
 	private snapshotNumber(settings: GlobalTriggerSettings): number {
-		// TotalMix offers 8 snapshots, numbered from 1.
 		return Math.min(Math.max(num(settings.index, 1), 1), 8);
-	}
-
-	/** Exposed for tests. */
-	static durecMatch(mode: GlobalTriggerMode): string | undefined {
-		return DUREC_STATE_MATCH[mode];
 	}
 
 	private releaseFor(id: string): void {
@@ -199,10 +183,5 @@ export class GlobalTrigger extends SingletonAction<GlobalTriggerSettings> {
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();
 		this.cleanup.delete(id);
-	}
-
-	/** Exposed for render-in-isolation tests. */
-	protected connectionFor(settings: GlobalTriggerSettings): GlobalConnection {
-		return globalMixFor(globalConnectionOptions(settings));
 	}
 }

@@ -47,6 +47,8 @@ describe("resolving defaults", () => {
 			sendPort: 7001,
 			receivePort: 9001,
 			stepDb: 1.5,
+			fxPercent: 2,
+			fxStepDb: 1,
 		});
 	});
 
@@ -56,6 +58,8 @@ describe("resolving defaults", () => {
 			sendPort: 7002,
 			receivePort: 9002,
 			stepDb: 1.5,
+			fxPercent: 2,
+			fxStepDb: 1,
 		});
 	});
 
