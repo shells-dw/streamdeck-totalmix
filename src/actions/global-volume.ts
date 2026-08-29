@@ -68,6 +68,10 @@ import {
 	subscribeMainMuteIndicator,
 	usesMainMuteIndicator,
 } from "./global-volume-main-mute-indicator.js";
+import {
+	mixSourceMuteAddress,
+	usesMixSourceMuteGesture,
+} from "./global-volume-source-mute.js";
 
 export type GlobalVolumeTarget =
 	| "main"
@@ -654,6 +658,12 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				}
 				return flipChannel("mute");
 
+			case "muteSource": {
+				const muteAddress = mixSourceMuteAddress(settings);
+				if (muteAddress !== undefined) gm.toggleSet(muteAddress);
+				return undefined;
+			}
+
 			case "solo":
 				if (target === "mixNode") {
 					gm.toggleSet(
@@ -768,12 +778,20 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return this.writeLevel(gm, settings, faderToDb(restore));
 	}
 
-	/** Wash flags, solo first: mix nodes have solo only; main has none. */
+	/** Wash flags, solo first: a configured mix-node source mute is channel-wide. */
 	private washAddresses(settings: GlobalVolumeSettings, gm: GlobalConnection): string[] {
 		const target = settings.target ?? "channel";
 
 		if (target === "mixNode" || target === "mixPan") {
-			return [g.mixSolo(settings.mixSrcBus ?? "in", num(settings.mixSrc, 0), num(settings.mixOut, 0))];
+			const solo = g.mixSolo(
+				settings.mixSrcBus ?? "in",
+				num(settings.mixSrc, 0),
+				num(settings.mixOut, 0),
+			);
+			const mute = usesMixSourceMuteGesture(settings)
+				? mixSourceMuteAddress(settings)
+				: undefined;
+			return mute === undefined ? [solo] : [solo, mute];
 		}
 		if (target === "main" || target === "activeMonitor") return [];
 
@@ -906,9 +924,16 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const offline = !gm.connected;
 		const name = this.labelFor(gm, settings);
 		const wash = offline ? "none" : this.washFor(settings, gm);
+		const sourceMuteAddress = usesMixSourceMuteGesture(settings)
+			? mixSourceMuteAddress(settings)
+			: undefined;
 		// The ARC-style indicator is deliberately narrower than the generic wash:
 		// only Active Monitor with a Mute Main Out gesture may light this pill.
-		const mute = wash === "mute" || mainMuteIndicatorOn(settings, gm, gm.connected);
+		// Mix-node source mute is separate from node solo, so both pills can light.
+		const mute =
+			wash === "mute" ||
+			mainMuteIndicatorOn(settings, gm, gm.connected) ||
+			(sourceMuteAddress !== undefined && asBool(gm.get(sourceMuteAddress) ?? 0));
 		const solo = wash === "solo";
 		const nudge = target.isKey() ? (settings.nudge ?? "up") : undefined;
 

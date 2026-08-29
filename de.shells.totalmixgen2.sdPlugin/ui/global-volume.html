@@ -153,6 +153,7 @@
         <option value="none">Nothing</option>
         <optgroup label="This dial">
           <option value="mute" data-kinds="main activeMonitor channel gain pan">Mute</option>
+          <option value="muteSource" data-kinds="mixNode">Mute source channel</option>
           <option value="solo" data-kinds="channel gain mixNode pan mixPan">Solo / PFL</option>
           <option value="phantom" data-kinds="channel gain pan">Phantom power (48V)</option>
           <option value="infinity" data-kinds="main activeMonitor channel gain mixNode">Set to −∞ (press again to restore)</option>
@@ -181,6 +182,7 @@
         <option value="none">Nothing</option>
         <optgroup label="This dial">
           <option value="mute" data-kinds="main activeMonitor channel gain pan">Mute</option>
+          <option value="muteSource" data-kinds="mixNode">Mute source channel</option>
           <option value="solo" data-kinds="channel gain mixNode pan mixPan">Solo / PFL</option>
           <option value="phantom" data-kinds="channel gain pan">Phantom power (48V)</option>
           <option value="infinity" data-kinds="main activeMonitor channel gain mixNode">Set to −∞ (press again to restore)</option>
@@ -348,8 +350,8 @@
           ? "Default: press mutes by dropping the fader to \u2212\u221e and remembering the level " +
             "(this protocol's control room has no mute); touch dims."
           : t === "mixNode"
-            ? "Default: press solos the node \u2014 a send has no mute of its own, pulling it down " +
-              "is the mute; touch drops it to \u2212\u221e. Press or tap again to restore."
+            ? "Default: press solos the node; touch drops it to \u2212\u221e. Mute source channel " +
+              "toggles the selected input/playback channel globally, across all submixes."
             : "Default: press mutes; touch drops the fader to \u2212\u221e, which silences the " +
               "channel without touching its mute state. Press or tap again to restore.";
     });

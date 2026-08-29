@@ -71,6 +71,10 @@ export const mixFaderlin = (src: MixSourceBus, input: number, output: number): s
 export const mixSolo = (src: MixSourceBus, input: number, output: number): string =>
 	mixNode(src, input, output, "solo");
 
+/** Real channel mute for a mix node's input/playback source (not a node-local parameter). */
+export const mixSourceMute = (src: MixSourceBus, input: number): string =>
+	channelMute(src === "pb" ? "playback" : "input", input);
+
 // --- Control room: /controlroom/{param} ---------------------------------------
 
 export const controlroom = (param: string): string => `/controlroom/${param}`;

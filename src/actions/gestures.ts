@@ -20,6 +20,7 @@ export type Gesture =
 	| "infinity"
 	| "unity"
 	| "center"
+	| "muteSource"
 	// Control room and global, independent of target.
 	| "dim"
 	| "mono"
@@ -161,6 +162,7 @@ export const GLOBAL: Vocabulary<GlobalKind> = {
 		none: GLOBAL_KINDS,
 
 		mute: ["main", "activeMonitor", "channel", "gain", "pan"],
+		muteSource: ["mixNode"],
 		solo: ["channel", "gain", "mixNode", "pan", "mixPan"],
 		phantom: ["channel", "gain", "pan"],
 		infinity: ["main", "activeMonitor", "channel", "gain", "mixNode"],
@@ -224,6 +226,7 @@ export const GESTURE_LABELS: Readonly<Record<Gesture, string>> = {
 	infinity: "To -oo",
 	unity: "To 0 dB",
 	center: "Centre",
+	muteSource: "Mute source channel",
 	dim: "Dim",
 	mono: "Mono",
 	talkback: "Talkback",

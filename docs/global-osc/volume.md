@@ -34,7 +34,9 @@ See [Dials and gestures](../dials-and-gestures.md). Defaults here: press mutes (
 
 Global OSC has no cue in its channel section, so *Cue* is not offered; a mix node has no mute of its own, so its press defaults to solo.
 
-**Mute Main Out** is a separate ARC USB-style Control Room gesture. It reads Main Out's real output mute, inverts it, then writes that same state to the outputs currently assigned to Main Out and Main Out B. Speaker B does not choose the operation target, and Main Out alone remains the displayed state source. This does not replace **This dial → Mute**, which continues to park the controlled fader at −∞ and restore it.
+For a **Submix send (mix node)**, **Mute source channel** toggles the selected Source channel's real `/input/{channel}/mute` or `/playback/{channel}/mute`. It is available independently for press and touch, follows changes made elsewhere, and lights the M state on the display. Unlike **Set to −∞**, this is channel-wide and therefore mutes that source across every submix, not only the selected send.
+
+**Mute Main Out** is a separate ARC USB-style Control Room gesture. It reads Main Out's real output mute, inverts it, then writes that same state to the outputs currently assigned to Main Out and Main Out B. Speaker B does not choose the operation target, and Main Out alone remains the displayed state source. This does not replace **Set to −∞**, which continues to park the controlled fader and restore it.
 
 ## On the key or display
 

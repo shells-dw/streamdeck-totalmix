@@ -91,6 +91,8 @@ describe("global addresses conform to the Global OSC table", () => {
 		["mixFaderlin", g.mixFaderlin("in", 0, 2)],
 		["mixFaderlin pb", g.mixFaderlin("pb", 3, 4)],
 		["mixSolo", g.mixSolo("in", 1, 1)],
+		["mix source mute input", g.mixSourceMute("in", 1)],
+		["mix source mute playback", g.mixSourceMute("pb", 3)],
 		// control room
 		["CR_DIM", g.CR_DIM],
 		["CR_MAINOUT", g.CR_MAINOUT],

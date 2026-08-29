@@ -90,9 +90,18 @@ describe("Global OSC defaults", () => {
 	});
 
 	it("presses to solo on a mix node, which has no mute of its own", () => {
-		// A node is a send: pulling it down is the mute, so solo is the switch.
+		// A node is a send: source-channel mute is available, but is wider than this one submix.
 		expect(defaultGesture("mixNode", "press", GLOBAL)).toBe("solo");
 		expect(GLOBAL.applies.mute).not.toContain("mixNode");
+	});
+
+	it("offers real source-channel mute on a mix node without changing its defaults", () => {
+		expect(GLOBAL.applies.muteSource).toEqual(["mixNode"]);
+		expect(resolveGesture("muteSource", "mixNode", "press", GLOBAL)).toBe("muteSource");
+		expect(resolveGesture("muteSource", "mixNode", "touch", GLOBAL)).toBe("muteSource");
+		expect(resolveGesture("muteSource", "channel", "press", GLOBAL)).toBe("mute");
+		expect(CLASSIC.applies.muteSource).toBeUndefined();
+		expect(GLOBAL_FX.applies.muteSource).toBeUndefined();
 	});
 
 	it("taps to dim on the main out and -oo elsewhere", () => {

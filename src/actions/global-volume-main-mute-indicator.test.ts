@@ -172,13 +172,16 @@ describe("Active Monitor Main Out mute indicator", () => {
 	it("is integrated once into Global Volume setup and render", () => {
 		const source = readFileSync("src/actions/global-volume.ts", "utf8");
 		const setupCall = "unsubs.push(subscribeMainMuteIndicator(settings, gm, render))";
+		const stripRender = source.slice(
+			source.indexOf("private async renderStrip"),
+			source.indexOf("private applyNudgeIcon"),
+		);
 
 		expect(source).toContain("target.isDial() && usesMainMuteIndicator(settings)");
 		expect(source.split(setupCall)).toHaveLength(2);
 		expect(source).toContain("mainMuteIndicatorOn(settings, gm, gm.connected)");
-		expect(source).toContain(
-			'const mute = wash === "mute" || mainMuteIndicatorOn(settings, gm, gm.connected)',
-		);
+		expect(stripRender).toContain("mainMuteIndicatorOn(settings, gm, gm.connected)");
+		expect(stripRender).toContain("sourceMuteAddress !== undefined");
 		expect(source).toContain(
 			'washFeedback(this.labelFor(gm, settings), "—", 0, "none", mainMute)',
 		);

@@ -24,12 +24,14 @@ A Stream Deck+ dial has three inputs: turn it, press it, tap the touch strip abo
 
 Either can be reassigned. The menu is grouped by what the choice acts on and only offers what the target supports:
 
-- **This dial** — mute, solo/PFL, cue (classic only), phantom power, set to −∞, set to 0 dB, centre the pan, bypass the effect, back to neutral, to neutral and back.
+- **This dial** — mute, mute source channel (Global OSC submix sends), solo/PFL, cue (classic only), phantom power, set to −∞, set to 0 dB, centre the pan, bypass the effect, back to neutral, to neutral and back.
 - **Control room** — dim, mono, talkback, speaker B, **Mute Main Out**, external input, mute FX return, recall main volume. These are global switches, so any dial can carry one. Mute Main Out mirrors the ARC USB operation: Main Out supplies the state, and both Main Out and Main Out B receive the new real output-mute value.
 - **Global** — mute all, solo all.
 - **Nothing**.
 
 Setting a fader to −∞ remembers the level it was at, so the next press or tap restores it. It silences the channel without touching its mute, which also leaves any mute group the channel belongs to alone. A fader parked at −∞ shows as muted on the display.
+
+On a Global OSC submix send, **Mute source channel** is different: it toggles the selected input or playback channel's real mute, so it affects that source in every submix. Its M display state follows that channel's mute changes from TotalMix or any other controller.
 
 ## What the display shows
 
