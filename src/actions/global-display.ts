@@ -21,6 +21,8 @@ import { num } from "../totalmix/settings.js";
 import { wrapTitle } from "../globalosc/wrap.js";
 import { alertIfDown, forgetAlertState } from "./alert.js";
 import { washFeedback } from "./wash.js";
+import { displayKeyImage, displayTouchImage, type DisplayView } from "../render/display.js";
+import { PeakHold } from "./peak-hold.js";
 
 export type GlobalDisplaySettings = {
 	mode?: GlobalDisplayMode;
@@ -28,6 +30,8 @@ export type GlobalDisplaySettings = {
 	bus?: g.GlobalBus | "";
 	/** 0-based channel for the level meter mode. */
 	channel?: number | string;
+	/** Artwork: TotalMix-style panel (default) or the plain title. */
+	look?: "strip" | "icon";
 	host?: string;
 	sendPort?: number;
 	receivePort?: number;
@@ -47,6 +51,13 @@ const LEVEL_RENDER_MS = 100;
 /** Meter bar span: -60 dB at empty, 0 dBFS at full. */
 const METER_FLOOR_DB = -60;
 
+/** Peak hold time and decay rate for the strip meter. */
+const HOLD_MS = 1500;
+const HOLD_DECAY_DB_PER_S = 12;
+
+/** Touch-display layouts per look. */
+const LAYOUT = { strip: "layouts/strip.json", icon: "layouts/volume.json" } as const;
+
 /** Read-only display of /level, /status and /durec time/state. A press requests a full refresh. */
 @action({ UUID: "de.shells.totalmixgen2.globaldisplay" })
 export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
@@ -55,6 +66,14 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 	/** Per-action render throttle (level mode). */
 	private readonly lastRender = new Map<string, number>();
 	private readonly renderTimers = new Map<string, NodeJS.Timeout>();
+
+	private readonly peakHold = new PeakHold(HOLD_MS, HOLD_DECAY_DB_PER_S, LEVEL_RENDER_MS);
+
+	/** Last image sent per action, so unchanged art is not re-sent. */
+	private readonly images = new Map<string, string>();
+
+	/** Active layout per dial, so setFeedbackLayout runs only on change. */
+	private readonly layouts = new Map<string, string>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalDisplaySettings>): Promise<void> {
 		await seedDefaults(ev.action, ev.payload.settings, "global");
@@ -99,12 +118,23 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 			);
 		};
 
-		if (target.isKey()) void target.setImage("imgs/blank");
+		const strip = settings.look !== "icon";
+		if (target.isKey() && !strip) void target.setImage("imgs/blank");
+		if (target.isDial()) {
+			const layout = LAYOUT[strip ? "strip" : "icon"];
+			if (this.layouts.get(target.id) !== layout) {
+				this.layouts.set(target.id, layout);
+				this.images.delete(target.id);
+				await target.setFeedbackLayout(layout);
+			}
+		}
 
 		const unsubs = [gm.subscribe(address, render), gm.onConnectionChange(render)];
 		if (mode === "level") {
 			unsubs.push(gm.subscribe(g.channelName(this.busOf(settings), num(settings.channel, 0)), render));
 		}
+		// The clock shows the transport state beside the time.
+		if (mode === "durecTime") unsubs.push(gm.subscribe(g.DUREC_STATE, render));
 
 		this.releaseFor(target.id);
 		this.cleanup.set(target.id, unsubs);
@@ -114,6 +144,7 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 
 	override onWillDisappear(ev: WillDisappearEvent<GlobalDisplaySettings>): void {
 		this.releaseFor(ev.action.id);
+		this.layouts.delete(ev.action.id);
 		forgetAlertState(ev.action.id);
 	}
 
@@ -227,6 +258,11 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 		const formatted = this.format(gm, settings, address);
 		const text = formatted?.text ?? "—";
 
+		if (settings.look !== "icon") {
+			await this.renderStrip(gm, target, settings, address);
+			return;
+		}
+
 		if (target.isDial()) {
 			// Shares the volume layout; colours must be written explicitly.
 			await target.setFeedback(
@@ -238,7 +274,66 @@ export class GlobalDisplay extends SingletonAction<GlobalDisplaySettings> {
 		await target.setTitle(wrapTitle(text));
 	}
 
+	/** TotalMix-style panel for the mode; unchanged images are not re-sent. */
+	private async renderStrip(
+		gm: GlobalConnection,
+		target: WillAppearEvent<GlobalDisplaySettings>["action"] | DialAction<GlobalDisplaySettings>,
+		settings: GlobalDisplaySettings,
+		address: string,
+	): Promise<void> {
+		const offline = !gm.connected;
+		const name = this.labelFor(gm, settings);
+		const raw = gm.get(address);
+		let view: DisplayView;
+
+		switch (settings.mode ?? "level") {
+			case "level": {
+				const peakDb = typeof raw === "number" ? raw : undefined;
+				const holdDb = this.peakHold.value(target.id, peakDb, () => void this.render(gm, target, settings));
+				view = { kind: "meter", name, peakDb, holdDb };
+				break;
+			}
+			case "statusDevice":
+				view = { kind: "text", name, value: typeof raw === "string" ? raw : "—" };
+				break;
+			case "statusConnection": {
+				const on = typeof raw === "number" && raw >= 0.5;
+				view = { kind: "status", name, value: raw === undefined ? "—" : on ? "Connected" : "No device", on };
+				break;
+			}
+			case "statusDsp": {
+				// Unit undocumented: a value up to 1 is read as a fraction, above as a percentage.
+				const v = typeof raw === "number" ? raw : undefined;
+				view = {
+					kind: "gauge",
+					name,
+					value: v === undefined ? "—" : `${Math.round(v <= 1 ? v * 100 : v)} %`,
+					fraction: v === undefined ? undefined : v <= 1 ? v : v / 100,
+				};
+				break;
+			}
+			case "durecTime":
+				view = { kind: "clock", name, time: typeof raw === "string" ? raw : "—", state: gm.getString(g.DUREC_STATE) };
+				break;
+			case "durecState":
+				view = { kind: "transport", name, state: typeof raw === "string" ? raw : undefined };
+				break;
+		}
+
+		const image = target.isDial() ? displayTouchImage({ view, offline }) : displayKeyImage({ view, offline });
+		if (this.images.get(target.id) === image) return;
+		this.images.set(target.id, image);
+		if (target.isDial()) {
+			await target.setFeedback({ canvas: image });
+			return;
+		}
+		await target.setTitle("");
+		await target.setImage(image);
+	}
+
 	private releaseFor(id: string): void {
+		this.images.delete(id);
+		this.peakHold.forget(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

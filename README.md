@@ -1,216 +1,109 @@
 ![GitHub](https://img.shields.io/github/license/shells-dw/streamdeck-totalmix)     ![GitHub last commit](https://img.shields.io/github/last-commit/shells-dw/streamdeck-totalmix)/ [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dwshells) [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/dwshells)
 
 
-# Unofficial StreamDeck TotalMix FX Plugin
+# TotalMix FX Control — Stream Deck plugin (unofficial)
 
 ## What Is This (and what does it do?)
 
-It's a plugin for the [Elgato Stream Deck][Stream Deck] that triggers global actions as well as individual channel actions on the [RME TotalMix FX][] application. Note: a RME audio interface/card is needed for TotalMix FX to work.
+It's a plugin for the [Elgato Stream Deck][Stream Deck] on Windows **and MacOS** that puts [RME TotalMix FX][] on your keys and dials: faders, mute, solo, phantom power, snapshots, DURec, effects, dynamics, Room EQ and more, with everything drawn live from the mixer so the deck always shows what TotalMix is doing. Note: an RME audio interface/card is needed for TotalMix FX to work.
 
-## New in v4
+![Stream Deck+ recording layout](/docs/images/v5_deck_plus.png)
 
+## What's new since v3
+
+This is the first release after v3.3.5 that most people will see, so a lot of featuers and functionality will be new to you. The v4 line (a full rewrite) was published in quick succession over the last days; v5 builds the TotalMix look on top of it and will be the release version. In short:
+
+### New in v5
+
+- **Looks similar TotalMix.** Every key and Stream Deck+ display — Global OSC and classic alike — is drawn live in the familiar colours: fader strips with RME's scale and a peak meter, knobs with section-coloured arcs, dropdown boxes for lists, and the familiar blue M / orange S / red 48V buttons. Nothing to configure; an **Appearance** setting brings the plain icons from the previous versions back if you prefer them.
+- **Global OSC first.** The five "(TotalMix 2.1+)" actions are where things (finally) shift to: absolute channel numbers, real state feedback, meters, snapshots that light while loaded. The classic actions for TotalMix FX 1.96–2.0 are still included and still work, but new features land on Global OSC. _(I'm frankly quite tired of dealing with the old context sensitive approach.)_
+- **Select instead of step.** A key can write one specific entry of a list (reverb type, reference level, crossfeed, EQ band type, low cut slope, echo type) and light while that entry is active — with a second-press action of your choice, so one key can be a preset, a two-way toggle or an on/off switch.
+
+### New since v3 (the v4 line)
+
+- **Complete rewrite** — TypeScript on Elgato's Node SDK instead of C#/.NET; zero runtime dependencies beyond the Stream Deck SDK, one persistent OSC connection, no polling and near-zero CPU
 - **Runs on macOS** — one installer for Windows and Mac
-- **Stream Deck+ dials** — turn to set levels, with channel name, live readout and position bar on the display
+- **Stream Deck+ dials** — turn to set levels, with channel name, live readout and position on the display; **press and touch assignable** per dial (mute, solo, cue, phantom, dim, mono, talkback, speaker B, external input, mute FX return, recall, global mute/solo, set to −∞, set to 0 dB, centre the pan, bypass or reset an effect, or nothing)
 - **Volume buttons for decks without dials** — each press nudges up or down by a set amount; place a `+` and `−` pair for a volume rocker
 - **dB-accurate stepping** — follows RME's fader curve, so every step moves the same amount anywhere on the throw
-- **Live two-way feedback** — change something in TotalMix and your buttons update instantly
-- **Near-zero CPU** — one persistent connection, no polling
+- **Live two-way feedback** — change something in TotalMix and your buttons update instantly; mute and solo show on the dial display
 - **Pick channels by name** — "1 · Mic 1", read live from your interface
 - **Input gain on a dial** — per channel, stereo pairs linked, with per-device gain ranges
+- **Pan on a dial** — with TotalMix's `L50 / C / R50` readout and a tap to centre
 - **Effects control** — reverb, echo, low cut, EQ, dynamics and Auto Level parameters on dials; press to switch the section on or off
+- **Room EQ** per output channel: enable toggle, plus volume correction, delay, and gain/frequency/Q of all 9 bands (filter type on bands 1, 8, 9)
 - **Jump straight to submixes, snapshots, buses and Quick Workspaces**
-- **Room EQ** toggle per output channel
-- **TotalMix FX 2.0 compatible** (and 1.96+)
-- **Simpler setup** — one OSC controller, no config file
+- **TotalMix FX 2.0 compatible** (and 1.96+); **simpler setup** — one OSC controller, no config file
+- **TotalMix FX 2.1 "Global OSC" support** — five additional actions (Volume, Toggle, Trigger, Display, Effects & Dynamics) with absolute channel addressing: a button means "input 3", not "the third fader of whatever bank is shown". Snapshots with a real active-state light, DURec transport, layouts, presets, undo/redo, device status and DSP load
+- **Defaults for new buttons** — host, ports and dB-per-step set once, copied into every button you add; stored in Stream Deck, so they survive updates
 
-## New in v4.2 — TotalMix FX 2.1 "Global OSC" support
-
-Additional actions built on RME's new Global OSC protocol (TotalMix FX 2.1+),
-running side by side with the classic actions:
-
-- **Absolute channel addressing** — a button means "input 3", not "the third
-  fader of whatever bank is shown". No bus/bank pinning, no drifting buttons.
-- **Volume (TotalMix 2.1+)** — channel faders, submix sends (any mix-matrix
-  node) and preamp gain, on dials and keys.
-- **Toggle (TotalMix 2.1+)** — channel, control-room, global, FX and group
-  on/offs, with state lights driven by the device (groups excepted: TotalMix
-  does not report them, so those keys track their own presses).
-- **Trigger (TotalMix 2.1+)** — snapshots with a real active-state light (green
-  when loaded), layouts, undo/redo, recall main volume, DURec transport,
-  show/hide window.
-- **Display (TotalMix 2.1+)** — read-only device status, DSP load and DURec
-  time/state on a key or dial. (Peak level meters are wired up too, but the
-  2.1 beta does not transmit level data yet.)
-- **Effects & Dynamics (TotalMix 2.1+)** — reverb, echo, EQ, low cut, dynamics
-  and Auto Level parameters by absolute channel number, stepped in their own
-  units (dB, Hz, ms).
-
-The classic actions keep working unchanged — both protocols run in parallel on
-separate TotalMix Remote Controllers.
-> [!NOTE]  
-> Global OSC is still beta and may change with any new release. You will need TotalMix 2.1x, which is currently in beta, for this feature.
-
-![Overview](/docs/images/GH_SocPic.png)
-
-## New in v4.4 — dial gestures, pan, and state on the display
-
-- **Press and touch assignable**, on both the classic and the Global OSC volume dials. Each can be bound independently — mute, solo, cue, phantom, dim, mono, talkback, speaker B, external input, mute FX return, recall, global mute, global solo, set to −∞, set to 0 dB, centre the pan, bypass or reset an effect parameter, or nothing at all. Left alone, each does the sensible thing for what the dial points at.
-- **Mute and solo show on the display.** A muted channel shows a blue and a soloed one an orange background on the touchscreen. Driven by the mixer, so it follows a mute made anywhere — the dial, a Toggle key, or TotalMix itself. An effect parameter's dial shows orange text and bar while its section is switched on.
-- **Pan on a dial**, for the selected channel or a strip in the bank (classic), or a channel's or a submix send's balance (Global OSC), with TotalMix's own "L50 / C / R50" readout and a tap to centre.
-- The **Volume** action is now **Levels & Parameters** as it carries more functions.
+> [!NOTE]
+> Global OSC needs TotalMix FX 2.1, which is in beta at the time of writing. The protocol is marked beta by RME and may change with any release.
 
 ## Release / Installation
 
-Inside the Gitub Release you can find the precompiled plugin. Download and open it, your computer should already recognize this as a StreamDeck file and offer to open it with StreamDeck - which will have the plugin available in the list then.
+Inside the GitHub Release you can find the precompiled plugin. Download and open it, your computer should already recognize this as a StreamDeck file and offer to open it with StreamDeck - which will have the plugin available in the list then.
+
+Requires Stream Deck 6.9 or newer on Windows 10+ or macOS 13+.
+
+I highly encourage you to use TotalMix 2.1 with Global OSC even if it's in Beta still, as only this will give you the full new feature set: absolute channel numbers, snapshot and DURec state, and meters that always follow the channel. The classic actions get the same TotalMix look (without meters), but the classic protocol only reports what the mixer window currently shows.
 
 ## Coming from v3
 
-**Your existing buttons will not carry over.** v4 consolidates what used to be many separate actions into three, plus five more for TotalMix FX 2.1's Global OSC, so buttons must be re-added. Your settings, ports and icons are otherwise familiar.
+**Your existing buttons will not carry over.** What used to be many separate actions is now three classic actions plus five for TotalMix FX 2.1's Global OSC, so buttons must be re-added. Your settings, ports and icons are otherwise familiar.
 
-It's a different plugin with different UUID so it **will** run alongside your existing plugin, **however** they can't both point to the same OSC controllers. v3 uses Remote Controllers 1 and 2, and so does v4, so the two collide completely. If you want both active at the same time, you must move one of them to a formerly unused OSC controller (TotalMix has four; 3 and 4 are the usual spares). Otherwise uninstall the old plugin!
+It's a different plugin with different UUID so it **will** run alongside your existing plugin, **however** they can't both point to the same OSC controllers. v3 uses Remote Controllers 1 and 2, and so does this one, so the two collide completely. If you want both active at the same time, you must move one of them to a formerly unused OSC controller (TotalMix has four; 3 and 4 are the usual spares). Otherwise uninstall the old plugin!
 
 MIDI support has been removed. OSC does everything the MIDI actions did and reports state back, which MIDI cannot. If you depend on MIDI, stay on v3.3.5.
 
 The de.shells.totalmix.exe.config file is gone. Connection settings now live under Connection in each button's settings.
 
+## Coming from a v4 pre-release
+
+If you picked up one of the v4 builds: buttons carry over. Keys and dials switch to the TotalMix look on their own; if you'd rather keep the old artwork on a button, set its **Appearance** to "Icon". If you want meters on the fader strips, enable "Send Level Messages" on the Global OSC controller (see below) without or without "Peak Hold", that depends on your preferences.
+
 ## Setup for OSC
 
-The classic actions use Remote Controller 1. The "(TotalMix 2.1+)" actions use Remote Controller 2 in Global OSC mode. Set up whichever matches the actions you intend to use — both only if you want both.
+Open **Options → Settings… → OSC** in TotalMix and set up the Remote Controller for the actions you use:
 
-Open Options → Settings… → OSC in TotalMix.
+| | Remote Controller | Mode | Ports incoming / outgoing |
+|---|---|---|---|
+| "(TotalMix 2.1+)" actions — recommended | 2 | **Global OSC** | 7002 / 9002 |
+| Classic actions | 1 | classic | 7001 / 9001 |
 
-![Setup TotalMix OSC](/docs/images/OSC_setup1.png)
+Tick *In Use*, enter `127.0.0.1` as the Remote Controller Address, and for Global OSC enable *Send changes* and *Send status* under *Details*. *Send Level Messages* is optional on the Global OSC controller: on, the fader strips get meters. Leave it off on controller 1; the classic actions don't use it. Then tick *Enable OSC Control* in the Options menu and allow the firewall prompts. Different ports, a remote host, or both plugins side by side: see the [setup guide](https://shells-dw.github.io/streamdeck-totalmix/setup.html).
 
-Tick "In Use" on Remote Controller 1. Defaults are port incoming 7001, port outgoing 9001 — the plugin expects these. Make sure to enter 127.0.0.1 (or the IP of the PC you're connecting from) in the Remote Controller Adress field!  
-Set Number of faders per bank to match your interface's channel count. The plugin can read only as many channels as this is set to.  
-Don't tick Send Level Messages — the plugin doesn't use meters, and it saves needless traffic.
+**No additional software is needed.**
 
-### Global OSC (on Totalmix 2.1, currently beta)
-Tick "In Use" on Remote Controller 2. Defaults are port incoming 7002, port outgoing 9002 — the plugin expects these. Make sure to enter 127.0.0.1 (or the IP of the PC you're connecting from) in the Remote Controller Adress field!  
-Set its *Compatibility (Mode)* to **Global OSC**. The plugin's defaults match controller 2's ports (incoming 7002, outgoing 9002). Then click *Details* and enable at least *Send changes* and *Send status*, recommended is also "Send faders in linear scale" and "Send all data on start (enable)". If you want Peak Level Data displayed on the "Display" Button, enable the setting in the OSC settings.
+## Actions
 
-![Enable OSC](/docs/images/Global_OSC_setup1-1.png) ![Enable OSC](/docs/images/Global_OSC_setup1-2.png)
-
-![Enable OSC](/docs/images/OSC_setup2.png) ![Enable OSC](/docs/images/OSC_setup3.png)
-
-### If your ports or host are different
-
-If TotalMix runs on another machine, or you use Remote Controller slots other than 1 and 2, open any action's property inspector (except Effects & Dynamics, which only reads them) and expand **Defaults for new buttons**. What you set there is copied into every button you add from then on, so you type it once instead of on all thirty buttons.
-
-These live in Stream Deck's own storage, not in a file inside the plugin folder — so unlike v3's `de.shells.totalmix.exe.config`, they survive plugin updates.
-
-Two things worth knowing:
-
-- Changing a default does not move buttons already on your Stream Deck. They keep the connection they were created with, changed under **Connection** in their own property inspector. This is deliberate: it's what lets one dial sit on Remote Controller 1 watching playback while another sits on a different slot watching inputs.
-- The classic actions and the "(TotalMix 2.1+)" Global OSC actions keep separate defaults, because they address separate controller slots.
-
-Then tick Enable OSC Control in the Options menu and make sure the Submix linked to OSC Controller are ticked for all In Use OSC Controllers.
-
-> [!NOTE]  
-> If you change the ports, set them to match under Connection in any button's settings.  
-> TotalMix can also run on a different computer — set the address accordingly, and allow UDP through any firewall in between.
-
-> [!NOTE]
-> Every Remote Controller the plugin talks to needs its own incoming port. If two connections end up on the same receive port (for example the classic and the Global OSC slot both set to 7001), the plugin logs a clear "port already in use" error telling you which port to change. Versions before 4.3.4 could leave one of the two connections silently dead instead, without any error.
-
-No additional software is needed.
-
-Note: if you're using a (software) firewall on your PC and/or any firewall between the StreamDeck and the target PC - make sure to allow the plugin to communicate with the TotalMix port as well as allow TotalMix to listen to it. You'll be prompted with Firewall messages when first enabling OSC in TotalMix and when the plugin first loads in StreamDeck, **make sure it's allowed to communicate or it will not work.**
-
-
-## Usage
-### Actions
- 
 | Action | Where | What it does |
 |---|---|---|
-| **Levels & Parameters** | Key or dial | Main / Control Room volume, a strip in the current bank, the selected channel, pan, input preamp gain, or an FX, EQ, dynamics or Auto Level parameter. Rotate to adjust; press and touch are assignable. |
-| **Toggle** | Key | Control room (dim, mono, mute FX return, speaker B, talkback, external input, recall volume), global mute/solo enable, trim mode; per strip in the current bank: mute, solo, phantom, cue; per channel: mute, solo, phantom, EQ, low cut, dynamics, Auto Level, stereo/mono, phase L/R, instrument, pad, M/S, AutoSet, loopback, talkback include, trim exclude, record enable; DURec record/play-pause/stop; mute/solo/fader groups, snapshots, reverb, echo, Room EQ. |
-| **Select** | Key | Jump to a submix, bank start, channel offset, bus, snapshot or Quick Workspace, or step through tracks and banks. |
-| **Volume (TotalMix 2.1+)** | Key or dial | Global OSC: channel fader, submix send, channel or send pan, or preamp gain, addressed by absolute channel number. Rotate to adjust; press and touch are assignable. |
-| **Toggle (TotalMix 2.1+)** | Key | Global OSC: mute, PFL, phase (L/R), 48V, pad, instrument, AutoSet, M/S, loopback, stereo link, record, low cut, EQ, dynamics, AutoLevel, Room EQ; control room (dim, mono, talkback, external input, speaker B, mute FX return, link Main/Speaker B); global mute/solo enable; reverb, echo; mute/solo/fader groups. |
-| **Trigger (TotalMix 2.1+)** | Key | Global OSC: load snapshots (key lights while active) and layout presets, undo/redo, recall, DURec transport, show/hide the TotalMix window. |
-| **Display (TotalMix 2.1+)** | Key or dial | Global OSC, read-only: device name, connection, DSP load, DURec time and state, channel peak level (once TotalMix transmits it). Updates on its own; press to force a refresh. |
-| **Effects & Dynamics (TotalMix 2.1+)** | Key or dial | Global OSC: reverb, echo, EQ, low cut, dynamics, Auto Level, width, crossfeed, delay and reference level, addressed by absolute channel number. Rotate to adjust; press or touch switches the section on or off. |
- 
-### Volume and dials
- 
-Dials step in decibels along RME's own fader curve, so a detent moves the same amount whether you're at −40 dB or unity. The display shows TotalMix's own level readout and a position bar. Set how much each detent moves with dB per step.
+| **Volume (TotalMix 2.1+)** | Key or dial | Global OSC: channel fader, submix send, channel or send pan, or preamp gain, addressed by absolute channel number. Rotate to adjust; press and touch are assignable. Keys nudge up or down per press. |
+| **Toggle (TotalMix 2.1+)** | Key | Global OSC: mute, PFL, phase (L/R), 48V, pad, instrument, AutoSet, M/S, loopback, stereo link, record, low cut, EQ, dynamics, Auto Level, Room EQ; control room (dim, mono, talkback, external input, speaker B, mute FX return, link Main/Speaker B); global mute/solo enable; reverb, echo; mute/solo/fader groups. |
+| **Trigger (TotalMix 2.1+)** | Key | Global OSC: load snapshots (key lights while active), layout presets, EQ/dynamics/Room EQ presets per channel and reverb/echo presets by number, undo/redo, recall, DURec transport, show/hide the TotalMix window. |
+| **Display (TotalMix 2.1+)** | Key or dial | Global OSC, read-only: device name, connection, DSP load, DURec time and state, channel peak level. Updates on its own; press to force a refresh. |
+| **Effects & Dynamics (TotalMix 2.1+)** | Key or dial | Global OSC: reverb, echo, EQ, low cut, dynamics, Auto Level, width, crossfeed, delay, reference level and Room EQ (volume correction, delay, all 9 bands), addressed by absolute channel number. Rotate to adjust; press and touch are assignable. Keys nudge, or select one entry of a list directly. |
+| **Levels & Parameters** (classic) | Key or dial | Main / Control Room volume, a strip in the current bank, the selected channel, pan, input preamp gain, or an FX, EQ, dynamics, Auto Level or Room EQ parameter. |
+| **Toggle** (classic) | Key | Control room, global mute/solo enable, trim mode; per strip in the current bank: mute, solo, phantom, cue; per channel: mute, solo, phantom, EQ, low cut, dynamics, Auto Level, stereo/mono, phase, instrument, pad, M/S, AutoSet, loopback, talkback include, trim exclude, record enable; DURec; groups, snapshots, reverb, echo, Room EQ. |
+| **Select** (classic) | Key | Jump to a submix, bank start, channel offset, bus, snapshot or Quick Workspace, or step through tracks and banks. |
 
-> [!NOTE]  
-> On buttons instead of SD+ dials this will allow nudging up or down with a button press.
+The classic actions keep working and share the TotalMix look; both protocols run in parallel on separate TotalMix Remote Controllers.
 
-![Vol_Btn](/docs/images/SD_vol_btn.png) ![Vol_Dial](/docs/images/SD_vol_dial.png)
+## Documentation
 
-### Press and touch
+Everything else — every action's settings, dials and gestures, the TotalMix look, device tables and troubleshooting — lives in the **[documentation](https://shells-dw.github.io/streamdeck-totalmix/)**.
 
-A Stream Deck+ dial has three inputs, not one: turn it, press it, or tap the strip above it. Turning always sets the level. The other two are set per button under **On press** and **On touch**, and default to whatever suits the target:
+- [Setup](https://shells-dw.github.io/streamdeck-totalmix/setup.html) · [Dials and gestures](https://shells-dw.github.io/streamdeck-totalmix/dials-and-gestures.html) · [Appearance](https://shells-dw.github.io/streamdeck-totalmix/appearance.html)
+- Global OSC: [Volume](https://shells-dw.github.io/streamdeck-totalmix/global-osc/volume.html) · [Toggle](https://shells-dw.github.io/streamdeck-totalmix/global-osc/toggle.html) · [Trigger](https://shells-dw.github.io/streamdeck-totalmix/global-osc/trigger.html) · [Display](https://shells-dw.github.io/streamdeck-totalmix/global-osc/display.html) · [Effects & Dynamics](https://shells-dw.github.io/streamdeck-totalmix/global-osc/effects.html)
+- Classic: [Levels & Parameters](https://shells-dw.github.io/streamdeck-totalmix/classic/levels.html) · [Toggle](https://shells-dw.github.io/streamdeck-totalmix/classic/toggle.html) · [Select](https://shells-dw.github.io/streamdeck-totalmix/classic/select.html)
+- [Devices](https://shells-dw.github.io/streamdeck-totalmix/devices.html) · [Troubleshooting](https://shells-dw.github.io/streamdeck-totalmix/troubleshooting.html) · [Changelog](https://shells-dw.github.io/streamdeck-totalmix/changelog.html)
 
-| Target | Press | Touch |
-|---|---|---|
-| Main / Control Room | Mute (fader to −∞) | Dim |
-| A channel, a strip, input gain | Mute | Fader to −∞ (gain to minimum) |
-| A submix send (Global OSC) | Solo | Fader to −∞ |
-| Pan | Mute (solo for a send's pan) | Centre |
-| An FX parameter | Bypass | Parameter to neutral (0 dB, first entry of a selection, or the middle of the range) |
+## A recording layout example
 
+The layout at the top of this page is a Stream Deck+ set up for a single-mic session: 48V and mute on the mic, two snapshots (say "Recording" and "Mixing"), DURec record and stop, talkback and dim; on the dials, mic gain, the mic's fader into Main, the phones level and the main out. On a Stream Deck+ XL there's room for the effect chain as well, with the six dials on levels and the DURec clock:
 
-Either can be reassigned to something else entirely. The menu is grouped by what the choice acts on:
-
-- **This dial** — mute, solo/PFL, cue, phantom power, set to −∞, set to 0 dB, centre the pan, bypass the effect, reset the effect parameter to neutral. These follow the channel the dial controls; the menu only offers what the target supports (no cue over Global OSC, no pan centre on a fader, and so on).
-- **Control room** — dim, mono, talkback, speaker B, external input, mute FX return, recall main volume. These are global switches, so any dial can carry one regardless of what it points at.
-- **Global** — mute all, solo all.
-- **Nothing**, for a dial you would rather not fire by accident.
-
-> [!NOTE]
-> Setting a fader to −∞ remembers the level it was at, so pressing or tapping
-> again restores it. It silences a channel without touching its mute state, which
-> means it also leaves any mute group the channel belongs to alone.
-
-### Mute and solo on the dial display
-
-A muted channel's display background turns blue, a soloed one orange. This also appears when a fader is parked at −∞. 
-
-### Pan
- 
-Pan sits alongside volume on the Levels & Parameters action, as **Pan (channel)** or **Pan (strip in current bank)**. It steps 1% of the throw per detent, which is two of TotalMix's own units, and displays TotalMix's notation — `L50`, `C`, `R50`. A tap on the touch strip centres it again.
-
-### Picking a channel
- 
-Choose channels by name — the dropdown lists what TotalMix calls them ("1 · Mic 1"), read live from your interface.
- 
-TotalMix addresses channels by their position in the currently visible bank, not by a fixed number, so a button can drift if you move around the mixer. To pin a button to one channel permanently, set **Bus** and **Pin bank start** (usually 0) in its settings. Stereo pairs count as one channel. This is still not perfect, as channels up on the mix shift their ID, for example, when a channel is stereo, it's 1, the next channel is 2, but if the channel 1 is set to mono, another channel is added to the mixer, making this channel 2 and the former channel 2 becomes channel 3. Until RME releases the Global OSC implementation, which is currently in Beta (available today with TotalMix 2.1 Beta, setup see above), there is nothing my plugin can do about that. To work around that, set your channels as you need them before assigning StreamDeck functions to them.
- 
-### Input gain
- 
-Preamp gain on a dial, locked to input channels. On linked stereo inputs, both sides move together. Channels without a preamp will show 0 and ignore the dial.
-
-dB-accurate stepping needs to know how wide your preamp's gain range is, and the classic OSC protocol doesn't identify the connected interface — so the button settings offer a **Device** selection. Pick your interface there and each detent moves by the amount you configured; left unset, a 65 dB span is assumed, which fits most RME preamps. Getting this wrong only changes how far a detent travels: the number on the display is always TotalMix's own readout, complete with its unit, so it stays truthful either way.
-
-The Global OSC gain dial doesn't need any of this — the plugin uses the device name TotalMix reports to set the ceiling and scale the position bar.
-
-> [!NOTE]
-> On buttons instead of SD+ dials this will allow nudging up or down with a button press.
-
-### Effects
- 
-Per channel: FX send and return, low cut frequency and slope, the three-band EQ (type, gain, frequency, Q), dynamics (threshold, ratio, attack, release, make-up gain, expander threshold and ratio) and Auto Level (max gain, headroom, rise time). Global: every reverb parameter (volume, pre-delay, width, low/high cut, room scale, smoothness, and the type-specific time, high damp, attack, hold and release) and echo volume, delay, feedback and width. Rotate to adjust, press to switch the section on or off, tap to reset to neutral. Values display in TotalMix's own units; parameters TotalMix shows in dB step in dB once the plugin has seen two readings, frequencies step in Hz, selections step one entry per detent.
-
-> [!NOTE]
-> On buttons instead of SD+ dials each press nudges the parameter up or down by its step.
-
-### TotalMix FX 2.1 — the Global OSC actions
-
-TotalMix FX 2.1 introduces a Global OSC with absolute channel addressing. The five "(TotalMix 2.1+)" actions use it while the classic actions keep using the classic protocol. Both run at the same time on separate Remote Controllers.
-
-**Channel numbers are absolute** — no bank pinning, no drifting. Stereo pairs are addressed by their left channel; for the per-side parameters (phase, gain, delay) the dropdown offers separate "(R)" entries.
-
-**Input/playback faders are per-submix.** In TotalMix, an input strip's fader is its send into the submix currently selected in the window — so over Global OSC these levels live on the mix matrix, one per output. The fader dial for an input/playback channel therefore has a *Submix* picker: "Main Out (auto)" follows the control room's Main Out assignment, or pin any output's submix. The on-screen fader only visibly follows while that submix is selected in the TotalMix window; the audio changes either way. Output channels have one real fader and need no picker.
-
-
-**Snapshots** light up while active — TotalMix reports load state over Global OSC (including loads made in the mixer window), which the classic protocol cannot do.  
-**DURec stop** during recording needs two presses; that's TotalMix's own safety against killing a take, and the plugin deliberately does not bypass it.  
-**Groups** (mute/solo/fader) are receive-only in this protocol: TotalMix never reports their state, so those buttons track their own presses.  
-**Snapshot save** is listed in RME's table but marked as not implemented yet, so the plugin does not offer it.
+![Stream Deck XL layout](/docs/images/v5_deck_xl.png)
 
 # I have an issue or miss a feature?
 
@@ -230,6 +123,29 @@ This is a private project, I am not affiliated with RME or Elgato.
 
 
 # Changelog
+## [5.0.0] - 2026-08-29
+### Added
+- I couldn't be bothered to maintain a private dev repo and the v4 repo, so I finally combined both for the release version.
+- TotalMix-ish look for every action, Global OSC and classic. Keys and Stream Deck+ displays are drawn live similar to the mixer's own colours: fader strips with the RME scale, meter and M/S state, knobs with section-coloured arcs, dropdown boxes for list parameters, and TotalMix-style buttons for switches and triggers. Each action has an **Appearance** setting; "Icon" restores the previous artwork.
+- Peak meters on fader strips (Global OSC) — the meter well fills from `/level` when "Send Level Messages" is enabled on the Global OSC controller; clipping turns it red.
+- Direct entry selection on keys. For list parameters (EQ and Room EQ band type, low cut slope, crossfeed, reference level, reverb and echo type) a key can write a chosen entry instead of stepping: **On press → Select an entry**, then pick the **Entry** and what a **Second press** does while the key is lit (nothing, back to the previous entry, or switch to another entry). Keys light while their entry is active.
+- Named lists for low cut slope, crossfeed, reverb type and echo type, so dials stop at the end of the list and show the entry name instead of a number. Reference levels come from a per-device table keyed on the interface TotalMix reports, separately for inputs and outputs.
+- Peak-hold line on the fader-strip meters and the Display meter: held for 1.5 s, then falling at 12 dB/s.
+- Display panels: meter with peak hold, device name, connection state, DSP gauge, DURec clock and transport symbol.
+- Trigger keys for DURec transport, undo/redo and show/hide use drawn symbols; snapshots and layouts show their number.
+- The classic actions (Levels & Parameters, Toggle, Select) share the TotalMix look: fader strips (no meter — the classic protocol only reports the visible bank), knobs and dropdown boxes for effect parameters using TotalMix's own readout strings, and TotalMix-style buttons. Each has an Appearance setting.
+
+### Changed
+- Renamed to **TotalMix FX Control** (plugin name and action-list category; the plugin UUID is unchanged, so existing buttons stay).
+- Version 5: the Global OSC actions are the primary feature set; the classic actions remain included and unchanged.
+- Channel lists reload on their own when the bus, target, parameter or mode they depend on changes; the entry lists of a select key follow the bus too.
+- Crossfeed is a list parameter (Off, 1–5). Crossfeed and delay are output-only, width input/playback-only, reference level input/output-only; the bus picker only offers what applies.
+- A device name with a unit index ("Fireface UCX II (1)") is recognised.
+
+### Known limits
+- Reference level lists are sourced from RME's manuals for the UCX II, UFX III, UC and UFX; the other entries follow their generation's naming and list order and haven't been checked against a unit. Channels with a shorter list than their bus (UFX III's TRS outputs lack the XLR-only +24 dBu) are clamped by TotalMix, not the plugin. An interface not in the table shows plain numbers.
+- Knob arcs use display ranges for parameters whose span RME's table does not publish. A wrong span only affects how far the arc fills, never the value written.
+
 ## [4.5.0] - 2026-08-28
 ### Fixed
 - A TotalMix restart is detected on any packet after a silence, not only when the first packet is a bare heartbeat, and the classic connection now clears its cached views so buttons re-read their state instead of showing pre-restart values.
@@ -310,7 +226,7 @@ Complete rewrite. TypeScript on Elgato's Node SDK, replacing the C#/.NET plugin.
 - Volume nudge on regular keys — each press raises or lowers by a configurable step, so a `+`/`−` pair works as a volume rocker on decks without dials.
 - Input gain (preamp) control per input channel, including linked stereo pairs.
 - Effects control: reverb send, return, volume, time, pre-delay, width; echo volume, delay, feedback; low cut frequency. Press to bypass.
-- Room EQ toggle per output channel (TotalMix FX 1.96+).
+- Room EQ per output channel: enable toggle and all band parameters, volume correction and delay (TotalMix FX 1.96+; also via Global OSC on 2.1+).
 - Direct selection of submixes, snapshots, buses, channels and Quick Workspaces (1–30) — no more stepping through banks.
 - Channel picker now lists actual TotalMix channel names, read live from the interface.
 - Bus and bank pinning, so a button keeps controlling the same channel regardless of where you navigate in the mixer.

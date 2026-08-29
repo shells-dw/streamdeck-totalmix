@@ -49,6 +49,20 @@ import {
 } from "./gestures.js";
 import { washFeedback, type Wash } from "./wash.js";
 import { nudgeIcon } from "../totalmix/icons.js";
+import {
+	faderKeyImage,
+	faderTouchImage,
+	knobKeyImage,
+	knobTouchImage,
+	listKeyImage,
+	listTouchImage,
+	muteSoloBadges,
+	type Badge,
+	type FaderState,
+	type KnobState,
+	type ListState,
+} from "../render/strip.js";
+import { TM } from "../render/theme.js";
 
 export type VolumeSettings = {
 	/** "main" = mastervolume; "gain" = strip preamp (input bus only); "fx*" = effect parameters. */
@@ -77,6 +91,8 @@ export type VolumeSettings = {
 	press?: Gesture;
 	/** Dial placement only: what tapping the touch display does. Unset means the target's default. */
 	touch?: Gesture;
+	/** Artwork: TotalMix-style strip (default) or the plain icon with a title. */
+	look?: "strip" | "icon";
 	host?: string;
 	sendPort?: number;
 	receivePort?: number;
@@ -85,6 +101,41 @@ export type VolumeSettings = {
 /** Default dB per detent/press. */
 const DEFAULT_STEP_DB = 1.5;
 
+/** Touch-display layouts per look. */
+const LAYOUT = { strip: "layouts/strip.json", icon: "layouts/volume.json" } as const;
+
+/** Arc colour per section, matching the Global OSC knobs. */
+function classicArcColour(target: string): string {
+	if (target.startsWith("fxEq") || target.startsWith("fxRoomEq")) {
+		const band = target.replace(/\D/g, "");
+		if (band === "1") return "#e0413f";
+		if (band === "2") return "#2ec84a";
+		if (band === "3") return TM.selected;
+	}
+	if (target.startsWith("fxComp")) return "#e0413f";
+	if (target.startsWith("fxExp")) return "#2ec84a";
+	if (target.startsWith("fxLowcut")) return TM.fxOn;
+	return TM.selected;
+}
+
+/** Section badge caption for an effect target. */
+function classicSectionBadge(target: string): string {
+	if (target.startsWith("fxEq") || target.startsWith("fxLowcut")) return target.startsWith("fxLowcut") ? "LC" : "EQ";
+	if (target.startsWith("fxComp") || target.startsWith("fxExp")) return "D";
+	if (target.startsWith("fxAutoLevel")) return "AL";
+	if (target.startsWith("fxRoomEq")) return "REQ";
+	if (target.startsWith("fxReverbSend") || target.startsWith("fxReverbReturn")) return "FX";
+	if (target.startsWith("fxReverb")) return "REV";
+	if (target.startsWith("fxEcho")) return "ECHO";
+	return "FX";
+}
+
+/** Targets whose values centre at zero: the knob arc fills from the middle. */
+const BIPOLAR: ReadonlySet<string> = new Set([
+	"fxEqGain1", "fxEqGain2", "fxEqGain3", "fxRoomEqVolumeCorr",
+	...Array.from({ length: 9 }, (_, i) => `fxRoomEqGain${i + 1}`),
+]);
+
 /** Minimum interval between bus/bank pins per action (once per gesture, not per tick). */
 const PIN_INTERVAL_MS = 400;
 
@@ -92,9 +143,9 @@ export type FxTarget = keyof typeof FX_TARGETS;
 
 /**
  * Continuous effect parameters. `press` is the section enable a dial press
- * flips; `scope` "channel" = page 2 (needs a channel selected), "global" =
- * page 3 units. `unit` selects the stepping law; readouts use TotalMix's Val
- * string.
+ * flips; `scope` "channel" = page 2 (needs a channel selected), "roomEq" =
+ * page 4 (needs an output channel selected), "global" = page 3 units. `unit`
+ * selects the stepping law; readouts use TotalMix's Val string.
  */
 const FX_TARGETS = {
 	// Per channel (page 2).
@@ -152,6 +203,40 @@ const FX_TARGETS = {
 	fxEchoDelay: { address: addr.ECHO_DELAY, press: addr.ECHO_ENABLE, label: "Echo Delay", scope: "global", unit: "raw" },
 	fxEchoFeedback: { address: addr.ECHO_FEEDBACK, press: addr.ECHO_ENABLE, label: "Feedback", scope: "global", unit: "raw" },
 	fxEchoWidth: { address: addr.ECHO_WIDTH, press: addr.ECHO_ENABLE, label: "Echo Width", scope: "global", unit: "raw" },
+
+	// Room EQ per output (page 4). Types are selectable on bands 1, 8 and 9 only.
+	fxRoomEqVolumeCorr: { address: addr.ROOM_EQ_VOLUME_CORR, press: addr.ROOM_EQ_ENABLE, label: "REQ Vol Corr", scope: "roomEq", unit: "db" },
+	fxRoomEqDelay: { address: addr.ROOM_EQ_DELAY, press: addr.ROOM_EQ_ENABLE, label: "REQ Delay", scope: "roomEq", unit: "raw" },
+	fxRoomEqType1: { address: addr.roomEqType(1), press: addr.ROOM_EQ_ENABLE, label: "REQ1 Type", scope: "roomEq", unit: "selection" },
+	fxRoomEqGain1: { address: addr.roomEqGain(1), press: addr.ROOM_EQ_ENABLE, label: "REQ1 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq1: { address: addr.roomEqFreq(1), press: addr.ROOM_EQ_ENABLE, label: "REQ1 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ1: { address: addr.roomEqQ(1), press: addr.ROOM_EQ_ENABLE, label: "REQ1 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqGain2: { address: addr.roomEqGain(2), press: addr.ROOM_EQ_ENABLE, label: "REQ2 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq2: { address: addr.roomEqFreq(2), press: addr.ROOM_EQ_ENABLE, label: "REQ2 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ2: { address: addr.roomEqQ(2), press: addr.ROOM_EQ_ENABLE, label: "REQ2 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqGain3: { address: addr.roomEqGain(3), press: addr.ROOM_EQ_ENABLE, label: "REQ3 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq3: { address: addr.roomEqFreq(3), press: addr.ROOM_EQ_ENABLE, label: "REQ3 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ3: { address: addr.roomEqQ(3), press: addr.ROOM_EQ_ENABLE, label: "REQ3 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqGain4: { address: addr.roomEqGain(4), press: addr.ROOM_EQ_ENABLE, label: "REQ4 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq4: { address: addr.roomEqFreq(4), press: addr.ROOM_EQ_ENABLE, label: "REQ4 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ4: { address: addr.roomEqQ(4), press: addr.ROOM_EQ_ENABLE, label: "REQ4 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqGain5: { address: addr.roomEqGain(5), press: addr.ROOM_EQ_ENABLE, label: "REQ5 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq5: { address: addr.roomEqFreq(5), press: addr.ROOM_EQ_ENABLE, label: "REQ5 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ5: { address: addr.roomEqQ(5), press: addr.ROOM_EQ_ENABLE, label: "REQ5 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqGain6: { address: addr.roomEqGain(6), press: addr.ROOM_EQ_ENABLE, label: "REQ6 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq6: { address: addr.roomEqFreq(6), press: addr.ROOM_EQ_ENABLE, label: "REQ6 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ6: { address: addr.roomEqQ(6), press: addr.ROOM_EQ_ENABLE, label: "REQ6 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqGain7: { address: addr.roomEqGain(7), press: addr.ROOM_EQ_ENABLE, label: "REQ7 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq7: { address: addr.roomEqFreq(7), press: addr.ROOM_EQ_ENABLE, label: "REQ7 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ7: { address: addr.roomEqQ(7), press: addr.ROOM_EQ_ENABLE, label: "REQ7 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqType8: { address: addr.roomEqType(8), press: addr.ROOM_EQ_ENABLE, label: "REQ8 Type", scope: "roomEq", unit: "selection" },
+	fxRoomEqGain8: { address: addr.roomEqGain(8), press: addr.ROOM_EQ_ENABLE, label: "REQ8 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq8: { address: addr.roomEqFreq(8), press: addr.ROOM_EQ_ENABLE, label: "REQ8 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ8: { address: addr.roomEqQ(8), press: addr.ROOM_EQ_ENABLE, label: "REQ8 Q", scope: "roomEq", unit: "raw" },
+	fxRoomEqType9: { address: addr.roomEqType(9), press: addr.ROOM_EQ_ENABLE, label: "REQ9 Type", scope: "roomEq", unit: "selection" },
+	fxRoomEqGain9: { address: addr.roomEqGain(9), press: addr.ROOM_EQ_ENABLE, label: "REQ9 Gain", scope: "roomEq", unit: "db" },
+	fxRoomEqFreq9: { address: addr.roomEqFreq(9), press: addr.ROOM_EQ_ENABLE, label: "REQ9 Freq", scope: "roomEq", unit: "freq" },
+	fxRoomEqQ9: { address: addr.roomEqQ(9), press: addr.ROOM_EQ_ENABLE, label: "REQ9 Q", scope: "roomEq", unit: "raw" },
 } as const;
 
 /** Step unit of an FX target, or null for non-FX targets. */
@@ -173,6 +258,9 @@ const DEFAULT_HZ_STEP = 20;
 const MIN_HZ = 20;
 const MAX_HZ = 20000;
 
+/** Tolerance for "already at neutral", in OSC units; TotalMix quantises what it reports. */
+const NEUTRAL_EPSILON = 0.002;
+
 /** Default position count for selection parameters (kOSCScaleLin01 spread evenly; device dependent). */
 const DEFAULT_SELECTION_POSITIONS = 4;
 
@@ -181,18 +269,40 @@ const FX_PROBE_STEP = 0.005;
 
 const isFx = (t: string): t is FxTarget => t in FX_TARGETS;
 
-/** Page-2 targets, which need bus/bank/offset selected. */
-const isChannelScoped = (target: string): boolean =>
-	target === "channel" || target === "pan" || (isFx(target) && FX_TARGETS[target].scope === "channel");
+/** Page-4 targets: Room EQ of the selected output. */
+const isRoomEqScoped = (target: string): boolean => isFx(target) && FX_TARGETS[target].scope === "roomEq";
 
-/** Bus restrictions per the RME table; absent = all buses. */
+/** Page-2 and page-4 targets, which need bus/bank/offset selected. */
+const isChannelScoped = (target: string): boolean =>
+	target === "channel" ||
+	target === "pan" ||
+	(isFx(target) && FX_TARGETS[target].scope === "channel") ||
+	isRoomEqScoped(target);
+
+/** Page the channel selection for a channel-scoped target goes through. */
+const channelPageOf = (target: string): 2 | 4 => (isRoomEqScoped(target) ? 4 : 2);
+
+/**
+ * Channel pin for a target. Room EQ exists on outputs only, and page 4 shows
+ * whichever channel is selected, so following TotalMix's selection would write
+ * into whatever happens to be selected — an input strip most of the time.
+ * Those targets pin the output bus instead.
+ */
+const channelPinOf = <T extends { bus?: unknown }>(target: string, settings: T): T =>
+	isRoomEqScoped(target) && settings.bus !== "output" ? { ...settings, bus: "output" } : settings;
+
+/** Channel name address for a channel-scoped target; page 2 and page 4 report it separately. */
+const trackNameOf = (target: string): string =>
+	isRoomEqScoped(target) ? addr.ROOM_EQ_TRACK_NAME : addr.CH_TRACK_NAME;
+
+/** Bus restrictions per the RME table; absent = all buses. Room EQ exists on outputs only. */
 const TARGET_BUSES: Partial<Record<string, readonly ("input" | "playback" | "output")[]>> = {
 	fxReverbSend: SOURCES,
 	fxReverbReturn: OUTPUTS_ONLY,
 };
 
 const busesFor = (target: string): readonly ("input" | "playback" | "output")[] =>
-	TARGET_BUSES[target] ?? ALL_BUSES;
+	TARGET_BUSES[target] ?? (isRoomEqScoped(target) ? OUTPUTS_ONLY : ALL_BUSES);
 
 /** Stepping law: only mix faders follow the RME fader curve. */
 const kindOf = (target: string): "fader" | "gain" | "fx" | "pan" =>
@@ -218,11 +328,21 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	/** Last audible level per fader address (restore point for -oo); fed by every render. */
 	private readonly lastAudible = new Map<string, number>();
 
+	/** Value held before an FX parameter was parked at neutral, per address. */
+	private readonly lastOffNeutral = new Map<string, number>();
+
 	/** Measured value→dB mappings per address; fed by render(). */
 	private readonly dbScales = new Map<string, DbScale>();
 
 	/** Most recent (value, dB) reading per address, used to locate 0 dB. */
 	private readonly lastDbReading = new Map<string, { value: number; db: number }>();
+
+	/** Last touch-display canvas per action (strip look). */
+	private readonly touchImages = new Map<string, string>();
+
+	/** Active layout per dial, so setFeedbackLayout runs only on change. */
+	private readonly layouts = new Map<string, string>();
+
 
 	/** Selects bus/bank (page 1) or the channel (page 2) before a write, rate-limited unless forced. */
 	private pinIfConfigured(
@@ -240,7 +360,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		this.lastPin.set(id, now);
 
 		if (!positional) {
-			focusChannel(tm, settings, busesFor(target));
+			focusChannel(tm, channelPinOf(target, settings), busesFor(target), channelPageOf(target));
 			return;
 		}
 
@@ -284,12 +404,21 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			tm.onConnectionChange(render),
 		];
 
+		if (target.isDial()) {
+			const layout = LAYOUT[settings.look === "icon" ? "icon" : "strip"];
+			if (this.layouts.get(target.id) !== layout) {
+				this.layouts.set(target.id, layout);
+				this.touchImages.delete(target.id);
+				await target.setFeedbackLayout(layout);
+			}
+		}
+
 		// Track names arrive in their own order; re-render when they land.
 		const tgt = settings.target ?? "main";
 		if (tgt === "strip" || tgt === "gain" || tgt === "stripPan") {
 			unsubs.push(tm.subscribe(addr.trackName(num(settings.strip, 1)), render));
 		} else if (isChannelScoped(tgt)) {
-			unsubs.push(tm.subscribe(addr.CH_TRACK_NAME, render));
+			unsubs.push(tm.subscribe(trackNameOf(tgt), render));
 		}
 
 		// Mute/solo flags and the FX enable drive the wash.
@@ -349,6 +478,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	override onWillDisappear(ev: WillDisappearEvent<VolumeSettings>): void {
 		this.releaseFor(ev.action.id);
 		this.lastPin.delete(ev.action.id);
+		this.layouts.delete(ev.action.id);
 		forgetAlertState(ev.action.id);
 		totalMixFor(connectionOptions(ev.payload.settings)).releasePage(ev.action.id);
 	}
@@ -492,6 +622,9 @@ export class Volume extends SingletonAction<VolumeSettings> {
 				return value;
 			}
 
+			case "neutralToggle":
+				return this.toggleNeutral(tm, settings);
+
 			case "dim":
 				tm.toggle(addr.MAIN_DIM);
 				return undefined;
@@ -523,6 +656,35 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			case "auto":
 				return undefined;
 		}
+	}
+
+	/**
+	 * Parks the parameter at neutral, or returns it to the value held before
+	 * the last park. With nothing held, a value already at neutral stays there.
+	 */
+	private toggleNeutral(tm: TotalMixConnection, settings: VolumeSettings): number | undefined {
+		const neutral = this.neutralFor(settings);
+		if (neutral === undefined) return undefined;
+
+		const address = this.addressFor(settings);
+		const current = tm.getNumber(address, 0, this.requiredView(settings));
+
+		// Within half a step of neutral counts as parked, since TotalMix
+		// quantises what it reports back and an exact match is not guaranteed.
+		if (Math.abs(current - neutral) > NEUTRAL_EPSILON) {
+			this.lastOffNeutral.set(address, current);
+			tm.sendOffPage(address, neutral);
+			return neutral;
+		}
+
+		const restore = this.lastOffNeutral.get(address);
+		if (restore === undefined) {
+			streamDeck.logger.info(`No stored value for ${address}; leaving it at neutral.`);
+			return undefined;
+		}
+
+		tm.sendOffPage(address, restore);
+		return restore;
 	}
 
 	/**
@@ -711,7 +873,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			if (bus === undefined && bank === undefined) return null;
 			return { ...(bus !== undefined ? { bus } : {}), ...(bank !== undefined ? { bank } : {}) };
 		}
-		if (isChannelScoped(tgt)) return channelView(settings, busesFor(tgt));
+		if (isChannelScoped(tgt)) return channelView(channelPinOf(tgt, settings), busesFor(tgt));
 		return null;
 	}
 
@@ -724,9 +886,12 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	): Promise<void> {
 		const address = this.addressFor(settings);
 		const tgt = settings.target ?? "main";
-		const isGain = tgt === "gain";
 
 		const req = this.requiredView(settings);
+		if (settings.look !== "icon") {
+			await this.renderStrip(tm, target, settings, override);
+			return;
+		}
 		if (override === undefined && tm.get(address, req) === undefined) {
 			if (target.isDial()) {
 				// Type-specific reverb parameters never report under other types; the enable is still shown.
@@ -743,48 +908,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 
 		if (kindOf(tgt) === "fader" && !isMinusInfinity(value)) this.lastAudible.set(address, value);
 
-		// The value and its "...Val" string arrive as separate messages, and
-		// TotalMix does not always re-send the string when the value changes.
-		// A string that arrived before the value it labels is discarded, so the
-		// readout falls back to one computed from the value itself.
-		const displayAddress = addr.displayOf(address);
-		const current = tm.sequenceOf(displayAddress, req) >= tm.sequenceOf(address, req);
-		const reported = current ? tm.getString(displayAddress, req) : undefined;
-
-		// An override is a value written but not yet reported, so any cached
-		// string still describes the level before the gesture.
-		const raw = override === undefined ? reported : undefined;
-
-		// Feed the dB mapping from reported readings only, never from overrides.
-		if (isDbScaled(tgt) && override === undefined && raw !== undefined) {
-			const db = parseDb(raw);
-			if (db !== undefined) {
-				let scale = this.dbScales.get(address);
-				if (scale === undefined) {
-					scale = new DbScale();
-					this.dbScales.set(address, scale);
-				}
-				scale.observe(value, db);
-				this.lastDbReading.set(address, { value, db });
-			}
-		}
-		// Page-1 pans have no Val string; page-2 pan does.
-		const isPan = kindOf(tgt) === "pan";
-		// dB-scaled targets have no fixed wire-to-dB curve, so without a string
-		// the readout comes from the mapping measured off earlier readings.
-		const predicted = raw === undefined && isDbScaled(tgt) ? this.predictDb(address, value) : undefined;
-		const label =
-			raw !== undefined
-				? isGain
-					? formatGain(raw)
-					: raw
-				: predicted !== undefined
-					? `${isGain ? Math.round(predicted) : predicted.toFixed(1)} dB`
-					: isPan
-						? formatPan(value)
-						: isGain || isFx(tgt)
-							? `${Math.round(value * 100)} %`
-							: formatDb(value);
+		const label = this.labelText(tm, settings, address, value, override);
 		const name = this.labelFor(tm, settings);
 
 		if (target.isDial()) {
@@ -801,6 +925,141 @@ export class Volume extends SingletonAction<VolumeSettings> {
 
 		this.applyNudgeIcon(target, settings.nudge);
 		await target.setTitle(tm.connected ? label : "—");
+	}
+
+	/** Readout text for the current value, shared by both looks. */
+	private labelText(
+		tm: TotalMixConnection,
+		settings: VolumeSettings,
+		address: string,
+		value: number,
+		override: number | undefined,
+	): string {
+		const tgt = settings.target ?? "main";
+		const req = this.requiredView(settings);
+		const displayAddress = addr.displayOf(address);
+		const current = tm.sequenceOf(displayAddress, req) >= tm.sequenceOf(address, req);
+		const reported = current ? tm.getString(displayAddress, req) : undefined;
+		const raw = override === undefined ? reported : undefined;
+		if (isDbScaled(tgt) && override === undefined && raw !== undefined) {
+			const db = parseDb(raw);
+			if (db !== undefined) {
+				let scale = this.dbScales.get(address);
+				if (scale === undefined) {
+					scale = new DbScale();
+					this.dbScales.set(address, scale);
+				}
+				scale.observe(value, db);
+				this.lastDbReading.set(address, { value, db });
+			}
+		}
+		const isGain = tgt === "gain";
+		const isPan = kindOf(tgt) === "pan";
+		const predicted = raw === undefined && isDbScaled(tgt) ? this.predictDb(address, value) : undefined;
+		return raw !== undefined
+			? isGain
+				? formatGain(raw)
+				: raw
+			: predicted !== undefined
+				? `${isGain ? Math.round(predicted) : predicted.toFixed(1)} dB`
+				: isPan
+					? formatPan(value)
+					: isGain || isFx(tgt)
+						? `${Math.round(value * 100)} %`
+						: formatDb(value);
+	}
+
+	/**
+	 * TotalMix look: fader strip (without meter) for faders, knob for gain, pan
+	 * and effect parameters, dropdown box for selections. Classic values are
+	 * 0..1 wire fractions, which is the knob position directly.
+	 */
+	private async renderStrip(
+		tm: TotalMixConnection,
+		target: WillAppearEvent<VolumeSettings>["action"] | DialAction<VolumeSettings>,
+		settings: VolumeSettings,
+		override?: number,
+	): Promise<void> {
+		const address = this.addressFor(settings);
+		const tgt = settings.target ?? "main";
+		const req = this.requiredView(settings);
+		const offline = !tm.connected;
+		const known = override !== undefined || tm.get(address, req) !== undefined;
+		const value = override ?? tm.getNumber(address, 0, req);
+		if (kindOf(tgt) === "fader" && known && !isMinusInfinity(value)) this.lastAudible.set(address, value);
+		const label = known && !offline ? this.labelText(tm, settings, address, value, override) : "—";
+		const name = this.labelFor(tm, settings);
+		const wash = offline ? "none" : this.washFor(tm, settings, value);
+		const nudge = target.isKey() ? (settings.nudge ?? "up") : undefined;
+		const kind = kindOf(tgt);
+
+		let image: string;
+		if (kind === "fader") {
+			// The classic protocol reports levels only for the visible bank, so no meter is drawn.
+			const state: FaderState = {
+				name,
+				label,
+				position: known ? value : undefined,
+				noMeter: true,
+				mute: wash === "mute",
+				solo: wash === "solo",
+				nudge,
+				offline,
+			};
+			image = target.isDial() ? faderTouchImage(state) : faderKeyImage(state);
+		} else if (kind === "fx" && unitOf(tgt) === "selection") {
+			const fx = FX_TARGETS[tgt as FxTarget];
+			const stripName = fx.scope === "global" ? fx.label : (tm.getString(trackNameOf(tgt), req) ?? fx.label);
+			const state: ListState = {
+				name: fx.scope === "global" ? fx.label : stripName,
+				label,
+				caption: fx.label,
+				badges: [{ label: classicSectionBadge(tgt), lit: wash === "fxOn", colour: TM.fxOn }],
+				nudge,
+				offline,
+			};
+			image = target.isDial() ? listTouchImage(state) : listKeyImage(state);
+		} else {
+			let badges: Badge[];
+			let caption: string | undefined;
+			let arc: string | undefined;
+			let bipolar = false;
+			let header = name;
+			if (kind === "fx") {
+				const fx = FX_TARGETS[tgt as FxTarget];
+				badges = [{ label: classicSectionBadge(tgt), lit: wash === "fxOn", colour: TM.fxOn }];
+				caption = fx.label;
+				arc = classicArcColour(tgt);
+				bipolar = BIPOLAR.has(tgt);
+				header = fx.scope === "global" ? fx.label : (tm.getString(trackNameOf(tgt), req) ?? fx.label);
+			} else {
+				badges = muteSoloBadges(wash === "mute", wash === "solo");
+				bipolar = kind === "pan";
+			}
+			const state: KnobState = {
+				name: header,
+				label,
+				position: known ? Math.min(1, Math.max(0, value)) : undefined,
+				bipolar,
+				arc,
+				caption,
+				badges,
+				nudge,
+				offline,
+			};
+			image = target.isDial() ? knobTouchImage(state) : knobKeyImage(state);
+		}
+
+		if (target.isDial()) {
+			if (this.touchImages.get(target.id) === image) return;
+			this.touchImages.set(target.id, image);
+			await target.setFeedback({ canvas: image });
+			return;
+		}
+		if (this.keyImages.get(target.id) === image) return;
+		this.keyImages.set(target.id, image);
+		await target.setTitle("");
+		await target.setImage(image);
 	}
 
 	/**
@@ -846,8 +1105,8 @@ export class Volume extends SingletonAction<VolumeSettings> {
 			default: {
 				if (!isFx(target)) return "Main";
 				const fx = FX_TARGETS[target];
-				if (fx.scope !== "channel") return fx.label;
-				const name = tm.getString(addr.CH_TRACK_NAME, req);
+				if (fx.scope === "global") return fx.label;
+				const name = tm.getString(trackNameOf(target), req);
 				return name === undefined ? fx.label : `${name} · ${fx.label}`;
 			}
 		}
@@ -872,12 +1131,13 @@ export class Volume extends SingletonAction<VolumeSettings> {
 		return silencedByFader ? "mute" : "none";
 	}
 
-	/** Whether the target's section enable is on; page-2 enables are read through the channel slice. */
+	/** Whether the target's section enable is on; page-2/4 enables are read through the channel slice. */
 	private fxEnabled(tm: TotalMixConnection, settings: VolumeSettings): boolean {
 		const target = settings.target ?? "main";
 		if (!isFx(target)) return false;
 		const enable = FX_TARGETS[target].press;
-		const req = addr.pageOf(enable) === 2 ? this.requiredView(settings) : null;
+		const page = addr.pageOf(enable);
+		const req = page === 2 || page === 4 ? this.requiredView(settings) : null;
 		return asBool(tm.get(enable, req) ?? 0);
 	}
 
@@ -902,7 +1162,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 	private busOf(settings: VolumeSettings): "input" | "playback" | "output" | undefined {
 		const target = settings.target ?? "main";
 		if (target === "gain") return "input";
-		if (isChannelScoped(target)) return channelView(settings, busesFor(target))?.bus;
+		if (isChannelScoped(target)) return channelView(channelPinOf(target, settings), busesFor(target))?.bus;
 		return settings.bus === "input" || settings.bus === "playback" || settings.bus === "output"
 			? settings.bus
 			: undefined;
@@ -926,6 +1186,7 @@ export class Volume extends SingletonAction<VolumeSettings> {
 
 	private releaseFor(id: string): void {
 		this.keyImages.delete(id);
+		this.touchImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

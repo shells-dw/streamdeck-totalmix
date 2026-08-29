@@ -95,6 +95,40 @@
         <option value="delay">Delay</option>
         <option value="refLevel">Ref Level</option>
       </optgroup>
+      <optgroup label="Room EQ (outputs)">
+        <option value="roomEqVolumeCorr">REQ Vol Corr</option>
+        <option value="roomEqDelay">REQ Delay</option>
+        <option value="roomEqBand1Type">REQ1 Type</option>
+        <option value="roomEqBand1Gain">REQ1 Gain</option>
+        <option value="roomEqBand1Freq">REQ1 Freq</option>
+        <option value="roomEqBand1Q">REQ1 Q</option>
+        <option value="roomEqBand2Gain">REQ2 Gain</option>
+        <option value="roomEqBand2Freq">REQ2 Freq</option>
+        <option value="roomEqBand2Q">REQ2 Q</option>
+        <option value="roomEqBand3Gain">REQ3 Gain</option>
+        <option value="roomEqBand3Freq">REQ3 Freq</option>
+        <option value="roomEqBand3Q">REQ3 Q</option>
+        <option value="roomEqBand4Gain">REQ4 Gain</option>
+        <option value="roomEqBand4Freq">REQ4 Freq</option>
+        <option value="roomEqBand4Q">REQ4 Q</option>
+        <option value="roomEqBand5Gain">REQ5 Gain</option>
+        <option value="roomEqBand5Freq">REQ5 Freq</option>
+        <option value="roomEqBand5Q">REQ5 Q</option>
+        <option value="roomEqBand6Gain">REQ6 Gain</option>
+        <option value="roomEqBand6Freq">REQ6 Freq</option>
+        <option value="roomEqBand6Q">REQ6 Q</option>
+        <option value="roomEqBand7Gain">REQ7 Gain</option>
+        <option value="roomEqBand7Freq">REQ7 Freq</option>
+        <option value="roomEqBand7Q">REQ7 Q</option>
+        <option value="roomEqBand8Type">REQ8 Type</option>
+        <option value="roomEqBand8Gain">REQ8 Gain</option>
+        <option value="roomEqBand8Freq">REQ8 Freq</option>
+        <option value="roomEqBand8Q">REQ8 Q</option>
+        <option value="roomEqBand9Type">REQ9 Type</option>
+        <option value="roomEqBand9Gain">REQ9 Gain</option>
+        <option value="roomEqBand9Freq">REQ9 Freq</option>
+        <option value="roomEqBand9Q">REQ9 Q</option>
+      </optgroup>
       <optgroup label="Reverb">
         <option value="reverbType">Rev Type</option>
         <option value="reverbVolume">Reverb Vol</option>
@@ -122,16 +156,20 @@
   </sdpi-item>
 
   <div id="row-channel" hidden>
-    <sdpi-item label="Bus">
-      <sdpi-select setting="bus" default="input">
-        <option value="input">Input</option>
-        <option value="playback">Playback</option>
-        <option value="output">Output</option>
-      </sdpi-select>
-    </sdpi-item>
+    <div id="row-bus">
+      <sdpi-item label="Bus">
+        <sdpi-select setting="bus" default="input">
+          <option value="input">Input</option>
+          <option value="playback">Playback</option>
+          <option value="output">Output</option>
+        </sdpi-select>
+      </sdpi-item>
+    </div>
     <sdpi-item label="Channel">
       <sdpi-select setting="channel" default="0" datasource="getChannels" loading="Reading channel names…" show-refresh></sdpi-select>
     </sdpi-item>
+    <p class="hint">Refresh the list after changing the parameter or the bus: the
+    names are read once, so a list fetched for another bus still shows its channels.</p>
   </div>
 
   <div id="row-stepdb" hidden>
@@ -183,15 +221,95 @@
     <p class="hint"><b id="stepten-value"></b></p>
   </div>
 
+  <div id="row-gestures" hidden>
+    <sdpi-item label="On press">
+      <sdpi-select setting="press" default="auto">
+        <option value="auto">Default for this parameter</option>
+        <option value="none">Nothing</option>
+        <optgroup label="This dial">
+          <option value="bypass">Switch the section on or off</option>
+          <option value="neutralToggle" data-neutral>To its default value (again to restore)</option>
+        </optgroup>
+        <optgroup label="Control room">
+          <option value="dim">Dim</option>
+          <option value="mono">Mono</option>
+          <option value="talkback">Talkback</option>
+          <option value="speakerB">Speaker B</option>
+          <option value="extIn">External input</option>
+          <option value="muteFx">Mute FX return</option>
+          <option value="recall">Recall main volume</option>
+        </optgroup>
+        <optgroup label="Global">
+          <option value="globalMute">Mute all</option>
+          <option value="globalSolo">Solo all</option>
+        </optgroup>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="On touch">
+      <sdpi-select setting="touch" default="auto">
+        <option value="auto">Default for this parameter</option>
+        <option value="none">Nothing</option>
+        <optgroup label="This dial">
+          <option value="bypass">Switch the section on or off</option>
+          <option value="neutralToggle" data-neutral>To its default value (again to restore)</option>
+        </optgroup>
+        <optgroup label="Control room">
+          <option value="dim">Dim</option>
+          <option value="mono">Mono</option>
+          <option value="talkback">Talkback</option>
+          <option value="speakerB">Speaker B</option>
+          <option value="extIn">External input</option>
+          <option value="muteFx">Mute FX return</option>
+          <option value="recall">Recall main volume</option>
+        </optgroup>
+        <optgroup label="Global">
+          <option value="globalMute">Mute all</option>
+          <option value="globalSolo">Solo all</option>
+        </optgroup>
+      </sdpi-select>
+    </sdpi-item>
+    <p class="hint" id="gesture-hint"></p>
+  </div>
+
   <div id="row-nudge" hidden>
     <sdpi-item label="On press">
       <sdpi-select setting="nudge" default="up">
         <option value="up">Up (+)</option>
         <option value="down">Down (−)</option>
+        <option value="select">Select an entry</option>
       </sdpi-select>
     </sdpi-item>
-    <p class="hint">One step per press.</p>
+    <p class="hint" id="nudge-hint">One step per press.</p>
+    <div id="row-select" hidden>
+      <sdpi-item label="Entry">
+        <sdpi-select setting="selectIndex" default="0" datasource="getFxPositions" loading="Reading list…" show-refresh></sdpi-select>
+      </sdpi-item>
+      <sdpi-item label="Second press">
+        <sdpi-select setting="selectSecond" default="none" datasource="getFxSecondPress" loading="Reading list…" show-refresh></sdpi-select>
+      </sdpi-item>
+      <p class="hint">
+        The key shows the chosen entry and lights while it is the active one.
+        "Second press" is what a press does while the key is lit: nothing, go
+        back to the entry that was active before, or switch to another entry
+        (a two-way toggle). Reference levels are listed for the interface
+        TotalMix reports (line inputs and outputs; mic and instrument inputs
+        have none); with no device connected the list shows plain positions.
+      </p>
+    </div>
   </div>
+
+  <sdpi-item label="Appearance">
+    <sdpi-select setting="look" default="strip">
+      <option value="strip">TotalMix knob</option>
+      <option value="icon">Icon with value title</option>
+    </sdpi-select>
+  </sdpi-item>
+  <p class="hint">
+    The knob fills across the parameter's range in the section's TotalMix
+    colour and lights the section badge (EQ, D, LC, AL, FX, REQ) when that
+    section is switched on. A custom key image or title set in Stream Deck
+    replaces it.
+  </p>
 
   <details>
     <summary>Connection</summary>
@@ -236,10 +354,10 @@
       }).catch(function () {});
     } catch (e) {}
 
-    // Unit, default step and whether the parameter takes a channel. Mirrors
-    // GLOBAL_FX in src/globalosc/fx.ts.
+    // Unit, default step, whether the parameter takes a channel, and an
+    // optional single allowed bus. Mirrors GLOBAL_FX in src/globalosc/fx.ts.
       var META = {autoHeadroom:["db",1,1],autoMaxGain:["db",1,1],autoRiseTime:["native",0.1,1],
-        crossfeed:["native",1,1],delay:["native",1,1],dynAttack:["native",1,1],
+        crossfeed:["index",1,1,"output"],delay:["native",1,1,"output"],dynAttack:["native",1,1],
         dynCompRatio:["native",0.1,1],dynCompThreshold:["db",1,1],dynExpRatio:["native",0.1,1],
         dynExpThreshold:["db",1,1],dynGain:["db",1,1],dynRelease:["native",10,1],
         echoDelay:["native",1,0],echoFeedback:["native",1,0],echoHighcut:["hz",20,0],
@@ -254,7 +372,39 @@
         reverbPredelay:["native",1,0],reverbRelease:["native",1,0],
         reverbRoomscale:["native",0.05,0],reverbSmooth:["native",1,0],
         reverbTime:["native",0.1,0],reverbType:["index",1,0],reverbVolume:["db",1,0],
-        reverbWidth:["native",0.05,0],width:["native",0.05,1]};
+        reverbWidth:["native",0.05,0],width:["native",0.05,1],
+        roomEqVolumeCorr:["db",1,1,"output"],
+        roomEqDelay:["native",1,1,"output"],
+        roomEqBand1Type:["index",1,1,"output"],
+        roomEqBand1Gain:["db",1,1,"output"],
+        roomEqBand1Freq:["hz",20,1,"output"],
+        roomEqBand1Q:["native",0.1,1,"output"],
+        roomEqBand2Gain:["db",1,1,"output"],
+        roomEqBand2Freq:["hz",20,1,"output"],
+        roomEqBand2Q:["native",0.1,1,"output"],
+        roomEqBand3Gain:["db",1,1,"output"],
+        roomEqBand3Freq:["hz",20,1,"output"],
+        roomEqBand3Q:["native",0.1,1,"output"],
+        roomEqBand4Gain:["db",1,1,"output"],
+        roomEqBand4Freq:["hz",20,1,"output"],
+        roomEqBand4Q:["native",0.1,1,"output"],
+        roomEqBand5Gain:["db",1,1,"output"],
+        roomEqBand5Freq:["hz",20,1,"output"],
+        roomEqBand5Q:["native",0.1,1,"output"],
+        roomEqBand6Gain:["db",1,1,"output"],
+        roomEqBand6Freq:["hz",20,1,"output"],
+        roomEqBand6Q:["native",0.1,1,"output"],
+        roomEqBand7Gain:["db",1,1,"output"],
+        roomEqBand7Freq:["hz",20,1,"output"],
+        roomEqBand7Q:["native",0.1,1,"output"],
+        roomEqBand8Type:["index",1,1,"output"],
+        roomEqBand8Gain:["db",1,1,"output"],
+        roomEqBand8Freq:["hz",20,1,"output"],
+        roomEqBand8Q:["native",0.1,1,"output"],
+        roomEqBand9Type:["index",1,1,"output"],
+        roomEqBand9Gain:["db",1,1,"output"],
+        roomEqBand9Freq:["hz",20,1,"output"],
+        roomEqBand9Q:["native",0.1,1,"output"]};
 
     var UNIT_LABEL = { db: "dB", hz: "Hz", index: "positions", native: "units" };
 
@@ -278,12 +428,136 @@
       return m[1] <= 0.05 ? "stepfine" : m[1] <= 0.1 ? "steptenth" : m[1] <= 1 ? "stepwhole" : "stepten";
     }
 
+    // Writes `bus` when the stored value is not the one the parameter allows.
+    function ensureBus(bus) {
+      var host = document.querySelector('[setting="bus"]');
+      if (!host) return;
+      var inner = host.querySelector("select");
+      var current = (host.value !== undefined && host.value !== null && host.value !== "")
+        ? host.value
+        : (inner && inner.value) || "";
+      if (current === bus) return;
+      if (host.value !== undefined) host.value = bus;
+      if (inner) {
+        inner.value = bus;
+        inner.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+
+    /*
+      sdpi-components moves the <option> nodes it is given into a <select>
+      inside its own shadow root, so a document-level query no longer finds
+      them and setting `hidden` on the markup has no visible effect. This walks
+      the shadow roots as well.
+    */
+    function optionsUnder(id) {
+      var out = [];
+      var row = document.getElementById(id);
+      if (!row) return out;
+      var collect = function (root) {
+        Array.prototype.push.apply(out, root.querySelectorAll("option"));
+        Array.prototype.forEach.call(root.querySelectorAll("*"), function (el) {
+          if (el.shadowRoot) collect(el.shadowRoot);
+        });
+      };
+      collect(row);
+      return out;
+    }
+
+    /* Same walk for the group headers, which are moved along with the options. */
+    function groupsUnder(id) {
+      var out = [];
+      var row = document.getElementById(id);
+      if (!row) return out;
+      var collect = function (root) {
+        Array.prototype.push.apply(out, root.querySelectorAll("optgroup"));
+        Array.prototype.forEach.call(root.querySelectorAll("*"), function (el) {
+          if (el.shadowRoot) collect(el.shadowRoot);
+        });
+      };
+      collect(row);
+      return out;
+    }
+
+    /* Resets a select whose stored value is no longer offered. */
+    function clearIfHidden(setting, hiddenValues, fallback) {
+      fallback = fallback || "auto";
+      var host = document.querySelector('[setting="' + setting + '"]');
+      if (!host) return;
+      var inner = host.querySelector("select") ||
+        (host.shadowRoot ? host.shadowRoot.querySelector("select") : null);
+      var current = (host.value !== undefined && host.value !== null && host.value !== "")
+        ? host.value
+        : (inner && inner.value) || "";
+      if (hiddenValues.indexOf(current) === -1) return;
+      if (host.value !== undefined) host.value = fallback;
+      if (inner) {
+        inner.value = fallback;
+        inner.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+
     __watchSettings(function (v) {
       var p = v("parameter", "reverbVolume");
       var m = META[p] || ["native", 1, 0];
 
       document.getElementById("row-channel").hidden = m[2] !== 1;
+
+      // A parameter that exists on one bus only hides the bus picker and writes
+      // that bus, so the stored setting matches what the plugin uses.
+      var only = m[3] || null;
+      document.getElementById("row-bus").hidden = only !== null;
+      if (only !== null) ensureBus(only);
+
+      // Reference level exists on analog line inputs and outputs only; stereo
+      // width on input and playback channels only.
+      var hiddenBus = p === "refLevel" ? "playback" : p === "width" ? "output" : null;
+      optionsUnder("row-bus").forEach(function (opt) {
+        if (opt.value === "input") return;
+        var hide = opt.value === hiddenBus;
+        opt.hidden = hide;
+        opt.disabled = hide;
+      });
+      if (hiddenBus !== null && v("bus", "input") === hiddenBus) ensureBus("input");
       document.getElementById("row-nudge").hidden = controller === "Encoder";
+      document.getElementById("row-gestures").hidden = controller !== "Encoder";
+
+      // Direct selection exists for list parameters only. The component renders
+      // its own copy of the options, so the rendered ones are toggled.
+      var isList = m[0] === "index";
+      optionsUnder("row-nudge").forEach(function (opt) {
+        if (opt.value !== "select") return;
+        opt.hidden = !isList;
+        opt.disabled = !isList;
+      });
+      if (!isList) clearIfHidden("nudge", ["select"], "up");
+      var selecting = isList && v("nudge", "up") === "select";
+      document.getElementById("row-select").hidden = !selecting;
+      document.getElementById("nudge-hint").hidden = selecting;
+
+      // Neutral is defined for dB and selection parameters only; frequencies
+      // and raw values fall back to the bypass default. Mirrors GLOBAL_FX in
+      // src/actions/gestures.ts.
+      // Room EQ parks at the values its panel opens on; other dB and selection
+      // parameters at 0 dB or the first position. Mirrors fxNeutral in
+      // src/globalosc/fx.ts.
+      var hasNeutral = m[0] === "db" || m[0] === "index" || p.indexOf("roomEq") === 0;
+      var NEUTRAL_GESTURES = ["neutralToggle"];
+      optionsUnder("row-gestures").forEach(function (opt) {
+        if (NEUTRAL_GESTURES.indexOf(opt.value) === -1) return;
+        opt.hidden = !hasNeutral;
+        opt.disabled = !hasNeutral;
+      });
+      groupsUnder("row-gestures").forEach(function (group) {
+        group.hidden = !group.querySelector("option:not([hidden])");
+      });
+      if (!hasNeutral) {
+        clearIfHidden("press", NEUTRAL_GESTURES);
+        clearIfHidden("touch", NEUTRAL_GESTURES);
+      }
+      document.getElementById("gesture-hint").textContent = hasNeutral
+        ? "Default: press switches the section, touch parks the value at its default and brings it back."
+        : "Default: press and touch switch the section. This parameter has no default value to park at.";
 
       var row = rowFor(m);
       Object.keys(ROWS).forEach(function (id) {
@@ -296,5 +570,6 @@
         (m[0] === "index" ? step + " per step" : step + " " + unit + " per step") + ". ";
     });
   </script>
+  <script src="auto-refresh.js" data-deps='{"bus":["channel","selectIndex","selectSecond"],"parameter":["channel","selectIndex","selectSecond"]}'></script>
 </body>
 </html>

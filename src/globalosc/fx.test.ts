@@ -1,15 +1,20 @@
 import { readFileSync } from "node:fs";
+import { rememberDevice, resetDeviceDetection } from "../totalmix/devices.js";
 import { describe, expect, it } from "vitest";
 import { MAX_DB, MIN_DB } from "../osc/curves.js";
 import {
 	fxAddress,
+	fxBuses,
 	fxEnableAddress,
+	fxNeutral,
 	fxStep,
 	GLOBAL_FX,
 	isFxKey,
+	isLrSplit,
 	isOffDb,
 	maxPosition,
 	positionName,
+	positionsOf,
 	stepSettingOf,
 	MAX_HZ,
 	MIN_HZ,
@@ -40,6 +45,14 @@ describe("addresses conform to the Global OSC table", () => {
 	});
 
 	/** The units carry no channel, so the bus and channel are ignored for them. */
+	/** Volume correction is the output's "gain" per the table; the delay is the channel delay. */
+	it("builds Room EQ addresses on the output bus", () => {
+		expect(fxAddress("roomEqVolumeCorr", "output", 3)).toBe("/output/3/gain");
+		expect(fxAddress("roomEqDelay", "output", 3)).toBe("/output/3/delay");
+		expect(fxAddress("roomEqBand5Freq", "output", 3)).toBe("/output/3/roomeq/band5freq");
+		expect(fxAddress("roomEqBand8Type", "output", 3)).toBe("/output/3/roomeq/band8type");
+	});
+
 	it("builds unit addresses without a channel", () => {
 		expect(fxAddress("reverbVolume", "output", 5)).toBe("/reverb/volume");
 		expect(fxAddress("echoDelay", "input", 3)).toBe("/echo/delay");
@@ -57,6 +70,14 @@ describe("section enables", () => {
 	it("points the unit parameters at their unit", () => {
 		expect(fxEnableAddress("reverbTime", "input", 0)).toBe("/reverb/enable");
 		expect(fxEnableAddress("echoFeedback", "input", 0)).toBe("/echo/enable");
+	});
+
+	/** Room EQ parameters light with the output's Room EQ enable. */
+	it("points the Room EQ parameters at the output's Room EQ enable", () => {
+		expect(fxEnableAddress("roomEqBand1Gain", "output", 0)).toBe("/output/0/roomeq/enable");
+		expect(fxEnableAddress("roomEqBand9Type", "output", 4)).toBe("/output/4/roomeq/enable");
+		expect(fxEnableAddress("roomEqVolumeCorr", "output", 2)).toBe("/output/2/roomeq/enable");
+		expect(fxEnableAddress("roomEqDelay", "output", 2)).toBe("/output/2/roomeq/enable");
 	});
 
 	/** Width, delay and crossfeed are always in circuit; nothing switches them. */
@@ -114,12 +135,29 @@ describe("stepping", () => {
 		expect(positionName("eqBand3Type", 3)).toBe("Low Pass");
 	});
 
-	/** Index contents are device dependent, so an unknown list stays numeric. */
-	it("has no names for the lists the table leaves open", () => {
-		expect(positionName("lowcutSlope", 0)).toBeUndefined();
-		expect(positionName("refLevel", 0)).toBeUndefined();
-		expect(positionName("reverbType", 0)).toBeUndefined();
-		expect(maxPosition("reverbType")).toBeUndefined();
+	it("resolves reference levels from the detected device and bus", () => {
+		resetDeviceDetection();
+		expect(positionsOf("refLevel", "output")).toBeUndefined();
+		rememberDevice("Fireface UCX II");
+		expect(positionsOf("refLevel", "input")).toEqual(["+13 dBu", "+19 dBu"]);
+		expect(positionName("refLevel", 2, "output")).toBe("+19 dBu");
+		expect(maxPosition("refLevel", "input")).toBe(1);
+		expect(fxStep("refLevel", 1, 1, 1, "input")).toBe(1);
+		rememberDevice("Fireface UFX III");
+		expect(maxPosition("refLevel", "output")).toBe(3);
+		rememberDevice("Babyface Pro FS");
+		expect(positionsOf("refLevel", "output")).toBeUndefined();
+		expect(fxStep("refLevel", 1, 1, 1, "output")).toBe(2);
+		resetDeviceDetection();
+	});
+
+	it("names the mixer's own lists and stays numeric past their end", () => {
+		expect(positionName("lowcutSlope", 3)).toBe("24 dB/oct");
+		expect(positionName("refLevel", 2)).toBeUndefined();
+		expect(positionName("crossfeed", 0)).toBe("Off");
+		expect(positionName("reverbType", 14)).toBe("Space");
+		expect(positionName("echoType", 2)).toBe("Pong Echo");
+		expect(maxPosition("reverbType")).toBe(14);
 	});
 
 	it("stops at the end of a known list and keeps stepping an unknown one", () => {
@@ -165,6 +203,66 @@ describe("stepping", () => {
 		expect(fxStep("dynGain", 100, 1, 1)).toBe(101);
 	});
 
+	/** Room EQ exists on hardware outputs only; every band and the correction is L/R-split. */
+	it("restricts Room EQ to the output bus and splits it left/right", () => {
+		expect(fxBuses("roomEqBand1Gain")).toEqual(["output"]);
+		expect(fxBuses("roomEqVolumeCorr")).toEqual(["output"]);
+		expect(fxBuses("eqBand1Gain")).toEqual(["input", "playback", "output"]);
+		expect(fxBuses("reverbVolume")).toEqual(["input", "playback", "output"]);
+		for (const key of keys) {
+			if (key.startsWith("roomEq")) expect(isLrSplit(key), key).toBe(true);
+		}
+		expect(isLrSplit("delay")).toBe(true);
+		expect(isLrSplit("width")).toBe(false);
+	});
+
+	it("names the Room EQ filter types on the bands that have one", () => {
+		expect(positionName("roomEqBand1Type", 0)).toBe("Bell");
+		expect(positionName("roomEqBand8Type", 1)).toBe("Shelving");
+		expect(positionName("roomEqBand9Type", 3)).toBe("Low Pass");
+		expect(maxPosition("roomEqBand1Type")).toBe(3);
+		expect(keys.filter((k) => /^roomEqBand\d+Type$/.test(k)).sort()).toEqual([
+			"roomEqBand1Type",
+			"roomEqBand8Type",
+			"roomEqBand9Type",
+		]);
+	});
+
+	/**
+	 * The values TotalMix's Room EQ panel opens on, so a park-at-neutral gesture
+	 * puts a band back where it started rather than somewhere arbitrary.
+	 */
+	it("carries the Room EQ panel defaults as neutral values", () => {
+		const freqs = [50, 100, 150, 200, 250, 300, 400, 600, 800];
+		freqs.forEach((hz, i) => {
+			expect(fxNeutral(`roomEqBand${i + 1}Freq`)).toBe(hz);
+			// Q is 5.0 on every band, gain 0 dB, and the type a bell.
+			expect(fxNeutral(`roomEqBand${i + 1}Q`)).toBe(5);
+			expect(fxNeutral(`roomEqBand${i + 1}Gain`)).toBe(0);
+		});
+		expect(fxNeutral("roomEqDelay")).toBe(0);
+		expect(fxNeutral("roomEqVolumeCorr")).toBe(0);
+		expect(fxNeutral("roomEqBand1Type")).toBe(0);
+	});
+
+	/** Everything else: 0 dB and the first position, with no default elsewhere. */
+	it("leaves frequencies and raw values without a neutral outside Room EQ", () => {
+		expect(fxNeutral("eqBand1Gain")).toBe(0);
+		expect(fxNeutral("eqBand1Type")).toBe(0);
+		expect(fxNeutral("eqBand1Freq")).toBeUndefined();
+		expect(fxNeutral("width")).toBeUndefined();
+		expect(fxNeutral("delay")).toBeUndefined();
+	});
+
+	/** The inspector decides by unit plus the roomEq prefix; the two must agree. */
+	it("matches the rule the inspector uses", () => {
+		for (const key of keys) {
+			const unit = GLOBAL_FX[key]!.unit;
+			const byRule = unit === "db" || unit === "index" || key.startsWith("roomEq");
+			expect(fxNeutral(key) !== undefined, key).toBe(byRule);
+		}
+	});
+
 	it("recognises its own keys and rejects anything else", () => {
 		for (const key of keys) expect(isFxKey(key)).toBe(true);
 		expect(isFxKey("nonsense")).toBe(false);
@@ -186,7 +284,7 @@ describe("the property inspector's copy of the table", () => {
 		const body = html.slice(start + "var META = ".length, end + 1).replace(/\s+/g, "");
 		return JSON.parse(body.replace(/(\w+):/g, '"$1":')) as Record<
 			string,
-			[string, number, number]
+			[string, number, number] | [string, number, number, string]
 		>;
 	})();
 
@@ -194,9 +292,13 @@ describe("the property inspector's copy of the table", () => {
 		expect(Object.keys(meta).sort()).toEqual([...keys].sort());
 	});
 
-	it.each(keys)("%s agrees on unit, default step and channel scope", (key) => {
+	it.each(keys)("%s agrees on unit, default step, channel scope and bus", (key) => {
 		const p = GLOBAL_FX[key]!;
-		expect(meta[key]).toEqual([p.unit, p.step, p.scope === "channel" ? 1 : 0]);
+		const buses = fxBuses(key);
+		const expected: unknown[] = [p.unit, p.step, p.scope === "channel" ? 1 : 0];
+		// A fourth element names the only bus a restricted parameter allows.
+		if (buses.length === 1) expected.push(buses[0]);
+		expect(meta[key]).toEqual(expected);
 	});
 
 	it("offers every parameter in the dropdown", () => {

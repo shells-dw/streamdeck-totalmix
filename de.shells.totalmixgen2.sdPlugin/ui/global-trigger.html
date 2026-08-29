@@ -58,6 +58,13 @@
         <option value="snapshot">Load snapshot</option>
         <option value="layout">Load layout preset</option>
       </optgroup>
+      <optgroup label="Presets">
+        <option value="eqPreset">Load EQ preset (channel)</option>
+        <option value="dynamicsPreset">Load dynamics preset (channel)</option>
+        <option value="roomEqPreset">Load Room EQ preset (output)</option>
+        <option value="reverbPreset">Load reverb preset</option>
+        <option value="echoPreset">Load echo preset</option>
+      </optgroup>
       <optgroup label="Mixer">
         <option value="undo">Undo</option>
         <option value="redo">Redo</option>
@@ -94,9 +101,48 @@
     </sdpi-item>
   </div>
 
+  <div id="row-preset" hidden>
+    <div id="row-preset-channel" hidden>
+      <div id="row-preset-bus">
+        <sdpi-item label="Bus">
+          <sdpi-select setting="bus" default="input">
+            <option value="input">Input</option>
+            <option value="playback">Playback</option>
+            <option value="output">Output</option>
+          </sdpi-select>
+        </sdpi-item>
+      </div>
+      <sdpi-item label="Channel">
+        <sdpi-select setting="channel" default="0" datasource="getGlobalChannels" loading="Reading channel names…" show-refresh></sdpi-select>
+      </sdpi-item>
+      <p class="hint">A stereo pair is addressed by its left channel. Refresh the channel list after changing the bus.</p>
+    </div>
+    <sdpi-item label="Preset number">
+      <sdpi-textfield setting="index" default="1" placeholder="1"></sdpi-textfield>
+    </sdpi-item>
+    <p class="hint" id="hint-preset">
+      Presets are numbered from 1 in the order TotalMix lists them. TotalMix does
+      not report preset names or which preset is loaded, so the key has no state light.
+    </p>
+    <p class="hint" id="hint-preset-eq" hidden>An EQ preset also carries the low cut settings.</p>
+    <p class="hint" id="hint-preset-dyn" hidden>A dynamics preset also carries the Auto Level settings.</p>
+  </div>
+
   <p class="hint" id="hint-durec-stop" hidden>
     While recording, TotalMix requires Stop to be pressed twice before it
     actually stops — a safety against losing a take by accident.
+  </p>
+
+  <sdpi-item label="Appearance">
+    <sdpi-select setting="look" default="strip">
+      <option value="strip">TotalMix button</option>
+      <option value="icon">Icon</option>
+    </sdpi-select>
+  </sdpi-item>
+  <p class="hint">
+    Snapshots and layouts show their number on the face; DURec transport and
+    undo/redo use symbols. Snapshot and transport faces light from TotalMix's
+    state. A custom key image set in Stream Deck replaces the face.
   </p>
 
   <details>
@@ -157,10 +203,19 @@
   <script>
     __watchSettings(function (v) {
       var m = v("mode", "snapshot");
+      var preset = /Preset$/.test(m);
+      var channelPreset = m === "eqPreset" || m === "dynamicsPreset" || m === "roomEqPreset";
       document.getElementById("row-snapshot").hidden = m !== "snapshot";
       document.getElementById("row-layout").hidden = m !== "layout";
+      document.getElementById("row-preset").hidden = !preset;
+      document.getElementById("row-preset-channel").hidden = !channelPreset;
+      // Room EQ exists on outputs only; the plugin forces that bus.
+      document.getElementById("row-preset-bus").hidden = m === "roomEqPreset";
+      document.getElementById("hint-preset-eq").hidden = m !== "eqPreset";
+      document.getElementById("hint-preset-dyn").hidden = m !== "dynamicsPreset";
       document.getElementById("hint-durec-stop").hidden = m !== "durecStop";
     });
   </script>
+  <script src="auto-refresh.js" data-deps='{"bus":["channel"],"mode":["channel"]}'></script>
 </body>
 </html>

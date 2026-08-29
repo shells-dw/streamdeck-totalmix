@@ -145,6 +145,18 @@ describe("addresses conform to the RME spec", () => {
 		["RECORD_TIME", addr.RECORD_TIME],
 		["RECORD_STATE", addr.RECORD_STATE],
 		["ROOM_EQ_TRACK_NAME", addr.ROOM_EQ_TRACK_NAME],
+		["ROOM_EQ_LEFT", addr.ROOM_EQ_LEFT],
+		["ROOM_EQ_RIGHT", addr.ROOM_EQ_RIGHT],
+		["ROOM_EQ_DELAY", addr.ROOM_EQ_DELAY],
+		["ROOM_EQ_VOLUME_CORR", addr.ROOM_EQ_VOLUME_CORR],
+		["roomEqType(1)", addr.roomEqType(1)],
+		["roomEqType(8)", addr.roomEqType(8)],
+		["roomEqType(9)", addr.roomEqType(9)],
+		...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).flatMap((n): [string, string][] => [
+			[`roomEqGain(${n})`, addr.roomEqGain(n)],
+			[`roomEqFreq(${n})`, addr.roomEqFreq(n)],
+			[`roomEqQ(${n})`, addr.roomEqQ(n)],
+		]),
 	];
 
 	it.each(emitted)("%s -> %s exists in the RME table", (_name, address) => {

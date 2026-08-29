@@ -49,6 +49,7 @@ export const cue = (strip: number): string => `/1/cue/1/${strip}`;
 
 export const trackName = (strip: number): string => `/1/trackname${strip}`;
 
+
 /** Input gain, input bus only; kOSCScaleLin01 over a device/channel-dependent span; applied to both sides of a stereo pair. */
 export const micGain = (strip: number): string => `/1/micgain${strip}`;
 
@@ -198,6 +199,19 @@ export const RECORD_STATE = "/3/recordState";
 
 export const ROOM_EQ_ENABLE = "/4/reqEnable";
 export const ROOM_EQ_TRACK_NAME = "/4/trackname";
+/** Toggles selecting which half of the output pair the page-4 parameters address; both on = display left, write both. */
+export const ROOM_EQ_LEFT = "/4/leftChannel";
+export const ROOM_EQ_RIGHT = "/4/rightChannel";
+export const ROOM_EQ_DELAY = "/4/reqDelay"; // kOSCScaleLin01
+export const ROOM_EQ_VOLUME_CORR = "/4/reqVolumeCorr"; // kOSCScaleLin01, displayed in dB
+
+const roomEqBand = (n: number): number => Math.min(9, Math.max(1, Math.round(n)));
+
+/** Band characteristics, kOSCScaleLin01 spread over Bell, Shelf, High Pass, Low Pass; bands 1, 8 and 9 only. */
+export const roomEqType = (band: 1 | 8 | 9): string => `/4/reqType${band}`;
+export const roomEqGain = (band: number): string => `/4/reqGain${roomEqBand(band)}`; // kOSCScaleLin01
+export const roomEqFreq = (band: number): string => `/4/reqFreq${roomEqBand(band)}`; // kOSCScaleFreq
+export const roomEqQ = (band: number): string => `/4/reqQ${roomEqBand(band)}`; // kOSCScaleLin01
 
 /** Display-string address for a parameter, e.g. "/2/volumeVal". */
 export const displayOf = (address: string): string => `${address}Val`;

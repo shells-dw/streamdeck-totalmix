@@ -99,6 +99,40 @@
         <option value="fxAutoLevelHeadroom">Headroom</option>
         <option value="fxAutoLevelRise">Rise speed</option>
       </optgroup>
+      <optgroup label="Room EQ (per output)">
+        <option value="fxRoomEqVolumeCorr">Volume correction</option>
+        <option value="fxRoomEqDelay">Delay</option>
+        <option value="fxRoomEqType1">Band 1 type</option>
+        <option value="fxRoomEqGain1">Band 1 gain</option>
+        <option value="fxRoomEqFreq1">Band 1 frequency</option>
+        <option value="fxRoomEqQ1">Band 1 Q</option>
+        <option value="fxRoomEqGain2">Band 2 gain</option>
+        <option value="fxRoomEqFreq2">Band 2 frequency</option>
+        <option value="fxRoomEqQ2">Band 2 Q</option>
+        <option value="fxRoomEqGain3">Band 3 gain</option>
+        <option value="fxRoomEqFreq3">Band 3 frequency</option>
+        <option value="fxRoomEqQ3">Band 3 Q</option>
+        <option value="fxRoomEqGain4">Band 4 gain</option>
+        <option value="fxRoomEqFreq4">Band 4 frequency</option>
+        <option value="fxRoomEqQ4">Band 4 Q</option>
+        <option value="fxRoomEqGain5">Band 5 gain</option>
+        <option value="fxRoomEqFreq5">Band 5 frequency</option>
+        <option value="fxRoomEqQ5">Band 5 Q</option>
+        <option value="fxRoomEqGain6">Band 6 gain</option>
+        <option value="fxRoomEqFreq6">Band 6 frequency</option>
+        <option value="fxRoomEqQ6">Band 6 Q</option>
+        <option value="fxRoomEqGain7">Band 7 gain</option>
+        <option value="fxRoomEqFreq7">Band 7 frequency</option>
+        <option value="fxRoomEqQ7">Band 7 Q</option>
+        <option value="fxRoomEqType8">Band 8 type</option>
+        <option value="fxRoomEqGain8">Band 8 gain</option>
+        <option value="fxRoomEqFreq8">Band 8 frequency</option>
+        <option value="fxRoomEqQ8">Band 8 Q</option>
+        <option value="fxRoomEqType9">Band 9 type</option>
+        <option value="fxRoomEqGain9">Band 9 gain</option>
+        <option value="fxRoomEqFreq9">Band 9 frequency</option>
+        <option value="fxRoomEqQ9">Band 9 Q</option>
+      </optgroup>
       <optgroup label="Reverb">
         <option value="fxReverbVolume">Reverb volume</option>
         <option value="fxReverbPredelay">Reverb pre-delay</option>
@@ -144,6 +178,9 @@
     stereo pair as one.</p>
     <p class="hint" id="hint-channel" hidden>Channel position on the bus, counting a
     stereo pair as one.</p>
+    <p class="hint" id="hint-roomeq" hidden>Always an output channel, and the one
+    numbered above rather than whichever channel TotalMix has selected. Writes go to
+    the side (L, R or both) selected in TotalMix's Room EQ panel for that output.</p>
   </div>
 
   <div id="row-gestures" hidden>
@@ -161,6 +198,7 @@
           <option value="center" data-kinds="pan">Centre the pan</option>
           <option value="bypass" data-kinds="fx">Bypass the effect</option>
           <option value="neutral" data-kinds="fx">Back to neutral</option>
+          <option value="neutralToggle" data-kinds="fx">To neutral (press again to restore)</option>
         </optgroup>
         <optgroup label="Control room">
           <option value="dim">Dim</option>
@@ -191,6 +229,7 @@
           <option value="center" data-kinds="pan">Centre the pan</option>
           <option value="bypass" data-kinds="fx">Bypass the effect</option>
           <option value="neutral" data-kinds="fx">Back to neutral</option>
+          <option value="neutralToggle" data-kinds="fx">To neutral (press again to restore)</option>
         </optgroup>
         <optgroup label="Control room">
           <option value="dim">Dim</option>
@@ -280,6 +319,14 @@
     offers.</p>
   </div>
 
+  <sdpi-item label="Appearance">
+    <sdpi-select setting="look" default="strip">
+      <option value="strip">TotalMix strip (fader, meter, M/S)</option>
+      <option value="icon">Icon with value title</option>
+    </sdpi-select>
+  </sdpi-item>
+  <p class="hint">The strip shows the fader on TotalMix's scale with mute and solo. Level meters are a Global OSC feature; the classic protocol only reports the visible bank. A custom key image or title set in Stream Deck replaces the strip.</p>
+
   <details>
     <summary>Connection</summary>
     <sdpi-item label="Host">
@@ -360,14 +407,14 @@
 
       // Writes a usable bus when a channel target has none stored, so the
       // stored setting matches what the dropdown shows.
-      function ensureBus(allowed) {
+      function ensureBus(allowed, allowFollow) {
         var host = document.querySelector('[setting="bus"]');
         if (!host) return;
         var inner = host.querySelector("select");
         var current = (host.value !== undefined && host.value !== null && host.value !== "")
           ? host.value
           : (inner && inner.value) || "";
-        if (current === "follow" || allowed.indexOf(current) !== -1) return;
+        if ((current === "follow" && allowFollow) || allowed.indexOf(current) !== -1) return;
         var next = allowed[0];
         if (host.value !== undefined) host.value = next;
         if (inner) {
@@ -376,13 +423,65 @@
         }
       }
 
+    /*
+      sdpi-components moves the <option> nodes it is given into a <select>
+      inside its own shadow root, so a document-level query no longer finds
+      them and setting `hidden` on the markup has no visible effect. This walks
+      the shadow roots as well.
+    */
+    function optionsUnder(id) {
+      var out = [];
+      var row = document.getElementById(id);
+      if (!row) return out;
+      var collect = function (root) {
+        Array.prototype.push.apply(out, root.querySelectorAll("option"));
+        Array.prototype.forEach.call(root.querySelectorAll("*"), function (el) {
+          if (el.shadowRoot) collect(el.shadowRoot);
+        });
+      };
+      collect(row);
+      return out;
+    }
+
+    /* Same walk for the group headers, which are moved along with the options. */
+    function groupsUnder(id) {
+      var out = [];
+      var row = document.getElementById(id);
+      if (!row) return out;
+      var collect = function (root) {
+        Array.prototype.push.apply(out, root.querySelectorAll("optgroup"));
+        Array.prototype.forEach.call(root.querySelectorAll("*"), function (el) {
+          if (el.shadowRoot) collect(el.shadowRoot);
+        });
+      };
+      collect(row);
+      return out;
+    }
+
+    /* Resets a select whose stored value is no longer offered. */
+    function clearIfHidden(setting, hiddenValues) {
+      var host = document.querySelector('[setting="' + setting + '"]');
+      if (!host) return;
+      var inner = host.querySelector("select") ||
+        (host.shadowRoot ? host.shadowRoot.querySelector("select") : null);
+      var current = (host.value !== undefined && host.value !== null && host.value !== "")
+        ? host.value
+        : (inner && inner.value) || "";
+      if (hiddenValues.indexOf(current) === -1) return;
+      if (host.value !== undefined) host.value = "auto";
+      if (inner) {
+        inner.value = "auto";
+        inner.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+
     __watchSettings(function (v) {
       var t = v("target", "main");
       var fx = t.indexOf("fx") === 0;
       var onKey = controller === "Keypad";
       var onDial = controller === "Encoder";
 
-      // Page-2 targets. Mirrors isChannelScoped in src/actions/volume.ts.
+      // Page-2 and page-4 targets. Mirrors isChannelScoped in src/actions/volume.ts.
       var CHANNEL = {
         channel: 1, pan: 1,
         fxReverbSend: 1, fxReverbReturn: 1,
@@ -392,16 +491,19 @@
         fxEqType3: 1, fxEqGain3: 1, fxEqFreq3: 1, fxEqQ3: 1,
         fxCompThreshold: 1, fxCompRatio: 1, fxCompAttack: 1, fxCompRelease: 1,
         fxCompGain: 1, fxExpThreshold: 1, fxExpRatio: 1,
-        fxAutoLevelMaxGain: 1, fxAutoLevelHeadroom: 1, fxAutoLevelRise: 1
+        fxAutoLevelMaxGain: 1, fxAutoLevelHeadroom: 1, fxAutoLevelRise: 1,
+        fxRoomEqVolumeCorr: 1, fxRoomEqDelay: 1, fxRoomEqType1: 1, fxRoomEqGain1: 1, fxRoomEqFreq1: 1, fxRoomEqQ1: 1, fxRoomEqGain2: 1, fxRoomEqFreq2: 1, fxRoomEqQ2: 1, fxRoomEqGain3: 1, fxRoomEqFreq3: 1, fxRoomEqQ3: 1, fxRoomEqGain4: 1, fxRoomEqFreq4: 1, fxRoomEqQ4: 1, fxRoomEqGain5: 1, fxRoomEqFreq5: 1, fxRoomEqQ5: 1, fxRoomEqGain6: 1, fxRoomEqFreq6: 1, fxRoomEqQ6: 1, fxRoomEqGain7: 1, fxRoomEqFreq7: 1, fxRoomEqQ7: 1, fxRoomEqType8: 1, fxRoomEqGain8: 1, fxRoomEqFreq8: 1, fxRoomEqQ8: 1, fxRoomEqType9: 1, fxRoomEqGain9: 1, fxRoomEqFreq9: 1, fxRoomEqQ9: 1
       };
       var channelScoped = t in CHANNEL;
+      // Page-4 targets. Mirrors isRoomEqScoped in src/actions/volume.ts.
+      var roomEq = t.indexOf("fxRoomEq") === 0;
 
       // Mirrors TARGET_BUSES in src/actions/volume.ts. Absent means all three.
       var BUSES = {
         fxReverbSend: ["input", "playback"],
         fxReverbReturn: ["output"]
       };
-      var allowed = BUSES[t] || ["input", "playback", "output"];
+      var allowed = BUSES[t] || (roomEq ? ["output"] : ["input", "playback", "output"]);
 
       // Gain is input-bus only and pinned by the plugin.
       var positional = t === "strip" || t === "gain" || t === "stripPan";
@@ -410,6 +512,7 @@
         t === "gain" || (channelScoped && allowed.length === 1);
       document.getElementById("hint-strip").hidden = channelScoped;
       document.getElementById("hint-channel").hidden = !channelScoped;
+      document.getElementById("hint-roomeq").hidden = !roomEq;
 
       // "Leave as is" applies to strip targets, "Follow" to channel targets.
       ["input", "playback", "output"].forEach(function (bus) {
@@ -419,10 +522,15 @@
       });
       var asis = document.getElementById("bus-asis");
       if (asis) { asis.hidden = channelScoped; asis.disabled = channelScoped; }
+      // Room EQ cannot follow the selection: page 4 would write into whichever
+      // channel happens to be selected, and the section exists on outputs only.
       var follow = document.getElementById("bus-follow");
-      if (follow) { follow.hidden = !channelScoped; follow.disabled = !channelScoped; }
+      if (follow) {
+        follow.hidden = !channelScoped || roomEq;
+        follow.disabled = !channelScoped || roomEq;
+      }
 
-      if (channelScoped) ensureBus(allowed);
+      if (channelScoped) ensureBus(allowed, !roomEq);
 
       document.getElementById("row-nudge").hidden = onDial;
       document.getElementById("nudge-hint").hidden = onKey; // hint only when unsure
@@ -435,13 +543,19 @@
         fxReverbSend: 1, fxReverbReturn: 1, fxReverbVolume: 1, fxEchoVolume: 1,
         fxEqGain1: 1, fxEqGain2: 1, fxEqGain3: 1,
         fxCompThreshold: 1, fxCompGain: 1, fxExpThreshold: 1,
-        fxAutoLevelMaxGain: 1, fxAutoLevelHeadroom: 1
+        fxAutoLevelMaxGain: 1, fxAutoLevelHeadroom: 1,
+        fxRoomEqVolumeCorr: 1,
+        fxRoomEqGain1: 1, fxRoomEqGain2: 1, fxRoomEqGain3: 1, fxRoomEqGain4: 1, fxRoomEqGain5: 1, fxRoomEqGain6: 1, fxRoomEqGain7: 1, fxRoomEqGain8: 1, fxRoomEqGain9: 1
       };
       var FREQ_SCALED = {
         fxLowcutFreq: 1, fxEqFreq1: 1, fxEqFreq2: 1, fxEqFreq3: 1,
-        fxReverbLowcut: 1, fxReverbHighcut: 1, fxReverbHighdamp: 1
+        fxReverbLowcut: 1, fxReverbHighcut: 1, fxReverbHighdamp: 1,
+        fxRoomEqFreq1: 1, fxRoomEqFreq2: 1, fxRoomEqFreq3: 1, fxRoomEqFreq4: 1, fxRoomEqFreq5: 1, fxRoomEqFreq6: 1, fxRoomEqFreq7: 1, fxRoomEqFreq8: 1, fxRoomEqFreq9: 1
       };
-      var SELECTION = { fxLowcutGrade: 1, fxEqType1: 1, fxEqType3: 1 };
+      var SELECTION = {
+        fxLowcutGrade: 1, fxEqType1: 1, fxEqType3: 1,
+        fxRoomEqType1: 1, fxRoomEqType8: 1, fxRoomEqType9: 1
+      };
 
       var fxInDb = fx && t in DB_SCALED;
       var fxInOctaves = fx && t in FREQ_SCALED;
@@ -477,17 +591,28 @@
       // Mirrors GESTURES in src/actions/gestures.ts.
       var kind = fx ? "fx" : pan ? "pan" : t;
       var applicable = {};
-      Array.prototype.forEach.call(document.querySelectorAll("#row-gestures option"), function (opt) {
+      // The kinds are read from whichever copy of an option still carries the
+      // attribute, then applied by value, so a copy without it hides too.
+      var options = optionsUnder("row-gestures");
+      var inapplicable = [];
+      options.forEach(function (opt) {
         var kinds = opt.getAttribute("data-kinds");
-        var ok = !kinds || kinds.split(" ").indexOf(kind) !== -1;
+        if (!kinds || kinds.split(" ").indexOf(kind) !== -1) return;
+        if (inapplicable.indexOf(opt.value) === -1) inapplicable.push(opt.value);
+      });
+      options.forEach(function (opt) {
+        var ok = inapplicable.indexOf(opt.value) === -1;
         opt.hidden = !ok;
         opt.disabled = !ok;
         if (ok) applicable[opt.value] = true;
       });
 
-      Array.prototype.forEach.call(document.querySelectorAll("#row-gestures optgroup"), function (group) {
+      groupsUnder("row-gestures").forEach(function (group) {
         group.hidden = !group.querySelector("option:not([hidden])");
       });
+
+      clearIfHidden("press", inapplicable);
+      clearIfHidden("touch", inapplicable);
 
       document.getElementById("gesture-hint").textContent =
         pan
@@ -499,5 +624,6 @@
             : "Default: press mutes, touch drops the fader to \u2212\u221e and back.";
     });
   </script>
+  <script src="auto-refresh.js" data-deps='{"bus":["strip"]}'></script>
 </body>
 </html>

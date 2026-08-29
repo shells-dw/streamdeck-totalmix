@@ -32,7 +32,8 @@ export type Gesture =
 	| "globalSolo"
 	// FX only.
 	| "bypass"
-	| "neutral";
+	| "neutral"
+	| "neutralToggle";
 
 /** Classic target classes with distinct gesture rules. */
 export type ClassicKind = "main" | "strip" | "channel" | "gain" | "fx" | "pan";
@@ -82,6 +83,7 @@ export const CLASSIC: Vocabulary<ClassicKind> = {
 
 		bypass: ["fx"],
 		neutral: ["fx"],
+		neutralToggle: ["fx"],
 	},
 	fallback: (kind, slot) => {
 		if (slot === "press") return kind === "fx" ? "bypass" : "mute";
@@ -92,6 +94,43 @@ export const CLASSIC: Vocabulary<ClassicKind> = {
 };
 
 const GLOBAL_KINDS = ["main", "channel", "gain", "mixNode", "pan", "mixPan"] as const;
+
+/**
+ * Global OSC effect parameters. "fx" carries a neutral value (dB parameters
+ * return to 0 dB, selections to their first position); "fxPlain" covers
+ * frequencies and raw values, where no neutral is defined.
+ */
+export type GlobalFxKind = "fx" | "fxPlain";
+
+const GLOBAL_FX_KINDS = ["fx", "fxPlain"] as const;
+
+/** Global OSC FX dials: press bypasses the section, touch parks a value at neutral and brings it back. */
+export const GLOBAL_FX: Vocabulary<GlobalFxKind> = {
+	kinds: GLOBAL_FX_KINDS,
+	applies: {
+		auto: GLOBAL_FX_KINDS,
+		none: GLOBAL_FX_KINDS,
+
+		bypass: GLOBAL_FX_KINDS,
+		// One neutral gesture here: the toggle covers the plain reset, since its
+		// first press writes neutral and only a second press restores.
+		neutralToggle: ["fx"],
+
+		dim: GLOBAL_FX_KINDS,
+		mono: GLOBAL_FX_KINDS,
+		talkback: GLOBAL_FX_KINDS,
+		speakerB: GLOBAL_FX_KINDS,
+		extIn: GLOBAL_FX_KINDS,
+		muteFx: GLOBAL_FX_KINDS,
+		recall: GLOBAL_FX_KINDS,
+		globalMute: GLOBAL_FX_KINDS,
+		globalSolo: GLOBAL_FX_KINDS,
+	},
+	fallback: (kind, slot) => {
+		if (slot === "press") return "bypass";
+		return kind === "fx" ? "neutralToggle" : "bypass";
+	},
+};
 
 /**
  * Global OSC. Channels have mute and pfl but no cue; mix nodes have solo only,
@@ -178,4 +217,5 @@ export const GESTURE_LABELS: Readonly<Record<Gesture, string>> = {
 	globalSolo: "Solo all",
 	bypass: "Bypass",
 	neutral: "Neutral",
+	neutralToggle: "Neutral / back",
 };

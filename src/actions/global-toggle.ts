@@ -9,7 +9,7 @@ import streamDeck, {
 } from "@elgato/streamdeck";
 import { asBool } from "../osc/codec.js";
 import * as g from "../globalosc/addresses.js";
-import { globalMixFor } from "../globalosc/connection.js";
+import { globalMixFor, type GlobalConnection } from "../globalosc/connection.js";
 import {
 	globalConnectionOptions,
 	replyGlobalChannelDatasource,
@@ -20,6 +20,8 @@ import { num } from "../totalmix/settings.js";
 import { iconFor } from "../totalmix/icons.js";
 import type { ToggleParameter } from "./toggle.js";
 import { alertIfDown, forgetAlertState } from "./alert.js";
+import { buttonKeyImage } from "../render/strip.js";
+import { TM } from "../render/theme.js";
 
 export type GlobalToggleSettings = {
 	parameter?: GlobalToggleParameter;
@@ -29,6 +31,8 @@ export type GlobalToggleSettings = {
 	channel?: number | string;
 	/** Group number (1-4) for the group parameters. */
 	index?: number;
+	/** Artwork: TotalMix-style button (default) or the classic icon pair. */
+	look?: "strip" | "icon";
 	host?: string;
 	sendPort?: number;
 	receivePort?: number;
@@ -117,6 +121,40 @@ const ICON_ALIAS: Record<GlobalToggleParameter, ToggleParameter> = {
 	faderGroup: "faderGroup",
 };
 
+/** Face caption and lit colour for the TotalMix-style button. */
+const FACE: Record<GlobalToggleParameter, { label: string; colour: string }> = {
+	chMute: { label: "M", colour: TM.mute },
+	chPhase: { label: "Ø", colour: TM.fxOn },
+	chPhantom: { label: "48V", colour: TM.hot },
+	chInstrument: { label: "INST", colour: TM.mute },
+	chPad: { label: "PAD", colour: TM.mute },
+	chAutoset: { label: "ASET", colour: TM.mute },
+	chMsProc: { label: "MS", colour: TM.mute },
+	chLoopback: { label: "LOOP", colour: TM.mute },
+	chPfl: { label: "S", colour: TM.solo },
+	chStereo: { label: "ST", colour: TM.mute },
+	chRecord: { label: "REC", colour: TM.hot },
+	chLowcut: { label: "LC", colour: TM.fxOn },
+	chEq: { label: "EQ", colour: TM.fxOn },
+	chDynamics: { label: "D", colour: TM.fxOn },
+	chAutolevel: { label: "AL", colour: TM.fxOn },
+	chRoomEq: { label: "REQ", colour: TM.fxOn },
+	dim: { label: "DIM", colour: TM.mute },
+	mono: { label: "MONO", colour: TM.mute },
+	talkback: { label: "TALK", colour: TM.solo },
+	externalIn: { label: "EXT", colour: TM.mute },
+	speakerB: { label: "SPK B", colour: TM.mute },
+	muteFx: { label: "MUTE FX", colour: TM.mute },
+	linkAb: { label: "LINK", colour: TM.mute },
+	globalMute: { label: "M", colour: TM.mute },
+	globalSolo: { label: "S", colour: TM.solo },
+	reverb: { label: "REV", colour: TM.fxOn },
+	echo: { label: "ECHO", colour: TM.fxOn },
+	muteGroup: { label: "M", colour: TM.mute },
+	soloGroup: { label: "S", colour: TM.solo },
+	faderGroup: { label: "F", colour: TM.mute },
+};
+
 /**
  * Global OSC on/off control. Every parameter is stateful (the value is the
  * state), so a press sends the inverse of the cached state. Group addresses
@@ -125,6 +163,9 @@ const ICON_ALIAS: Record<GlobalToggleParameter, ToggleParameter> = {
 @action({ UUID: "de.shells.totalmixgen2.globaltoggle" })
 export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
+
+	/** Last key image sent per action, so an unchanged face is not re-sent. */
+	private readonly keyImages = new Map<string, string>();
 
 	override async onWillAppear(ev: WillAppearEvent<GlobalToggleSettings>): Promise<void> {
 		await seedDefaults(ev.action, ev.payload.settings, "global");
@@ -143,20 +184,39 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	): Promise<void> {
 		const gm = globalMixFor(globalConnectionOptions(settings));
 		const address = this.addressFor(settings);
-		const icons = iconFor(ICON_ALIAS[settings.parameter ?? "dim"]);
+		const parameter = settings.parameter ?? "dim";
+		const icons = iconFor(ICON_ALIAS[parameter]);
+		const strip = settings.look !== "icon";
+		const captionAddress = this.captionAddress(settings);
 
 		const render = (): void => {
 			const on = asBool(gm.get(address) ?? 0);
-			if (target.isKey()) {
-				void target.setImage(on ? icons.on : icons.off);
-				void target.setState(on ? 1 : 0);
-			} else {
+			if (!target.isKey()) {
 				void target.setFeedback({ value: on ? "On" : "Off" });
+				return;
 			}
+			void target.setState(on ? 1 : 0);
+			if (!strip) {
+				this.setKeyImage(target, on ? icons.on : icons.off);
+				return;
+			}
+			const face = FACE[parameter];
+			this.setKeyImage(
+				target,
+				buttonKeyImage({
+					label: face.label,
+					caption: this.captionFor(settings, gm),
+					on,
+					colour: face.colour,
+					offline: !gm.connected,
+				}),
+			);
 		};
 
 		this.releaseFor(target.id);
-		this.cleanup.set(target.id, [gm.subscribe(address, render), gm.onConnectionChange(render)]);
+		const unsubs = [gm.subscribe(address, render), gm.onConnectionChange(render)];
+		if (strip && captionAddress !== undefined) unsubs.push(gm.subscribe(captionAddress, render));
+		this.cleanup.set(target.id, unsubs);
 
 		render();
 	}
@@ -188,6 +248,43 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 		const address = this.addressFor(ev.payload.settings);
 		streamDeck.logger.info(`Key press: set-toggle ${address}`);
 		gm.toggleSet(address);
+	}
+
+	/** Sends a key image once per change. */
+	private setKeyImage(
+		target: { id: string; setImage: (image?: string) => Promise<void> },
+		image: string,
+	): void {
+		if (this.keyImages.get(target.id) === image) return;
+		this.keyImages.set(target.id, image);
+		void target.setImage(image);
+	}
+
+	/** Name address that feeds the caption for per-channel parameters. */
+	private captionAddress(settings: GlobalToggleSettings): string | undefined {
+		const parameter = settings.parameter ?? "dim";
+		if (!parameter.startsWith("ch")) return undefined;
+		return g.channelName(this.busOf(settings), num(settings.channel, 0));
+	}
+
+	/** Caption under the face: channel name, group number, or nothing. */
+	private captionFor(settings: GlobalToggleSettings, gm: GlobalConnection): string {
+		const parameter = settings.parameter ?? "dim";
+		if (parameter.startsWith("ch")) {
+			const ch = num(settings.channel, 0);
+			return gm.getString(g.channelName(this.busOf(settings), ch)) ?? `Ch ${ch + 1}`;
+		}
+		switch (parameter) {
+			case "muteGroup":
+			case "soloGroup":
+			case "faderGroup":
+				return `Group ${num(settings.index, 1)}`;
+			case "globalMute":
+			case "globalSolo":
+				return "All";
+			default:
+				return "";
+		}
 	}
 
 	private busOf(settings: GlobalToggleSettings): g.GlobalBus {
@@ -269,6 +366,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	}
 
 	private releaseFor(id: string): void {
+		this.keyImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

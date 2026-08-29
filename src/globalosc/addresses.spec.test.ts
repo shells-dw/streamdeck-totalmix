@@ -118,6 +118,11 @@ describe("global addresses conform to the Global OSC table", () => {
 		["faderGroup", g.faderGroup(4)],
 		["snapshotLoad", g.snapshotLoad(2)],
 		["layoutLoad", g.layoutLoad(3)],
+		["eq loadpreset", g.channelEqLoadPreset("input", 0)],
+		["dynamics loadpreset", g.channelDynamicsLoadPreset("playback", 1)],
+		["roomeq loadpreset (built)", g.channelRoomEqLoadPreset("output", 2)],
+		["REVERB_LOAD_PRESET", g.REVERB_LOAD_PRESET],
+		["ECHO_LOAD_PRESET", g.ECHO_LOAD_PRESET],
 		["sendChan", g.sendChan("input", 2)],
 		["sendSubmix", g.sendSubmix(2)],
 		["mix fader dB fallback", g.mixNode("in", 0, 2, "fader")],
@@ -151,6 +156,11 @@ describe("global addresses conform to the Global OSC table", () => {
 		// From the Description sheet's Examples block, character for character.
 		expect(g.UNDO).toBe("/undo");
 		expect(g.snapshotLoad(2)).toBe("/snapshot/load/2");
+		expect(g.channelEqLoadPreset("input", 4)).toBe("/input/4/eq/loadpreset");
+		expect(g.REVERB_LOAD_PRESET).toBe("/reverb/loadpreset");
+		// Preset numbers count from 1 and travel as the value.
+		expect(g.presetNumber(0)).toBe(1);
+		expect(g.presetNumber(2.4)).toBe(2);
 		expect(g.controlroom("mainout")).toBe("/controlroom/mainout");
 		expect(g.channelFaderlin("output", 2)).toBe("/output/2/faderlin");
 		expect(g.durec("pause")).toBe("/durec/pause");

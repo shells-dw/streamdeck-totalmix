@@ -204,6 +204,22 @@
     <p class="hint">Applies to keys only. On a Stream Deck+ dial, rotate to adjust; press and touch are set above.</p>
   </div>
 
+  <sdpi-item label="Appearance">
+    <sdpi-select setting="look" default="strip">
+      <option value="strip">TotalMix strip (fader, meter, M/S)</option>
+      <option value="icon">Icon with value title</option>
+    </sdpi-select>
+  </sdpi-item>
+  <sdpi-item label="Meter">
+    <sdpi-checkbox setting="meter" default="true" label="Show the level meter on the strip"></sdpi-checkbox>
+  </sdpi-item>
+  <p class="hint">
+    The strip shows the fader position on TotalMix's scale, the mute and solo
+    state, and the channel meter when "Send Level Messages" is enabled for the
+    Global OSC controller. A custom key image or title set in Stream Deck
+    replaces the strip.
+  </p>
+
   <details>
     <summary>Connection (Global OSC slot)</summary>
     <sdpi-item label="Host">
@@ -325,5 +341,6 @@
               "channel without touching its mute state. Press or tap again to restore.";
     });
   </script>
+  <script src="auto-refresh.js" data-deps='{"bus":["channel"],"mixSrcBus":["mixSrc"],"target":["channel","gainChannel","mixSrc","mixOut","submixOut"]}'></script>
 </body>
 </html>

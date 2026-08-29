@@ -90,6 +90,18 @@
     data (/sendstate) in case the display is stale.
   </p>
 
+  <sdpi-item label="Appearance">
+    <sdpi-select setting="look" default="strip">
+      <option value="strip">TotalMix panel</option>
+      <option value="icon">Plain title</option>
+    </sdpi-select>
+  </sdpi-item>
+  <p class="hint">
+    The panel draws a meter with peak hold, a lit connection state, a DSP
+    gauge, or the DURec clock and transport symbol. A custom key image set in
+    Stream Deck replaces it.
+  </p>
+
   <details>
     <summary>Connection (Global OSC slot)</summary>
     <sdpi-item label="Host">
@@ -151,5 +163,6 @@
       document.getElementById("row-level").hidden = m !== "level";
     });
   </script>
+  <script src="auto-refresh.js" data-deps='{"bus":["channel"]}'></script>
 </body>
 </html>

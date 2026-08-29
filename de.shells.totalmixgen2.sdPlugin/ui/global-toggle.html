@@ -133,6 +133,18 @@
     </p>
   </div>
 
+  <sdpi-item label="Appearance">
+    <sdpi-select setting="look" default="strip">
+      <option value="strip">TotalMix button</option>
+      <option value="icon">Icon</option>
+    </sdpi-select>
+  </sdpi-item>
+  <p class="hint">
+    The TotalMix button lights in the mixer's own colour when the parameter is
+    on and carries the channel name underneath. A custom key image set in
+    Stream Deck replaces it.
+  </p>
+
   <details>
     <summary>Connection (Global OSC slot)</summary>
     <sdpi-item label="Host">
@@ -203,5 +215,6 @@
       document.getElementById("hint-channel").hidden = p === "chPhase";
     });
   </script>
+  <script src="auto-refresh.js" data-deps='{"bus":["channel"],"parameter":["channel"]}'></script>
 </body>
 </html>

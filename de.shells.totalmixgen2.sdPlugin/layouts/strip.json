@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/layout.json",
+  "id": "layouts/strip.json",
+  "items": [
+    {
+      "key": "canvas",
+      "type": "pixmap",
+      "rect": [0, 0, 200, 100],
+      "zOrder": 0,
+      "value": "imgs/clearWash.png"
+    }
+  ]
+}

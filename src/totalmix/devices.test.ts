@@ -13,6 +13,13 @@ import {
 
 beforeEach(() => resetDeviceDetection());
 
+describe("device index suffix", () => {
+	it("ignores the unit number TotalMix appends", () => {
+		expect(matchDevice("Fireface UCX II (1)")?.id).toBe("ucx2");
+		expect(matchDevice("Fireface UFX III (2)")?.id).toBe("ufx3");
+	});
+});
+
 describe("the device table", () => {
 	it("has unique ids", () => {
 		const ids = DEVICES.map((d) => d.id);

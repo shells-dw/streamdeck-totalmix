@@ -38,6 +38,17 @@ import { asBool } from "../osc/codec.js";
 import { alertIfDown, forgetAlertState } from "./alert.js";
 import { washFeedback, type Wash } from "./wash.js";
 import { nudgeIcon } from "../totalmix/icons.js";
+import { RenderThrottle } from "./throttle.js";
+import { PeakHold } from "./peak-hold.js";
+import {
+	faderKeyImage,
+	faderTouchImage,
+	knobKeyImage,
+	knobTouchImage,
+	muteSoloBadges,
+	type FaderState,
+	type KnobState,
+} from "../render/strip.js";
 import {
 	GESTURE_LABELS,
 	GLOBAL,
@@ -72,12 +83,34 @@ export type GlobalVolumeSettings = {
 	press?: Gesture;
 	/** Dial placement only: what tapping the touch display does. Unset means the target's default. */
 	touch?: Gesture;
+	/** Artwork: TotalMix-style strip (default) or the plain icon with a title. */
+	look?: Look;
+	/** Strip look: draw the level meter (default true). Off saves deck traffic. */
+	meter?: boolean;
 	host?: string;
 	sendPort?: number;
 	receivePort?: number;
 };
 
+export type Look = "strip" | "icon";
+
 const DEFAULT_STEP_DB = 1.5;
+
+/** Repaint window for meter-driven renders. */
+const LEVEL_RENDER_MS = 100;
+
+/** Peak hold time and decay rate for the strip meter. */
+const HOLD_MS = 1500;
+const HOLD_DECAY_DB_PER_S = 12;
+
+/** Touch-display layouts per look. */
+const LAYOUT: Record<Look, string> = {
+	strip: "layouts/strip.json",
+	icon: "layouts/volume.json",
+};
+
+const lookOf = (settings: GlobalVolumeSettings): Look =>
+	settings.look === "icon" ? "icon" : "strip";
 
 /**
  * Global OSC level control. "main" resolves to the output channel named by
@@ -89,6 +122,17 @@ const DEFAULT_STEP_DB = 1.5;
 export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	/** Last key image sent per action, so an unchanged icon is not re-sent. */
 	private readonly keyImages = new Map<string, string>();
+
+	/** Last touch-display canvas sent per action (strip look). */
+	private readonly touchImages = new Map<string, string>();
+
+	/** Active layout per dial, so setFeedbackLayout runs only on change. */
+	private readonly layouts = new Map<string, string>();
+
+	/** Throttle for renders triggered by /level traffic. */
+	private readonly levelThrottle = new RenderThrottle(LEVEL_RENDER_MS);
+
+	private readonly peakHold = new PeakHold(HOLD_MS, HOLD_DECAY_DB_PER_S, LEVEL_RENDER_MS);
 
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
@@ -121,8 +165,25 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const render = (): void => {
 			void this.render(gm, target, settings);
 		};
+		const renderThrottled = (): void => {
+			this.levelThrottle.run(target.id, render);
+		};
 
 		const unsubs: Array<() => void> = [gm.onConnectionChange(render)];
+
+		if (target.isDial()) {
+			const layout = LAYOUT[lookOf(settings)];
+			if (this.layouts.get(target.id) !== layout) {
+				this.layouts.set(target.id, layout);
+				this.touchImages.delete(target.id);
+				await target.setFeedbackLayout(layout);
+			}
+		}
+
+		if (lookOf(settings) === "strip" && settings.meter !== false) {
+			const meter = this.levelAddress(settings, gm);
+			if (meter !== undefined) unsubs.push(gm.subscribe(meter, renderThrottled));
+		}
 
 		if ((settings.target ?? "channel") === "main") {
 			// Re-subscribe when the Main Out assignment moves.
@@ -214,6 +275,9 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	override onWillDisappear(ev: WillDisappearEvent<GlobalVolumeSettings>): void {
 		this.releaseFor(ev.action.id);
 		this.lastMainOut.delete(ev.action.id);
+		this.layouts.delete(ev.action.id);
+		this.levelThrottle.forget(ev.action.id);
+		this.peakHold.forget(ev.action.id);
 		forgetAlertState(ev.action.id);
 	}
 
@@ -474,6 +538,26 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		return spec === undefined ? undefined : g.channel(spec.bus, spec.ch, "balpan");
 	}
 
+	/** /level address of the metered channel: the target channel, or a mix node's source. */
+	private levelAddress(settings: GlobalVolumeSettings, gm: GlobalConnection): string | undefined {
+		const node = this.mixNodeSpec(settings);
+		if (node !== undefined) return g.level(node.src, node.in_);
+		if ((settings.target ?? "channel") === "mixPan") {
+			return g.level(settings.mixSrcBus ?? "in", num(settings.mixSrc, 0));
+		}
+		const spec = this.channelSpec(settings, gm);
+		if (spec === undefined) return undefined;
+		return g.level(g.levelBusOf(spec.bus), spec.ch);
+	}
+
+	/** Cached peak level in dB, or undefined when TotalMix has not sent one. */
+	private meterDb(settings: GlobalVolumeSettings, gm: GlobalConnection): number | undefined {
+		const address = this.levelAddress(settings, gm);
+		if (address === undefined) return undefined;
+		const v = gm.get(address);
+		return typeof v === "number" ? v : undefined;
+	}
+
 	/** Steps balpan, snapped to the step grid. */
 	private stepPan(gm: GlobalConnection, settings: GlobalVolumeSettings, ticks: number): boolean {
 		const address = this.panAddress(settings, gm);
@@ -718,6 +802,11 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		settings: GlobalVolumeSettings,
 		override?: number,
 	): Promise<void> {
+		if (lookOf(settings) === "strip") {
+			await this.renderStrip(gm, target, settings, override);
+			return;
+		}
+
 		if (this.isPan(settings)) {
 			await this.renderPan(gm, target, settings);
 			return;
@@ -760,6 +849,88 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 		this.applyNudgeIcon(target, settings.nudge);
 		await target.setTitle(gm.connected ? label : "—");
+	}
+
+	/**
+	 * TotalMix-style artwork: fader strip for levels, knob for gain and pan.
+	 * Keys get setImage; dials get the strip layout's single pixmap. Unchanged
+	 * images are not re-sent.
+	 */
+	private async renderStrip(
+		gm: GlobalConnection,
+		target: WillAppearEvent<GlobalVolumeSettings>["action"] | DialAction<GlobalVolumeSettings>,
+		settings: GlobalVolumeSettings,
+		override?: number,
+	): Promise<void> {
+		const targetKind = settings.target ?? "channel";
+		const offline = !gm.connected;
+		const name = this.labelFor(gm, settings);
+		const wash = offline ? "none" : this.washFor(settings, gm);
+		const mute = wash === "mute";
+		const solo = wash === "solo";
+		const nudge = target.isKey() ? (settings.nudge ?? "up") : undefined;
+
+		let image: string;
+		if (this.isPan(settings)) {
+			const address = this.panAddress(settings, gm);
+			const value = address === undefined ? undefined : gm.get(address);
+			const known = typeof value === "number";
+			const state: KnobState = {
+				name,
+				label: known ? formatBalance(value) : "—",
+				position: known ? (Math.min(1, Math.max(-1, value)) + 1) / 2 : undefined,
+				bipolar: true,
+				badges: muteSoloBadges(mute, solo),
+				nudge,
+				offline,
+			};
+			image = target.isDial() ? knobTouchImage(state) : knobKeyImage(state);
+		} else if (targetKind === "gain") {
+			const address = this.addressFor(settings, gm);
+			const value =
+				override ?? (address !== undefined ? this.currentValue(gm, settings, address) : undefined);
+			const max = detectedMaxGainDb(GAIN_MAX_DB);
+			const state: KnobState = {
+				name,
+				label: value === undefined ? "—" : `${Math.round(value)} dB`,
+				position: value === undefined ? undefined : Math.min(1, Math.max(0, value / max)),
+				bipolar: false,
+				badges: muteSoloBadges(mute, solo),
+				nudge,
+				offline,
+			};
+			image = target.isDial() ? knobTouchImage(state) : knobKeyImage(state);
+		} else {
+			const address = this.addressFor(settings, gm);
+			const value =
+				override ?? (address !== undefined ? this.currentValue(gm, settings, address) : undefined);
+			const meterDb = settings.meter === false ? undefined : this.meterDb(settings, gm);
+			const state: FaderState = {
+				name,
+				label: value === undefined ? "—" : formatDb(value),
+				position: value,
+				meterDb,
+				holdDb: this.peakHold.value(target.id, meterDb, () => void this.render(gm, target, settings)),
+				mute,
+				solo,
+				nudge,
+				offline,
+			};
+			image = target.isDial() ? faderTouchImage(state) : faderKeyImage(state);
+		}
+
+		if (target.isDial()) {
+			if (this.touchImages.get(target.id) === image) return;
+			this.touchImages.set(target.id, image);
+			await target.setFeedback({ canvas: image });
+			return;
+		}
+
+		if (this.keyImages.get(target.id) === image) return;
+		this.keyImages.set(target.id, image);
+		// The strip carries its own readout; the title stays empty.
+		await target.setTitle("");
+		await target.setImage(image);
 	}
 
 	/**
@@ -817,6 +988,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 	private releaseFor(id: string): void {
 		this.keyImages.delete(id);
+		this.touchImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

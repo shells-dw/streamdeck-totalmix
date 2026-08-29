@@ -11,6 +11,8 @@ import { totalMixFor } from "../totalmix/connection.js";
 import { seedDefaults } from "../totalmix/defaults.js";
 import { connectionOptions, num } from "../totalmix/settings.js";
 import { alertIfDown, forgetAlertState } from "./alert.js";
+import { buttonKeyImage, type ButtonGlyph } from "../render/strip.js";
+import { TM } from "../render/theme.js";
 
 export type SelectSettings = {
 	mode?: "submix" | "bankStart" | "offsetInBank" | "bus" | "quickWorkspace" | "nav" | "snapshot";
@@ -18,6 +20,8 @@ export type SelectSettings = {
 	value?: number;
 	bus?: addr.Bus;
 	nav?: "trackNext" | "trackPrev" | "bankNext" | "bankPrev";
+	/** Artwork: TotalMix-style button (default) or the manifest icon with the submix name. */
+	look?: "strip" | "icon";
 	host?: string;
 	sendPort?: number;
 	receivePort?: number;
@@ -27,6 +31,9 @@ export type SelectSettings = {
 @action({ UUID: "de.shells.totalmixgen2.select" })
 export class Select extends SingletonAction<SelectSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
+
+	/** Last key image sent per action, so an unchanged face is not re-sent. */
+	private readonly keyImages = new Map<string, string>();
 
 	override async onWillAppear(ev: WillAppearEvent<SelectSettings>): Promise<void> {
 		await seedDefaults(ev.action, ev.payload.settings, "classic");
@@ -43,8 +50,18 @@ export class Select extends SingletonAction<SelectSettings> {
 	): Promise<void> {
 		const tm = totalMixFor(connectionOptions(settings));
 
+		const strip = settings.look !== "icon";
+
 		// Submix keys show the active submix name (/1/labelSubmix).
 		const render = (): void => {
+			if (strip) {
+				const image = this.faceImage(settings, !tm.connected);
+				if (this.keyImages.get(target.id) === image) return;
+				this.keyImages.set(target.id, image);
+				void target.setTitle("");
+				void target.setImage(image);
+				return;
+			}
 			if ((settings.mode ?? "submix") !== "submix") {
 				void target.setTitle("");
 				return;
@@ -54,7 +71,7 @@ export class Select extends SingletonAction<SelectSettings> {
 		};
 
 		this.releaseFor(target.id);
-		this.cleanup.set(target.id, [tm.subscribe(addr.LABEL_SUBMIX, render)]);
+		this.cleanup.set(target.id, [tm.subscribe(addr.LABEL_SUBMIX, render), tm.onConnectionChange(render)]);
 
 		render();
 	}
@@ -96,6 +113,47 @@ export class Select extends SingletonAction<SelectSettings> {
 		}
 	}
 
+	/** TotalMix-style face: the target number or bus on the face, the kind underneath. Stateless, never lit. */
+	private faceImage(settings: SelectSettings, offline: boolean): string {
+		const value = num(settings.value, 0);
+		let label = "";
+		let glyph: ButtonGlyph | undefined;
+		let caption = "";
+		switch (settings.mode ?? "submix") {
+			case "submix":
+				label = String(value + 1);
+				caption = "Submix";
+				break;
+			case "bankStart":
+				label = String(value + 1);
+				caption = "Bank start";
+				break;
+			case "offsetInBank":
+				label = String(value + 1);
+				caption = "Channel";
+				break;
+			case "quickWorkspace":
+				label = String(Math.min(Math.max(value, 1), 30));
+				caption = "Workspace";
+				break;
+			case "snapshot":
+				label = String(value);
+				caption = "Snapshot";
+				break;
+			case "bus":
+				label = { input: "IN", playback: "PB", output: "OUT" }[settings.bus ?? "output"];
+				caption = "Bus";
+				break;
+			case "nav": {
+				const nav = settings.nav ?? "trackNext";
+				glyph = nav.endsWith("Next") ? "next" : "previous";
+				caption = nav.startsWith("track") ? "Track" : "Bank";
+				break;
+			}
+		}
+		return buttonKeyImage({ label, glyph, caption, on: false, colour: TM.mute, offline });
+	}
+
 	private navAddress(nav: NonNullable<SelectSettings["nav"]>): string {
 		switch (nav) {
 			case "trackNext":
@@ -110,6 +168,7 @@ export class Select extends SingletonAction<SelectSettings> {
 	}
 
 	private releaseFor(id: string): void {
+		this.keyImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

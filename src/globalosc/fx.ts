@@ -1,5 +1,6 @@
 import { MAX_DB, MIN_DB } from "../osc/curves.js";
 import * as g from "./addresses.js";
+import { detectedRefLevels } from "../totalmix/devices.js";
 
 /**
  * Global OSC effect, EQ, dynamics and Auto Level parameters and their step
@@ -11,6 +12,9 @@ export type FxUnit = "db" | "hz" | "index" | "native";
 /** Where a parameter lives: on one channel, or on a unit shared by the device. */
 export type FxScope = "channel" | "reverb" | "echo";
 
+/** Buses a channel-scoped parameter exists on; absent = all three. */
+export type FxBuses = readonly g.GlobalBus[];
+
 export interface FxParameter {
 	/** Address tail after the channel, or after /reverb or /echo. */
 	readonly param: string;
@@ -19,9 +23,19 @@ export interface FxParameter {
 	/** Shown above the value on a dial. */
 	readonly label: string;
 	/** Section whose enable lights the dial (channel-scoped parameters). */
-	readonly section?: "eq" | "lowcut" | "dynamics" | "autolevel" | "fx";
+	readonly section?: "eq" | "lowcut" | "dynamics" | "autolevel" | "fx" | "roomeq";
+	/** Buses the parameter exists on; omitted = all three. */
+	readonly buses?: FxBuses;
+	/** True for parameters the table marks L/R: the right half of a pair is addressed at channel + 1. */
+	readonly lr?: boolean;
 	/** Default step per detent, in the parameter's unit. */
 	readonly step: number;
+	/**
+	 * Value a "park at neutral" gesture writes, in the parameter's unit.
+	 * Omitted where none is defined: the table publishes no factory settings,
+	 * so this is filled in only for Room EQ, whose panel opens on fixed values.
+	 */
+	readonly neutral?: number;
 	/** Inclusive bounds in the parameter's unit; omitted where the range is unknown. */
 	readonly min?: number;
 	readonly max?: number;
@@ -38,6 +52,29 @@ export interface FxParameter {
 
 /** TotalMix band 1 and 3 filter types, in list order. */
 const EQ_BAND_TYPES = ["Bell", "Shelving", "High Pass", "Low Pass"] as const;
+
+/** Room EQ band 1, 8 and 9 filter types, in list order (classic table: Bell, Shelf, High Pass, Low Pass). */
+const ROOM_EQ_BAND_TYPES = ["Bell", "Shelving", "High Pass", "Low Pass"] as const;
+
+const OUTPUTS: FxBuses = ["output"];
+const ANALOG: FxBuses = ["input", "output"];
+const SOURCES: FxBuses = ["input", "playback"];
+
+/** Low cut slopes in list order. */
+const LOWCUT_SLOPES = ["6 dB/oct", "12 dB/oct", "18 dB/oct", "24 dB/oct"] as const;
+
+/** Crossfeed list: off, then strengths 1–5. */
+const CROSSFEED = ["Off", "1", "2", "3", "4", "5"] as const;
+
+/** Reverb algorithms in TotalMix's list order. */
+const REVERB_TYPES = [
+	"Small Room", "Medium Room", "Large Room", "Walls", "Shorty", "Attack", "Swagger",
+	"Old School", "Echoistic", "8plus9", "Grand Wide", "Thicker", "Envelope", "Gated", "Space",
+] as const;
+
+/** Echo algorithms in TotalMix's list order. */
+const ECHO_TYPES = ["Stereo Echo", "Stereo Cross", "Pong Echo"] as const;
+
 
 /** Frequency bounds; other units are clamped by TotalMix. */
 export const MIN_HZ = 20;
@@ -66,7 +103,7 @@ export const GLOBAL_FX: Readonly<Record<string, FxParameter>> = {
 
 	// Per channel: low cut.
 	lowcutFreq: { param: "lowcut/freq", scope: "channel", unit: "hz", label: "Low Cut", section: "lowcut", step: 20 },
-	lowcutSlope: { param: "lowcut/slope", scope: "channel", unit: "index", label: "LC Slope", section: "lowcut", step: 1 },
+	lowcutSlope: { param: "lowcut/slope", scope: "channel", unit: "index", label: "LC Slope", section: "lowcut", step: 1, positions: LOWCUT_SLOPES },
 
 	// Per channel: dynamics (shared enable and make-up gain).
 	dynGain: { param: "dynamics/gain", scope: "channel", unit: "db", label: "Makeup Gain", section: "dynamics", step: 1 },
@@ -83,13 +120,53 @@ export const GLOBAL_FX: Readonly<Record<string, FxParameter>> = {
 	autoRiseTime: { param: "autolevel/risetime", scope: "channel", unit: "native", label: "AL Rise", section: "autolevel", step: 0.1 },
 
 	// Per channel; delay is L/R-split (right = channel + 1).
-	width: { param: "width", scope: "channel", unit: "native", label: "Width", step: 0.05 },
-	crossfeed: { param: "crossfeed", scope: "channel", unit: "native", label: "Crossfeed", step: 1 },
-	delay: { param: "delay", scope: "channel", unit: "native", label: "Delay", step: 1 },
-	refLevel: { param: "reflevel", scope: "channel", unit: "index", label: "Ref Level", step: 1 },
+	// Stereo width is a source-channel setting; delay sits on the hardware outputs.
+	width: { param: "width", scope: "channel", unit: "native", label: "Width", step: 0.05, buses: SOURCES },
+	// Headphone crossfeed sits on the hardware outputs only.
+	crossfeed: { param: "crossfeed", scope: "channel", unit: "index", label: "Crossfeed", step: 1, positions: CROSSFEED, buses: OUTPUTS },
+	delay: { param: "delay", scope: "channel", unit: "native", label: "Delay", step: 1, lr: true, buses: OUTPUTS },
+	// Analog stages only: line inputs and outputs. Positions come from the
+	// detected device (devices.ts refLevels), per bus.
+	refLevel: { param: "reflevel", scope: "channel", unit: "index", label: "Ref Level", step: 1, buses: ANALOG },
+
+	// Room EQ (outputs only, L/R-split). "gain" on an output carrying Room EQ is
+	// its volume correction per the table; the delay is the channel delay above.
+	roomEqVolumeCorr: { param: "gain", scope: "channel", unit: "db", label: "REQ Vol Corr", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqDelay: { param: "delay", scope: "channel", unit: "native", label: "REQ Delay", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	// Bands 1-9; filter type is selectable on bands 1, 8 and 9 only.
+	roomEqBand1Type: { param: "roomeq/band1type", scope: "channel", unit: "index", label: "REQ1 Type", section: "roomeq", step: 1, neutral: 0, positions: ROOM_EQ_BAND_TYPES, buses: OUTPUTS, lr: true },
+	roomEqBand1Gain: { param: "roomeq/band1gain", scope: "channel", unit: "db", label: "REQ1 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand1Freq: { param: "roomeq/band1freq", scope: "channel", unit: "hz", label: "REQ1 Freq", section: "roomeq", step: 20, neutral: 50, buses: OUTPUTS, lr: true },
+	roomEqBand1Q: { param: "roomeq/band1q", scope: "channel", unit: "native", label: "REQ1 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand2Gain: { param: "roomeq/band2gain", scope: "channel", unit: "db", label: "REQ2 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand2Freq: { param: "roomeq/band2freq", scope: "channel", unit: "hz", label: "REQ2 Freq", section: "roomeq", step: 20, neutral: 100, buses: OUTPUTS, lr: true },
+	roomEqBand2Q: { param: "roomeq/band2q", scope: "channel", unit: "native", label: "REQ2 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand3Gain: { param: "roomeq/band3gain", scope: "channel", unit: "db", label: "REQ3 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand3Freq: { param: "roomeq/band3freq", scope: "channel", unit: "hz", label: "REQ3 Freq", section: "roomeq", step: 20, neutral: 150, buses: OUTPUTS, lr: true },
+	roomEqBand3Q: { param: "roomeq/band3q", scope: "channel", unit: "native", label: "REQ3 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand4Gain: { param: "roomeq/band4gain", scope: "channel", unit: "db", label: "REQ4 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand4Freq: { param: "roomeq/band4freq", scope: "channel", unit: "hz", label: "REQ4 Freq", section: "roomeq", step: 20, neutral: 200, buses: OUTPUTS, lr: true },
+	roomEqBand4Q: { param: "roomeq/band4q", scope: "channel", unit: "native", label: "REQ4 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand5Gain: { param: "roomeq/band5gain", scope: "channel", unit: "db", label: "REQ5 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand5Freq: { param: "roomeq/band5freq", scope: "channel", unit: "hz", label: "REQ5 Freq", section: "roomeq", step: 20, neutral: 250, buses: OUTPUTS, lr: true },
+	roomEqBand5Q: { param: "roomeq/band5q", scope: "channel", unit: "native", label: "REQ5 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand6Gain: { param: "roomeq/band6gain", scope: "channel", unit: "db", label: "REQ6 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand6Freq: { param: "roomeq/band6freq", scope: "channel", unit: "hz", label: "REQ6 Freq", section: "roomeq", step: 20, neutral: 300, buses: OUTPUTS, lr: true },
+	roomEqBand6Q: { param: "roomeq/band6q", scope: "channel", unit: "native", label: "REQ6 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand7Gain: { param: "roomeq/band7gain", scope: "channel", unit: "db", label: "REQ7 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand7Freq: { param: "roomeq/band7freq", scope: "channel", unit: "hz", label: "REQ7 Freq", section: "roomeq", step: 20, neutral: 400, buses: OUTPUTS, lr: true },
+	roomEqBand7Q: { param: "roomeq/band7q", scope: "channel", unit: "native", label: "REQ7 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand8Type: { param: "roomeq/band8type", scope: "channel", unit: "index", label: "REQ8 Type", section: "roomeq", step: 1, neutral: 0, positions: ROOM_EQ_BAND_TYPES, buses: OUTPUTS, lr: true },
+	roomEqBand8Gain: { param: "roomeq/band8gain", scope: "channel", unit: "db", label: "REQ8 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand8Freq: { param: "roomeq/band8freq", scope: "channel", unit: "hz", label: "REQ8 Freq", section: "roomeq", step: 20, neutral: 600, buses: OUTPUTS, lr: true },
+	roomEqBand8Q: { param: "roomeq/band8q", scope: "channel", unit: "native", label: "REQ8 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
+	roomEqBand9Type: { param: "roomeq/band9type", scope: "channel", unit: "index", label: "REQ9 Type", section: "roomeq", step: 1, neutral: 0, positions: ROOM_EQ_BAND_TYPES, buses: OUTPUTS, lr: true },
+	roomEqBand9Gain: { param: "roomeq/band9gain", scope: "channel", unit: "db", label: "REQ9 Gain", section: "roomeq", step: 1, neutral: 0, buses: OUTPUTS, lr: true },
+	roomEqBand9Freq: { param: "roomeq/band9freq", scope: "channel", unit: "hz", label: "REQ9 Freq", section: "roomeq", step: 20, neutral: 800, buses: OUTPUTS, lr: true },
+	roomEqBand9Q: { param: "roomeq/band9q", scope: "channel", unit: "native", label: "REQ9 Q", section: "roomeq", step: 0.1, neutral: 5, buses: OUTPUTS, lr: true },
 
 	// The reverb unit.
-	reverbType: { param: "type", scope: "reverb", unit: "index", label: "Rev Type", step: 1 },
+	reverbType: { param: "type", scope: "reverb", unit: "index", label: "Rev Type", step: 1, positions: REVERB_TYPES },
 	reverbVolume: { param: "volume", scope: "reverb", unit: "db", label: "Reverb Vol", step: 1 },
 	reverbPredelay: { param: "predelay", scope: "reverb", unit: "native", label: "Predelay", step: 1 },
 	reverbLowcut: { param: "lowcut", scope: "reverb", unit: "hz", label: "Rev LowCut", step: 20 },
@@ -106,7 +183,7 @@ export const GLOBAL_FX: Readonly<Record<string, FxParameter>> = {
 	reverbRelease: { param: "release", scope: "reverb", unit: "native", label: "Rev Release", step: 1 },
 
 	// The echo unit.
-	echoType: { param: "type", scope: "echo", unit: "index", label: "Echo Type", step: 1 },
+	echoType: { param: "type", scope: "echo", unit: "index", label: "Echo Type", step: 1, positions: ECHO_TYPES },
 	echoVolume: { param: "volume", scope: "echo", unit: "db", label: "Echo Vol", step: 1 },
 	echoDelay: { param: "delay", scope: "echo", unit: "native", label: "Echo Delay", step: 1 },
 	echoFeedback: { param: "feedback", scope: "echo", unit: "native", label: "Feedback", step: 1 },
@@ -119,7 +196,21 @@ export type FxKey = keyof typeof GLOBAL_FX;
 export const isFxKey = (key: string): key is FxKey => key in GLOBAL_FX;
 
 /** Parameters marked L/R in the table: the right half of a stereo pair is addressed at channel + 1. */
-export const isLrSplit = (key: FxKey): boolean => key === "delay";
+export const isLrSplit = (key: FxKey): boolean => GLOBAL_FX[key]!.lr === true;
+
+/**
+ * Value the neutral gestures write, or undefined when the parameter has none.
+ * Room EQ carries the panel's own opening values; other dB and selection
+ * parameters resolve to 0 dB and the first position.
+ */
+export function fxNeutral(key: FxKey): number | undefined {
+	const p = GLOBAL_FX[key]!;
+	if (p.neutral !== undefined) return p.neutral;
+	return p.unit === "db" || p.unit === "index" ? 0 : undefined;
+}
+
+/** Buses a parameter exists on; unit parameters and unrestricted channel parameters return all three. */
+export const fxBuses = (key: FxKey): FxBuses => GLOBAL_FX[key]!.buses ?? ["input", "playback", "output"];
 
 /** The address a parameter is written to and read from. */
 export function fxAddress(key: FxKey, bus: g.GlobalBus, ch: number): string {
@@ -149,6 +240,8 @@ export function fxEnableAddress(key: FxKey, bus: g.GlobalBus, ch: number): strin
 			return g.channelDynamicsEnable(bus, ch);
 		case "autolevel":
 			return g.channelAutolevelEnable(bus, ch);
+		case "roomeq":
+			return g.channelRoomEqEnable(bus, ch);
 		// The send and return feed the effect bus, so both units drive them; the
 		// caller decides, since either being on makes them audible.
 		case "fx":
@@ -167,13 +260,13 @@ export function fxEnableAddress(key: FxKey, bus: g.GlobalBus, ch: number): strin
  * TotalMix reports back, and a parameter already at its limit reports nothing
  * new. Without a bound the readout runs past the limit and stays there.
  */
-export function fxStep(key: FxKey, current: number, ticks: number, step: number): number {
+export function fxStep(key: FxKey, current: number, ticks: number, step: number, bus?: g.GlobalBus): number {
 	const p = GLOBAL_FX[key]!;
 	const moved = current + ticks * step;
 
 	switch (p.unit) {
 		case "index": {
-			const top = maxPosition(key);
+			const top = maxPosition(key, bus);
 			const moved = Math.max(0, Math.round(current) + ticks);
 			return top === undefined ? moved : Math.min(moved, top);
 		}
@@ -238,14 +331,25 @@ export function stepSettingOf(key: FxKey): FxStepSetting {
 }
 
 /** Highest selectable position, or undefined when the list is unknown. */
-export const maxPosition = (key: FxKey): number | undefined => {
-	const names = GLOBAL_FX[key]!.positions;
+/**
+ * List entries for an index parameter. Static lists come from the table;
+ * reference level follows the detected device and bus.
+ */
+export function positionsOf(key: FxKey, bus?: g.GlobalBus): readonly string[] | undefined {
+	if (key === "refLevel") {
+		return bus === "input" || bus === "output" ? detectedRefLevels(bus) : undefined;
+	}
+	return GLOBAL_FX[key]!.positions;
+}
+
+export const maxPosition = (key: FxKey, bus?: g.GlobalBus): number | undefined => {
+	const names = positionsOf(key, bus);
 	return names === undefined ? undefined : names.length - 1;
 };
 
 /** Name of an index parameter's position, or undefined when outside a known list. */
-export function positionName(key: FxKey, value: number): string | undefined {
-	const names = GLOBAL_FX[key]!.positions;
+export function positionName(key: FxKey, value: number, bus?: g.GlobalBus): string | undefined {
+	const names = positionsOf(key, bus);
 	if (names === undefined) return undefined;
 	return names[Math.round(value)];
 }

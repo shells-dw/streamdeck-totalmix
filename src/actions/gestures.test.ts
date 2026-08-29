@@ -3,10 +3,12 @@ import {
 	CLASSIC,
 	GESTURE_LABELS,
 	GLOBAL,
+	GLOBAL_FX,
 	defaultGesture,
 	resolveGesture,
 	type ClassicKind,
 	type Gesture,
+	type GlobalFxKind,
 	type GlobalKind,
 	type Vocabulary,
 } from "./gestures.js";
@@ -43,6 +45,40 @@ describe("classic defaults", () => {
 	 */
 	it("taps back to neutral on an effect parameter", () => {
 		expect(defaultGesture("fx", "touch", CLASSIC)).toBe("neutral");
+	});
+});
+
+describe("Global OSC effect parameter gestures", () => {
+	/**
+	 * Before this vocabulary existed both gestures switched the section, which
+	 * left the touch strip doing nothing the press did not already do.
+	 */
+	it("presses to bypass and taps to park at neutral", () => {
+		expect(defaultGesture("fx", "press", GLOBAL_FX)).toBe("bypass");
+		expect(defaultGesture("fx", "touch", GLOBAL_FX)).toBe("neutralToggle");
+	});
+
+	it("falls back to bypass on a parameter with no neutral", () => {
+		expect(defaultGesture("fxPlain", "touch", GLOBAL_FX)).toBe("bypass");
+		expect(resolveGesture("neutralToggle", "fxPlain", "press", GLOBAL_FX)).toBe("bypass");
+	});
+
+	it("keeps the neutral toggle on parameters that have a neutral", () => {
+		expect(resolveGesture("neutralToggle", "fx", "press", GLOBAL_FX)).toBe("neutralToggle");
+	});
+
+	/** The plain reset is the toggle's first press, so it is not offered twice. */
+	it("offers no separate plain neutral", () => {
+		expect(GLOBAL_FX.applies.neutral).toBeUndefined();
+		expect(resolveGesture("neutral", "fx", "touch", GLOBAL_FX)).toBe("neutralToggle");
+	});
+
+	it("offers the control room and global switches on both kinds", () => {
+		for (const kind of ["fx", "fxPlain"] as const satisfies readonly GlobalFxKind[]) {
+			for (const gesture of ["dim", "mono", "talkback", "recall", "globalMute"] as const) {
+				expect(resolveGesture(gesture, kind, "press", GLOBAL_FX)).toBe(gesture);
+			}
+		}
 	});
 });
 
@@ -174,3 +210,4 @@ function checkVocabulary<K extends string>(name: string, vocabulary: Vocabulary<
 
 checkVocabulary<ClassicKind>("classic", CLASSIC);
 checkVocabulary<GlobalKind>("Global OSC", GLOBAL);
+checkVocabulary<GlobalFxKind>("Global OSC effects", GLOBAL_FX);

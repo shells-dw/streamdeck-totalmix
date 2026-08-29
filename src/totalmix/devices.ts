@@ -23,7 +23,25 @@ export interface RmeDevice {
 	sourced: boolean;
 	/** Lowercased fragments that identify this device in a /status/device string. */
 	match: readonly string[];
+	/**
+	 * Reference level lists as TotalMix shows them, in list order (rising
+	 * 0 dBFS level). Omitted bus: the device has no switchable reference
+	 * level there. Some channels offer fewer entries than the bus list
+	 * (UFX III: +24 dBu only on the XLR outputs); TotalMix ignores an entry a
+	 * channel lacks.
+	 */
+	refLevels?: { input?: readonly string[]; output?: readonly string[] };
 }
+
+/** Naming used by TotalMix for UCX II, UFX III and the M-series: 0 dBFS level. */
+const NEW_IN = ["+13 dBu", "+19 dBu"] as const;
+const NEW_OUT = ["+4 dBu", "+13 dBu", "+19 dBu"] as const;
+const NEW_OUT_24 = ["+4 dBu", "+13 dBu", "+19 dBu", "+24 dBu"] as const;
+const NEW_IN_24 = ["+4 dBu", "+13 dBu", "+19 dBu", "+24 dBu"] as const;
+
+/** Legacy naming (UFX, UFX+, UFX II, 802, UC, UCX): reference level, same order. */
+const LEGACY_IN = ["-10 dBV", "+4 dBu", "Lo Gain"] as const;
+const LEGACY_OUT = ["-10 dBV", "+4 dBu", "Hi Gain"] as const;
 
 export const DEVICES: readonly RmeDevice[] = [
 	// --- 75 dB generation (UFX II preamp design, PAD-free, +18 dBu) ---
@@ -33,6 +51,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 75,
 		sourced: true, // rme-audio.de: "75 dB gain range"
 		match: ["ufx ii", "ufxii", "ufx2"],
+		refLevels: { input: LEGACY_IN, output: LEGACY_OUT },
 	},
 	{
 		id: "ufxplus",
@@ -40,6 +59,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 75,
 		sourced: true,
 		match: ["ufx+", "ufx plus"],
+		refLevels: { input: LEGACY_IN, output: LEGACY_OUT },
 	},
 	{
 		id: "ufx3",
@@ -47,6 +67,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 75,
 		sourced: false, // same preamp family as UFX+/UFX II
 		match: ["ufx iii", "ufxiii", "ufx3"],
+		refLevels: { input: NEW_IN, output: NEW_OUT_24 } // UFX III manual ch. 19.1 / 20.1,
 	},
 	{
 		id: "ucx2",
@@ -54,6 +75,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 75,
 		sourced: true, // rme-audio.de and the UCX II manual
 		match: ["ucx ii", "ucxii", "ucx2"],
+		refLevels: { input: NEW_IN, output: NEW_OUT } // UCX II manual ch. 39.1,
 	},
 	{
 		id: "12mic",
@@ -68,6 +90,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 75,
 		sourced: false,
 		match: ["m-1610", "m1610"],
+		refLevels: { input: NEW_IN_24, output: NEW_OUT_24 } // +24 dBu per RME level guide; order inferred,
 	},
 	{
 		id: "ff802",
@@ -75,6 +98,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 75,
 		sourced: false,
 		match: ["802"],
+		refLevels: { input: LEGACY_IN, output: LEGACY_OUT },
 	},
 
 	// --- 65 dB generation ---
@@ -84,6 +108,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 65,
 		sourced: true, // rme-audio.de: "Mic/Line preamps (65 dB Gain)"
 		match: ["ucx"],
+		refLevels: { input: LEGACY_IN, output: LEGACY_OUT },
 	},
 	{
 		id: "uc",
@@ -91,6 +116,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 65,
 		sourced: false,
 		match: ["fireface uc", "ff uc"],
+		refLevels: { input: LEGACY_IN, output: LEGACY_OUT } // rme-audio.de: -10 dBV, +4 dBu, Lo/Hi Gain,
 	},
 	{
 		id: "ufx",
@@ -98,6 +124,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 65,
 		sourced: false,
 		match: ["ufx"],
+		refLevels: { input: LEGACY_IN, output: LEGACY_OUT } // UFX manual p. 41,
 	},
 	{
 		id: "bfpro",
@@ -105,6 +132,7 @@ export const DEVICES: readonly RmeDevice[] = [
 		gainDb: 65,
 		sourced: true, // Babyface Pro FS manual: "0 dB to +65 dB", 1 dB steps
 		match: ["babyface pro", "bfpro", "bf pro"],
+		refLevels: { input: ["-10 dBV", "+4 dBu"] } // TRS inputs 3/4 only; outputs use the hardware switch,
 	},
 	{
 		id: "ff400",
@@ -137,9 +165,9 @@ const MATCHERS: ReadonlyArray<{ pattern: RegExp; device: RmeDevice }> = DEVICES.
 		device,
 	}));
 
-/** Resolves a /status/device string to a known device by fragment match. */
+/** Resolves a /status/device string to a known device by fragment match. A trailing unit index, "Fireface UCX II (1)", is ignored. */
 export function matchDevice(name: string): RmeDevice | undefined {
-	const haystack = name.toLowerCase();
+	const haystack = name.toLowerCase().replace(/\s*\(\d+\)\s*$/, "");
 	return MATCHERS.find((m) => m.pattern.test(haystack))?.device;
 }
 
@@ -184,6 +212,14 @@ export function gainRangeDb(settingId?: string): number {
 		if (picked !== undefined) return picked.gainDb;
 	}
 	return FALLBACK_GAIN_DB;
+}
+
+/**
+ * Reference level list of the detected device for a bus, or undefined when
+ * no device is known or the device has no switchable level on that bus.
+ */
+export function detectedRefLevels(bus: "input" | "output"): readonly string[] | undefined {
+	return detectedDevice()?.refLevels?.[bus];
 }
 
 /** Global OSC gain ceiling in dB from the detected device, or `fallback`. */

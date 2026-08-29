@@ -25,6 +25,8 @@ import {
 } from "../totalmix/focus.js";
 import { datasourceEvent, replyStripDatasource } from "../totalmix/datasource.js";
 import { alertIfDown, forgetAlertState } from "./alert.js";
+import { buttonKeyImage, type ButtonGlyph } from "../render/strip.js";
+import { TM } from "../render/theme.js";
 
 export type ToggleSettings = {
 	/** Which parameter to flip. */
@@ -35,6 +37,8 @@ export type ToggleSettings = {
 	index?: number;
 	/** Bus to select before acting; empty = follow the slot. */
 	bus?: "input" | "playback" | "output" | "";
+	/** Artwork: TotalMix-style button (default) or the classic icon pair. */
+	look?: "strip" | "icon";
 	/** Bank start (0-based channel index) to select before acting; empty = leave. */
 	bankStart?: number | string;
 	host?: string;
@@ -122,6 +126,52 @@ const isRoomEq = (p: ToggleParameter): boolean => p === "roomEq";
 
 const isChannelParam = (p: ToggleParameter): boolean => CHANNEL_PARAMETERS.has(p) || isRoomEq(p);
 
+/** TotalMix-style face per parameter: caption on the face (or a glyph) and lit colour. */
+const FACE: Record<ToggleParameter, { label?: string; glyph?: ButtonGlyph; colour: string }> = {
+	mainDim: { label: "DIM", colour: TM.mute },
+	mainMono: { label: "MONO", colour: TM.mute },
+	mainMuteFx: { label: "MUTE FX", colour: TM.mute },
+	mainSpeakerB: { label: "SPK B", colour: TM.mute },
+	mainTalkback: { label: "TALK", colour: TM.solo },
+	mainExtIn: { label: "EXT", colour: TM.mute },
+	mainRecall: { label: "RCL", colour: TM.mute },
+	globalMute: { label: "M", colour: TM.mute },
+	globalSolo: { label: "S", colour: TM.solo },
+	trim: { label: "TRIM", colour: TM.mute },
+	stripMute: { label: "M", colour: TM.mute },
+	stripSolo: { label: "S", colour: TM.solo },
+	stripPhantom: { label: "48V", colour: TM.hot },
+	stripCue: { label: "CUE", colour: TM.mute },
+	channelMute: { label: "M", colour: TM.mute },
+	channelSolo: { label: "S", colour: TM.solo },
+	channelPhantom: { label: "48V", colour: TM.hot },
+	channelEq: { label: "EQ", colour: TM.fxOn },
+	channelLowcut: { label: "LC", colour: TM.fxOn },
+	channelComp: { label: "D", colour: TM.fxOn },
+	channelAutoLevel: { label: "AL", colour: TM.fxOn },
+	channelStereo: { label: "ST", colour: TM.mute },
+	channelPhase: { label: "Ø", colour: TM.fxOn },
+	channelPhaseRight: { label: "Ø R", colour: TM.fxOn },
+	channelLoopback: { label: "LOOP", colour: TM.mute },
+	channelTalkbackSel: { label: "TB", colour: TM.solo },
+	channelNoTrim: { label: "NO TRIM", colour: TM.mute },
+	channelInstrument: { label: "INST", colour: TM.mute },
+	channelPad: { label: "PAD", colour: TM.mute },
+	channelMsProc: { label: "MS", colour: TM.mute },
+	channelAutoset: { label: "ASET", colour: TM.mute },
+	channelRecord: { label: "REC", colour: TM.hot },
+	recordStart: { glyph: "record", colour: TM.hot },
+	recordPlayPause: { glyph: "play", colour: "#2ec84a" },
+	recordStop: { glyph: "stop", colour: TM.mute },
+	muteGroup: { label: "M", colour: TM.mute },
+	soloGroup: { label: "S", colour: TM.solo },
+	faderGroup: { label: "F", colour: TM.mute },
+	snapshot: { colour: TM.mute },
+	reverb: { label: "REV", colour: TM.fxOn },
+	echo: { label: "ECHO", colour: TM.fxOn },
+	roomEq: { label: "REQ", colour: TM.fxOn },
+};
+
 /** Bus restrictions per the RME table; absent = all buses. */
 const PARAMETER_BUSES: Partial<Record<ToggleParameter, readonly ("input" | "playback" | "output")[]>> = {
 	stripSolo: SOURCES,
@@ -145,6 +195,9 @@ const busesFor = (p: ToggleParameter): readonly ("input" | "playback" | "output"
 @action({ UUID: "de.shells.totalmixgen2.toggle" })
 export class Toggle extends SingletonAction<ToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
+
+	/** Last key image sent per action, so an unchanged face is not re-sent. */
+	private readonly keyImages = new Map<string, string>();
 
 	override async onWillAppear(ev: WillAppearEvent<ToggleSettings>): Promise<void> {
 		await seedDefaults(ev.action, ev.payload.settings, "classic");
@@ -186,22 +239,54 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 		// Non-resident pages are collected only when declared.
 		tm.declarePage(target.id, addr.pageOf(address));
 
+		const strip = settings.look !== "icon";
+		const nameAddress = isStripParam
+			? addr.trackName(num(settings.strip, 1))
+			: isChannelParam(parameter)
+				? (isRoomEq(parameter) ? addr.ROOM_EQ_TRACK_NAME : addr.CH_TRACK_NAME)
+				: null;
+
 		const render = (): void => {
 			const on = asBool(tm.get(address, req) ?? 0);
 
-			if (target.isKey()) {
-				void target.setImage(on ? icons.on : icons.off);
-				void target.setState(on ? 1 : 0);
-			} else {
+			if (!target.isKey()) {
 				void target.setFeedback({ value: on ? "On" : "Off" });
+				return;
 			}
+			void target.setState(on ? 1 : 0);
+			if (!strip) {
+				this.setKeyImage(target, on ? icons.on : icons.off);
+				return;
+			}
+			const face = FACE[parameter];
+			const index = num(settings.index, 1);
+			const caption =
+				nameAddress !== null
+					? (tm.getString(nameAddress, req) ?? (isStripParam ? `Strip ${num(settings.strip, 1)}` : "Channel"))
+					: parameter === "snapshot"
+						? `Snapshot ${index}`
+						: parameter === "muteGroup" || parameter === "soloGroup" || parameter === "faderGroup"
+							? `Group ${index}`
+							: parameter === "globalMute" || parameter === "globalSolo"
+								? "All"
+								: "";
+			this.setKeyImage(
+				target,
+				buttonKeyImage({
+					label: face.label ?? (parameter === "snapshot" ? String(index) : parameter.toUpperCase()),
+					glyph: face.glyph,
+					caption,
+					on,
+					colour: face.colour,
+					offline: !tm.connected,
+				}),
+			);
 		};
 
 		this.releaseFor(target.id);
-		this.cleanup.set(target.id, [
-			tm.subscribe(address, render),
-			tm.onConnectionChange(render),
-		]);
+		const unsubs = [tm.subscribe(address, render), tm.onConnectionChange(render)];
+		if (strip && nameAddress !== null) unsubs.push(tm.subscribe(nameAddress, render));
+		this.cleanup.set(target.id, unsubs);
 
 		render();
 	}
@@ -251,6 +336,16 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 
 		streamDeck.logger.info(`Key press: toggle ${address}`);
 		tm.toggle(address);
+	}
+
+	/** Sends a key image once per change. */
+	private setKeyImage(
+		target: { id: string; setImage: (image?: string) => Promise<void> },
+		image: string,
+	): void {
+		if (this.keyImages.get(target.id) === image) return;
+		this.keyImages.set(target.id, image);
+		void target.setImage(image);
 	}
 
 	private addressFor(settings: ToggleSettings): string {
@@ -346,6 +441,7 @@ export class Toggle extends SingletonAction<ToggleSettings> {
 	}
 
 	private releaseFor(id: string): void {
+		this.keyImages.delete(id);
 		const unsubs = this.cleanup.get(id);
 		if (unsubs === undefined) return;
 		for (const fn of unsubs) fn();

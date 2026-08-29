@@ -42,6 +42,20 @@ export const channelAutolevelEnable = (bus: GlobalBus, ch: number): string =>
 export const channelRoomEqEnable = (bus: GlobalBus, ch: number): string =>
 	channel(bus, ch, "roomeq/enable");
 
+/**
+ * (f) receive only; the value is the preset number, counting from 1. TotalMix
+ * never transmits these, so the loaded preset cannot be read back.
+ */
+export const channelEqLoadPreset = (bus: GlobalBus, ch: number): string =>
+	channel(bus, ch, "eq/loadpreset"); // includes low-cut settings
+export const channelDynamicsLoadPreset = (bus: GlobalBus, ch: number): string =>
+	channel(bus, ch, "dynamics/loadpreset"); // includes Auto Level settings
+export const channelRoomEqLoadPreset = (bus: GlobalBus, ch: number): string =>
+	channel(bus, ch, "roomeq/loadpreset");
+
+/** Preset number as sent in a loadpreset message: whole, at least 1. */
+export const presetNumber = (n: number): number => Math.max(1, Math.round(n));
+
 // --- Mix nodes: /mix/{in|pb}/{input}/{output}/{param} -------------------------
 
 export const mixNode = (
@@ -80,6 +94,9 @@ export const echo = (param: string): string => `/echo/${param}`;
 
 export const REVERB_ENABLE = reverb("enable");
 export const ECHO_ENABLE = echo("enable");
+/** (f) receive only: preset number as the value. */
+export const REVERB_LOAD_PRESET = reverb("loadpreset");
+export const ECHO_LOAD_PRESET = echo("loadpreset");
 
 // --- Top-level ----------------------------------------------------------------
 

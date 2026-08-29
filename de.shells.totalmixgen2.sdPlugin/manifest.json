@@ -1,11 +1,11 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "UUID": "de.shells.totalmixgen2",
-  "Name": "TotalMix FX Gen2",
-  "Version": "4.5.0.0",
+  "Name": "TotalMix FX Control",
+  "Version": "5.0.0.0",
   "Author": "shells-dw",
   "Description": "Control TotalMix FX over OSC, with Stream Deck+ dial support.",
-  "Category": "TotalMix FX Gen2",
+  "Category": "TotalMix FX Control",
   "CategoryIcon": "imgs/category/categoryIcon",
   "Icon": "imgs/pluginIcon",
   "URL": "https://github.com/shells-dw/streamdeck-totalmix",
@@ -39,7 +39,7 @@
         "Encoder"
       ],
       "Encoder": {
-        "layout": "layouts/volume.json",
+        "layout": "layouts/strip.json",
         "TriggerDescription": {
           "Rotate": "Adjust level",
           "Push": "Mute",
@@ -48,7 +48,7 @@
       },
       "States": [
         {
-          "Image": "imgs/volume",
+          "Image": "imgs/stripVolume",
           "TitleAlignment": "bottom"
         }
       ]
@@ -64,11 +64,11 @@
       ],
       "States": [
         {
-          "Image": "imgs/muteOff",
+          "Image": "imgs/stripToggleOff",
           "TitleAlignment": "bottom"
         },
         {
-          "Image": "imgs/muteOn",
+          "Image": "imgs/stripToggleOn",
           "TitleAlignment": "bottom"
         }
       ]
@@ -84,7 +84,7 @@
       ],
       "States": [
         {
-          "Image": "imgs/mixerOn",
+          "Image": "imgs/stripSelect",
           "TitleAlignment": "bottom"
         }
       ]
@@ -100,7 +100,7 @@
         "Encoder"
       ],
       "Encoder": {
-        "layout": "layouts/volume.json",
+        "layout": "layouts/strip.json",
         "TriggerDescription": {
           "Rotate": "Adjust level",
           "Push": "Mute",
@@ -109,7 +109,7 @@
       },
       "States": [
         {
-          "Image": "imgs/volume",
+          "Image": "imgs/stripVolume",
           "TitleAlignment": "bottom"
         }
       ]
@@ -125,11 +125,11 @@
       ],
       "States": [
         {
-          "Image": "imgs/muteOff",
+          "Image": "imgs/stripToggleOff",
           "TitleAlignment": "bottom"
         },
         {
-          "Image": "imgs/muteOn",
+          "Image": "imgs/stripToggleOn",
           "TitleAlignment": "bottom"
         }
       ],
@@ -146,11 +146,11 @@
       ],
       "States": [
         {
-          "Image": "imgs/actionDefaultImage",
+          "Image": "imgs/stripTrigger",
           "TitleAlignment": "bottom"
         },
         {
-          "Image": "imgs/mixerOn",
+          "Image": "imgs/stripTriggerOn",
           "TitleAlignment": "bottom"
         }
       ],
@@ -167,7 +167,7 @@
         "Encoder"
       ],
       "Encoder": {
-        "layout": "layouts/volume.json",
+        "layout": "layouts/strip.json",
         "TriggerDescription": {
           "Rotate": "Adjust",
           "Push": "Section on/off",
@@ -176,7 +176,7 @@
       },
       "States": [
         {
-          "Image": "imgs/fx",
+          "Image": "imgs/stripFx",
           "TitleAlignment": "bottom"
         }
       ]
@@ -203,7 +203,7 @@
       "DisableAutomaticStates": true,
       "States": [
         {
-          "Image": "imgs/blank",
+          "Image": "imgs/stripDisplay",
           "TitleAlignment": "middle"
         }
       ]
