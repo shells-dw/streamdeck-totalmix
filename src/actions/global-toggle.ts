@@ -22,6 +22,11 @@ import type { ToggleParameter } from "./toggle.js";
 import { alertIfDown, forgetAlertState } from "./alert.js";
 import { buttonKeyImage } from "../render/strip.js";
 import { TM } from "../render/theme.js";
+import {
+	controlRoomMainMuteState,
+	subscribeControlRoomMainMute,
+	toggleControlRoomMainMute,
+} from "./control-room-main-mute.js";
 
 export type GlobalToggleSettings = {
 	parameter?: GlobalToggleParameter;
@@ -62,6 +67,7 @@ export type GlobalToggleParameter =
 	| "talkback"
 	| "externalIn"
 	| "speakerB"
+	| "muteMainOut"
 	| "muteFx"
 	| "linkAb"
 	// Global
@@ -110,6 +116,7 @@ const ICON_ALIAS: Record<GlobalToggleParameter, ToggleParameter> = {
 	talkback: "mainTalkback",
 	externalIn: "mainExtIn",
 	speakerB: "mainSpeakerB",
+	muteMainOut: "globalMute",
 	muteFx: "mainMuteFx",
 	linkAb: "mainSpeakerB",
 	globalMute: "globalMute",
@@ -144,6 +151,7 @@ const FACE: Record<GlobalToggleParameter, { label: string; colour: string }> = {
 	talkback: { label: "TALK", colour: TM.solo },
 	externalIn: { label: "EXT", colour: TM.mute },
 	speakerB: { label: "SPK B", colour: TM.mute },
+	muteMainOut: { label: "M", colour: TM.mute },
 	muteFx: { label: "MUTE FX", colour: TM.mute },
 	linkAb: { label: "LINK", colour: TM.mute },
 	globalMute: { label: "M", colour: TM.mute },
@@ -163,6 +171,7 @@ const FACE: Record<GlobalToggleParameter, { label: string; colour: string }> = {
 @action({ UUID: "de.shells.totalmixgen2.globaltoggle" })
 export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	private readonly cleanup = new Map<string, Array<() => void>>();
+	private readonly setupGeneration = new Map<string, number>();
 
 	/** Last key image sent per action, so an unchanged face is not re-sent. */
 	private readonly keyImages = new Map<string, string>();
@@ -182,15 +191,19 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 		target: WillAppearEvent<GlobalToggleSettings>["action"],
 		settings: GlobalToggleSettings,
 	): Promise<void> {
+		const generation = (this.setupGeneration.get(target.id) ?? 0) + 1;
+		this.setupGeneration.set(target.id, generation);
+		this.releaseFor(target.id);
+
 		const gm = globalMixFor(globalConnectionOptions(settings));
-		const address = this.addressFor(settings);
 		const parameter = settings.parameter ?? "dim";
 		const icons = iconFor(ICON_ALIAS[parameter]);
 		const strip = settings.look !== "icon";
 		const captionAddress = this.captionAddress(settings);
+		const isCurrent = (): boolean => this.setupGeneration.get(target.id) === generation;
 
-		const render = (): void => {
-			const on = asBool(gm.get(address) ?? 0);
+		const renderState = (on: boolean): void => {
+			if (!isCurrent()) return;
 			if (!target.isKey()) {
 				void target.setFeedback({ value: on ? "On" : "Off" });
 				return;
@@ -213,8 +226,24 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 			);
 		};
 
-		this.releaseFor(target.id);
-		const unsubs = [gm.subscribe(address, render), gm.onConnectionChange(render)];
+		const render = (): void => {
+			if (parameter === "muteMainOut") {
+				renderState(controlRoomMainMuteState(gm) ?? false);
+				return;
+			}
+			const address = this.addressFor(settings);
+			renderState(address === undefined ? false : asBool(gm.get(address) ?? 0));
+		};
+
+		const unsubs: Array<() => void> = [gm.onConnectionChange(render)];
+		if (parameter === "muteMainOut") {
+			unsubs.push(
+				subscribeControlRoomMainMute(gm, (muted) => renderState(muted ?? false)),
+			);
+		} else {
+			const address = this.addressFor(settings);
+			if (address !== undefined) unsubs.push(gm.subscribe(address, render));
+		}
 		if (strip && captionAddress !== undefined) unsubs.push(gm.subscribe(captionAddress, render));
 		this.cleanup.set(target.id, unsubs);
 
@@ -222,6 +251,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	}
 
 	override onWillDisappear(ev: WillDisappearEvent<GlobalToggleSettings>): void {
+		this.setupGeneration.delete(ev.action.id);
 		this.releaseFor(ev.action.id);
 		forgetAlertState(ev.action.id);
 	}
@@ -245,7 +275,18 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 	override onKeyDown(ev: KeyDownEvent<GlobalToggleSettings>): void {
 		const gm = globalMixFor(globalConnectionOptions(ev.payload.settings));
 		if (alertIfDown(ev.action, gm)) return;
+		if ((ev.payload.settings.parameter ?? "dim") === "muteMainOut") {
+			streamDeck.logger.info("Key press: Mute Main Out");
+			if (toggleControlRoomMainMute(gm) === undefined) {
+				streamDeck.logger.warn(
+					"Ignoring Mute Main Out: assignments or Main Out mute not received yet",
+				);
+				gm.requestFullRefresh();
+			}
+			return;
+		}
 		const address = this.addressFor(ev.payload.settings);
+		if (address === undefined) return;
 		streamDeck.logger.info(`Key press: set-toggle ${address}`);
 		gm.toggleSet(address);
 	}
@@ -282,6 +323,8 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 			case "globalMute":
 			case "globalSolo":
 				return "All";
+			case "muteMainOut":
+				return "Main";
 			default:
 				return "";
 		}
@@ -295,7 +338,7 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 			: "input";
 	}
 
-	private addressFor(settings: GlobalToggleSettings): string {
+	private addressFor(settings: GlobalToggleSettings): string | undefined {
 		const parameter = settings.parameter ?? "dim";
 		const ch = num(settings.channel, 0);
 		const index = num(settings.index, 1);
@@ -344,6 +387,8 @@ export class GlobalToggle extends SingletonAction<GlobalToggleSettings> {
 				return g.CR_EXTERNAL_IN;
 			case "speakerB":
 				return g.CR_SPEAKER_B;
+			case "muteMainOut":
+				return undefined;
 			case "muteFx":
 				return g.CR_MUTE_FX;
 			case "linkAb":

@@ -25,6 +25,7 @@ export type Gesture =
 	| "mono"
 	| "talkback"
 	| "speakerB"
+	| "muteMainOut"
 	| "extIn"
 	| "muteFx"
 	| "recall"
@@ -149,8 +150,9 @@ export const GLOBAL_FX: Vocabulary<GlobalFxKind> = {
 
 /**
  * Global OSC. Channels have mute and pfl but no cue; mix nodes have solo only,
- * so their press defaults to solo. The control room has no mute, so "mute" on
- * main is fader to -oo.
+ * so their press defaults to solo. The existing "mute" gesture on a control-
+ * room target remains fader to -oo; "muteMainOut" is the separate ARC-style
+ * operation that writes the assigned outputs' real mute parameters.
  */
 export const GLOBAL: Vocabulary<GlobalKind> = {
 	kinds: GLOBAL_KINDS,
@@ -169,6 +171,7 @@ export const GLOBAL: Vocabulary<GlobalKind> = {
 		mono: GLOBAL_KINDS,
 		talkback: GLOBAL_KINDS,
 		speakerB: GLOBAL_KINDS,
+		muteMainOut: GLOBAL_KINDS,
 		extIn: GLOBAL_KINDS,
 		muteFx: GLOBAL_KINDS,
 		recall: GLOBAL_KINDS,
@@ -225,6 +228,7 @@ export const GESTURE_LABELS: Readonly<Record<Gesture, string>> = {
 	mono: "Mono",
 	talkback: "Talkback",
 	speakerB: "Speaker B",
+	muteMainOut: "Mute Main Out",
 	extIn: "Ext. In",
 	muteFx: "Mute FX",
 	recall: "Recall",

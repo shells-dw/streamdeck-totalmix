@@ -62,6 +62,7 @@ import {
 	resolveControlRoomOutput,
 	subscribeControlRoomOutput,
 } from "./global-volume-target.js";
+import { toggleControlRoomMainMute } from "./control-room-main-mute.js";
 
 export type GlobalVolumeTarget =
 	| "main"
@@ -679,6 +680,12 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				return undefined;
 			case "speakerB":
 				gm.toggleSet(g.CR_SPEAKER_B);
+				return undefined;
+			case "muteMainOut":
+				if (toggleControlRoomMainMute(gm) === undefined) {
+					streamDeck.logger.warn("Ignoring Mute Main Out: assignments or Main Out mute not received yet");
+					gm.requestFullRefresh();
+				}
 				return undefined;
 			case "extIn":
 				gm.toggleSet(g.CR_EXTERNAL_IN);

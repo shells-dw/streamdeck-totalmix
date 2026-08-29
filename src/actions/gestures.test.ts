@@ -120,6 +120,14 @@ describe("Global OSC defaults", () => {
 		expect(GLOBAL.applies.bypass).toBeUndefined();
 	});
 
+	it("offers ARC-style Mute Main Out on every Global Volume target", () => {
+		expect(GLOBAL.applies.muteMainOut).toEqual(GLOBAL.kinds);
+		for (const kind of GLOBAL.kinds) {
+			expect(resolveGesture("muteMainOut", kind, "press", GLOBAL)).toBe("muteMainOut");
+		}
+		expect(CLASSIC.applies.muteMainOut).toBeUndefined();
+	});
+
 	it("does not offer -oo on a pan, whose bottom is hard left rather than silence", () => {
 		expect(GLOBAL.applies.infinity).not.toContain("pan");
 		expect(GLOBAL.applies.infinity).not.toContain("mixPan");

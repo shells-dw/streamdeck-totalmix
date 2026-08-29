@@ -60,6 +60,7 @@
         <option value="talkback">Talkback</option>
         <option value="externalIn">External input</option>
         <option value="speakerB">Speaker B</option>
+        <option value="muteMainOut">Mute Main Out</option>
         <option value="muteFx">Mute FX return</option>
         <option value="linkAb">Link Main/Speaker B</option>
       </optgroup>
@@ -119,6 +120,14 @@
     <p class="hint" id="hint-lr" hidden>
       Phase is separate per side on stereo pairs — "(R)" entries address the
       right side. Refresh the list after switching to this parameter.
+    </p>
+  </div>
+
+  <div id="row-main-mute" hidden>
+    <p class="hint">
+      Matches ARC USB Mute (Main Out): the light follows Main Out's real output
+      mute only. Pressing writes that next state to both Main Out and Main Out B,
+      regardless of Speaker B state.
     </p>
   </div>
 
@@ -209,6 +218,7 @@
       // AutoSet) and output-only (Room EQ) parameters; hide the choice there.
       var forcedBus = { chPhantom: 1, chInstrument: 1, chPad: 1, chAutoset: 1, chRoomEq: 1 }[p] === 1;
       document.getElementById("row-channel").hidden = !isChannel;
+      document.getElementById("row-main-mute").hidden = p !== "muteMainOut";
       document.getElementById("row-bus").hidden = forcedBus;
       document.getElementById("row-index").hidden = !isGroup;
       document.getElementById("hint-lr").hidden = p !== "chPhase";
