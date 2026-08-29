@@ -78,6 +78,8 @@ export const controlroom = (param: string): string => `/controlroom/${param}`;
 export const CR_DIM = controlroom("dim");
 /** 0-based output channel assigned as Main Out (0.0 = channel 1+2). No separate master volume exists. */
 export const CR_MAINOUT = controlroom("mainout");
+/** 0-based output channel assigned as Main Out B (Speaker B). */
+export const CR_MAINOUT_B = controlroom("mainoutb");
 export const CR_MAIN_MONO = controlroom("mainmono");
 export const CR_TALKBACK = controlroom("talkback");
 export const CR_EXTERNAL_IN = controlroom("externalin");

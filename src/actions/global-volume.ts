@@ -57,10 +57,24 @@ import {
 	type GestureSlot,
 	type GlobalKind,
 } from "./gestures.js";
+import {
+	controlRoomDependencies,
+	resolveControlRoomOutput,
+	subscribeControlRoomOutput,
+} from "./global-volume-target.js";
+
+export type GlobalVolumeTarget =
+	| "main"
+	| "activeMonitor"
+	| "channel"
+	| "mixNode"
+	| "gain"
+	| "pan"
+	| "mixPan";
 
 export type GlobalVolumeSettings = {
-	/** "main" follows /controlroom/mainout. */
-	target?: "main" | "channel" | "mixNode" | "gain" | "pan" | "mixPan";
+	/** "main" follows Main Out; "activeMonitor" follows Main Out or Main Out B with Speaker B. */
+	target?: GlobalVolumeTarget;
 	/** Bus for target "channel". */
 	bus?: g.GlobalBus | "";
 	/** 0-based channel for target "channel". */
@@ -113,8 +127,8 @@ const lookOf = (settings: GlobalVolumeSettings): Look =>
 	settings.look === "icon" ? "icon" : "strip";
 
 /**
- * Global OSC level control. "main" resolves to the output channel named by
- * /controlroom/mainout. Levels are read from whichever form TotalMix
+ * Global OSC level control. Control-room targets resolve to their currently
+ * assigned hardware output. Levels are read from whichever form TotalMix
  * transmitted (faderlin, or the dB sibling "fader"/"volume") and written back
  * in that same form.
  */
@@ -136,8 +150,8 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 	private readonly cleanup = new Map<string, Array<() => void>>();
 
-	/** Last /controlroom/mainout value per "main" action; setup re-runs on change only. */
-	private readonly lastMainOut = new Map<string, number>();
+	/** Invalidates cached subscription callbacks after a target is reconfigured. */
+	private readonly setupGeneration = new Map<string, number>();
 
 	/** Channels already primed with /sendchan this session, per connection. */
 	private readonly primedChannels = new Set<string>();
@@ -160,9 +174,15 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		target: WillAppearEvent<GlobalVolumeSettings>["action"],
 		settings: GlobalVolumeSettings,
 	): Promise<void> {
+		const generation = (this.setupGeneration.get(target.id) ?? 0) + 1;
+		this.setupGeneration.set(target.id, generation);
+		this.releaseFor(target.id);
+
 		const gm = globalMixFor(globalConnectionOptions(settings));
+		const isCurrent = (): boolean => this.setupGeneration.get(target.id) === generation;
 
 		const render = (): void => {
+			if (!isCurrent()) return;
 			void this.render(gm, target, settings);
 		};
 		const renderThrottled = (): void => {
@@ -185,18 +205,16 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			if (meter !== undefined) unsubs.push(gm.subscribe(meter, renderThrottled));
 		}
 
-		if ((settings.target ?? "channel") === "main") {
-			// Re-subscribe when the Main Out assignment moves.
+		const subscribedControlRoomOutput = resolveControlRoomOutput(settings.target, gm);
+		if (controlRoomDependencies(settings.target).length > 0) {
 			unsubs.push(
-				gm.subscribe(g.CR_MAINOUT, (v) => {
-					const ch = typeof v === "number" ? Math.round(v) : undefined;
-					if (ch === undefined) return;
-					if (this.lastMainOut.get(target.id) === ch) {
-						render();
+				subscribeControlRoomOutput(settings.target, gm, (output) => {
+					if (!isCurrent()) return;
+					if (output !== subscribedControlRoomOutput) {
+						void this.setup(target, settings);
 						return;
 					}
-					this.lastMainOut.set(target.id, ch);
-					void this.setup(target, settings);
+					render();
 				}),
 			);
 		}
@@ -224,7 +242,6 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 		this.primeChannel(gm, settings);
 
-		this.releaseFor(target.id);
 		this.cleanup.set(target.id, unsubs);
 
 		if (target.isDial()) {
@@ -273,8 +290,8 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 	}
 
 	override onWillDisappear(ev: WillDisappearEvent<GlobalVolumeSettings>): void {
+		this.setupGeneration.delete(ev.action.id);
 		this.releaseFor(ev.action.id);
-		this.lastMainOut.delete(ev.action.id);
 		this.layouts.delete(ev.action.id);
 		this.levelThrottle.forget(ev.action.id);
 		this.peakHold.forget(ev.action.id);
@@ -339,7 +356,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const isGain = (settings.target ?? "channel") === "gain";
 
 		if (address === undefined) {
-			streamDeck.logger.warn("Ignoring move: Main Out assignment not received yet");
+			streamDeck.logger.warn("Ignoring move: target assignment not received yet");
 			gm.requestFullRefresh();
 			return;
 		}
@@ -474,12 +491,13 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 			case "gain":
 				// Pre-4.1.1 settings stored the gain channel in "channel".
 				return { bus: "input", ch: num(settings.gainChannel ?? settings.channel, 0) };
-			case "main": {
-				const assigned = gm.get(g.CR_MAINOUT);
-				if (typeof assigned !== "number") return undefined;
-				return { bus: "output", ch: Math.round(assigned) };
+			case "main":
+			case "activeMonitor": {
+				const assigned = resolveControlRoomOutput(settings.target, gm);
+				return assigned === undefined ? undefined : { bus: "output", ch: assigned };
 			}
 			case "mixNode":
+			case "mixPan":
 				return undefined;
 		}
 	}
@@ -620,7 +638,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				return undefined;
 
 			case "mute":
-				if (target === "main") {
+				if (target === "main" || target === "activeMonitor") {
 					// No control-room mute in the table: fader to -oo and back.
 					return this.toggleSilence(gm, settings);
 				}
@@ -741,7 +759,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		if (target === "mixNode" || target === "mixPan") {
 			return [g.mixSolo(settings.mixSrcBus ?? "in", num(settings.mixSrc, 0), num(settings.mixOut, 0))];
 		}
-		if (target === "main") return [];
+		if (target === "main" || target === "activeMonitor") return [];
 
 		const spec = this.channelSpec(settings, gm);
 		if (spec === undefined) return [];
@@ -784,11 +802,13 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 				`Out ${num(settings.mixOut, 0) + 1}`;
 			return `${src} → ${out}`;
 		}
-		if (target === "main") {
+		if (target === "main" || target === "activeMonitor") {
 			const spec = this.channelSpec(settings, gm);
+			const fallback =
+				target === "activeMonitor" && asBool(gm.get(g.CR_SPEAKER_B) ?? 0) ? "Main B" : "Main";
 			return spec === undefined
-				? "Main"
-				: (gm.getString(g.channelName("output", spec.ch)) ?? "Main");
+				? fallback
+				: (gm.getString(g.channelName("output", spec.ch)) ?? fallback);
 		}
 		const spec = this.channelSpec(settings, gm);
 		if (spec === undefined) return "Ch";

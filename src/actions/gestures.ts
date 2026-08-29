@@ -39,7 +39,14 @@ export type Gesture =
 export type ClassicKind = "main" | "strip" | "channel" | "gain" | "fx" | "pan";
 
 /** Global OSC target classes. A channel pan has a mute; a mix-node pan only a solo. */
-export type GlobalKind = "main" | "channel" | "gain" | "mixNode" | "pan" | "mixPan";
+export type GlobalKind =
+	| "main"
+	| "activeMonitor"
+	| "channel"
+	| "gain"
+	| "mixNode"
+	| "pan"
+	| "mixPan";
 
 /** Per-protocol rules: applicable kinds per gesture, and the default per kind and slot. */
 export type Vocabulary<K extends string> = {
@@ -93,7 +100,15 @@ export const CLASSIC: Vocabulary<ClassicKind> = {
 	},
 };
 
-const GLOBAL_KINDS = ["main", "channel", "gain", "mixNode", "pan", "mixPan"] as const;
+const GLOBAL_KINDS = [
+	"main",
+	"activeMonitor",
+	"channel",
+	"gain",
+	"mixNode",
+	"pan",
+	"mixPan",
+] as const;
 
 /**
  * Global OSC effect parameters. "fx" carries a neutral value (dB parameters
@@ -143,11 +158,11 @@ export const GLOBAL: Vocabulary<GlobalKind> = {
 		auto: GLOBAL_KINDS,
 		none: GLOBAL_KINDS,
 
-		mute: ["main", "channel", "gain", "pan"],
+		mute: ["main", "activeMonitor", "channel", "gain", "pan"],
 		solo: ["channel", "gain", "mixNode", "pan", "mixPan"],
 		phantom: ["channel", "gain", "pan"],
-		infinity: ["main", "channel", "gain", "mixNode"],
-		unity: ["main", "channel", "mixNode"],
+		infinity: ["main", "activeMonitor", "channel", "gain", "mixNode"],
+		unity: ["main", "activeMonitor", "channel", "mixNode"],
 		center: ["pan", "mixPan"],
 
 		dim: GLOBAL_KINDS,
@@ -162,7 +177,7 @@ export const GLOBAL: Vocabulary<GlobalKind> = {
 	},
 	fallback: (kind, slot) => {
 		if (slot === "press") return kind === "mixNode" || kind === "mixPan" ? "solo" : "mute";
-		if (kind === "main") return "dim";
+		if (kind === "main" || kind === "activeMonitor") return "dim";
 		return kind === "pan" || kind === "mixPan" ? "center" : "infinity";
 	},
 };

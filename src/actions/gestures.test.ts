@@ -83,8 +83,8 @@ describe("Global OSC effect parameter gestures", () => {
 });
 
 describe("Global OSC defaults", () => {
-	it("presses to mute on a channel, gain and the main out", () => {
-		for (const kind of ["main", "channel", "gain"] as const) {
+	it("presses to mute on a channel, gain and either control-room output target", () => {
+		for (const kind of ["main", "activeMonitor", "channel", "gain"] as const) {
 			expect(defaultGesture(kind, "press", GLOBAL)).toBe("mute");
 		}
 	});
@@ -97,6 +97,7 @@ describe("Global OSC defaults", () => {
 
 	it("taps to dim on the main out and -oo elsewhere", () => {
 		expect(defaultGesture("main", "touch", GLOBAL)).toBe("dim");
+		expect(defaultGesture("activeMonitor", "touch", GLOBAL)).toBe("dim");
 		for (const kind of ["channel", "gain", "mixNode"] as const) {
 			expect(defaultGesture(kind, "touch", GLOBAL)).toBe("infinity");
 		}

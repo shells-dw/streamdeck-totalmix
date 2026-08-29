@@ -55,6 +55,7 @@
   <sdpi-item label="Target">
     <sdpi-select setting="target" default="channel">
       <option value="main">Main Out (Control Room)</option>
+      <option value="activeMonitor">Active Monitor (Main / Speaker B)</option>
       <option value="channel">Channel fader</option>
       <option value="mixNode">Submix send (mix node)</option>
       <option value="gain">Input gain (preamp)</option>
@@ -110,6 +111,15 @@
     </p>
   </div>
 
+  <div id="row-active-monitor" hidden>
+    <p class="hint">
+      Follows the active Control Room monitor automatically. With Speaker B off,
+      the dial controls the output assigned to Main Out; with Speaker B on, it
+      controls Main Out B. Changes made in TotalMix, ARC USB, Stream Deck or any
+      other Global OSC controller are followed from TotalMix's returned state.
+    </p>
+  </div>
+
   <div id="row-mix" hidden>
     <sdpi-item label="Source bus">
       <sdpi-select setting="mixSrcBus" default="in">
@@ -142,11 +152,11 @@
         <option value="auto">Default for this target</option>
         <option value="none">Nothing</option>
         <optgroup label="This dial">
-          <option value="mute" data-kinds="main channel gain pan">Mute</option>
+          <option value="mute" data-kinds="main activeMonitor channel gain pan">Mute</option>
           <option value="solo" data-kinds="channel gain mixNode pan mixPan">Solo / PFL</option>
           <option value="phantom" data-kinds="channel gain pan">Phantom power (48V)</option>
-          <option value="infinity" data-kinds="main channel gain mixNode">Set to −∞ (press again to restore)</option>
-          <option value="unity" data-kinds="main channel mixNode">Set to 0 dB</option>
+          <option value="infinity" data-kinds="main activeMonitor channel gain mixNode">Set to −∞ (press again to restore)</option>
+          <option value="unity" data-kinds="main activeMonitor channel mixNode">Set to 0 dB</option>
           <option value="center" data-kinds="pan mixPan">Centre the pan</option>
         </optgroup>
         <optgroup label="Control room">
@@ -169,11 +179,11 @@
         <option value="auto">Default for this target</option>
         <option value="none">Nothing</option>
         <optgroup label="This dial">
-          <option value="mute" data-kinds="main channel gain pan">Mute</option>
+          <option value="mute" data-kinds="main activeMonitor channel gain pan">Mute</option>
           <option value="solo" data-kinds="channel gain mixNode pan mixPan">Solo / PFL</option>
           <option value="phantom" data-kinds="channel gain pan">Phantom power (48V)</option>
-          <option value="infinity" data-kinds="main channel gain mixNode">Set to −∞ (press again to restore)</option>
-          <option value="unity" data-kinds="main channel mixNode">Set to 0 dB</option>
+          <option value="infinity" data-kinds="main activeMonitor channel gain mixNode">Set to −∞ (press again to restore)</option>
+          <option value="unity" data-kinds="main activeMonitor channel mixNode">Set to 0 dB</option>
           <option value="center" data-kinds="pan mixPan">Centre the pan</option>
         </optgroup>
         <optgroup label="Control room">
@@ -302,6 +312,7 @@
       document.getElementById("row-gain").hidden = t !== "gain";
       document.getElementById("row-mix").hidden = t !== "mixNode" && t !== "mixPan";
       document.getElementById("row-main").hidden = t !== "main";
+      document.getElementById("row-active-monitor").hidden = t !== "activeMonitor";
       // Balance has a fixed step: its range is not measured in dB.
       document.getElementById("row-step").hidden = t === "gain" || pan;
 
@@ -331,7 +342,7 @@
         t === "pan" || t === "mixPan"
           ? "Default: press " + (t === "mixPan" ? "solos the node" : "mutes the channel") +
             "; touch centres the pan."
-          : t === "main"
+          : t === "main" || t === "activeMonitor"
           ? "Default: press mutes by dropping the fader to \u2212\u221e and remembering the level " +
             "(this protocol's control room has no mute); touch dims."
           : t === "mixNode"

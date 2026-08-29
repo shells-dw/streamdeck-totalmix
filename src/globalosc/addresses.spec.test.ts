@@ -93,6 +93,8 @@ describe("global addresses conform to the Global OSC table", () => {
 		["mixSolo", g.mixSolo("in", 1, 1)],
 		// control room
 		["CR_DIM", g.CR_DIM],
+		["CR_MAINOUT", g.CR_MAINOUT],
+		["CR_MAINOUT_B", g.CR_MAINOUT_B],
 		["CR_MAIN_MONO", g.CR_MAIN_MONO],
 		["CR_TALKBACK", g.CR_TALKBACK],
 		["CR_EXTERNAL_IN", g.CR_EXTERNAL_IN],
