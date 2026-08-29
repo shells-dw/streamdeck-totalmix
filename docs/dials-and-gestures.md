@@ -16,7 +16,7 @@ A Stream Deck+ dial has three inputs: turn it, press it, tap the touch strip abo
 
 | Target | Press | Touch |
 |---|---|---|
-| Main / Control Room | Mute (fader to −∞) | Dim |
+| Main / Control Room, Active Monitor | Mute (fader to −∞) | Dim |
 | A channel, a strip, input gain | Mute | Fader to −∞ (gain to minimum) |
 | A submix send (Global OSC) | Solo | Fader to −∞ |
 | Pan | Mute (solo for a send's pan) | Centre |
@@ -25,7 +25,7 @@ A Stream Deck+ dial has three inputs: turn it, press it, tap the touch strip abo
 Either can be reassigned. The menu is grouped by what the choice acts on and only offers what the target supports:
 
 - **This dial** — mute, solo/PFL, cue (classic only), phantom power, set to −∞, set to 0 dB, centre the pan, bypass the effect, back to neutral, to neutral and back.
-- **Control room** — dim, mono, talkback, speaker B, external input, mute FX return, recall main volume. These are global switches, so any dial can carry one.
+- **Control room** — dim, mono, talkback, speaker B, **Mute Main Out**, external input, mute FX return, recall main volume. These are global switches, so any dial can carry one. Mute Main Out mirrors the ARC USB operation: Main Out supplies the state, and both Main Out and Main Out B receive the new real output-mute value.
 - **Global** — mute all, solo all.
 - **Nothing**.
 
@@ -34,3 +34,5 @@ Setting a fader to −∞ remembers the level it was at, so the next press or ta
 ## What the display shows
 
 With the [TotalMix look](appearance.md) a dial shows the channel name, the value, the fader position on the real scale, the meter (Global OSC, with level messages enabled) and lit M/S pills. With the icon look it shows name, value and a position bar, and the whole display washes blue for mute and orange for solo.
+
+The ARC-style Main Out mute indicator has deliberately narrow semantics: it appears only on **Active Monitor** when press or touch is assigned to **Mute Main Out**. It lights the TotalMix look's blue M pill, or shows a small red M badge beside the value in the Icon look. It always follows the real mute of the output assigned to Main Out, never Speaker B, Main Out B's mute, the currently active monitor output or a fader parked at −∞.

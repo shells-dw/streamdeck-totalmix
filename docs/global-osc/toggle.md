@@ -10,7 +10,7 @@ On/off switches over Global OSC. Key only. The key's state is the mixer's: a pre
 
 | Group | Parameters | Settings |
 |---|---|---|
-| **Control Room** | Dim, Mono, Talkback, External input, Speaker B, Mute FX return, Link Main/Speaker B | — |
+| **Control Room** | Dim, Mono, Talkback, External input, Speaker B, Mute Main Out, Mute FX return, Link Main/Speaker B | — |
 | **Global** | Mute enable, Solo enable | — |
 | **Channel** | Mute, PFL, Phase (L/R separate), Phantom power (48V), Instrument, Pad, AutoSet, M/S processing, Loopback, Stereo link, Record enable | Bus, Channel |
 | **Channel processing** | Low cut, EQ, Dynamics, AutoLevel, Room EQ | Bus, Channel |
@@ -19,6 +19,7 @@ On/off switches over Global OSC. Key only. The key's state is the mixer's: a pre
 
 - Phantom power, Instrument, Pad and AutoSet exist on inputs only; Room EQ on outputs only. The bus picker is hidden for those and the right bus is written regardless of what an older key had stored.
 - Phase is separate per side on stereo pairs: the channel list offers "(R)" entries for the right side.
+- **Mute Main Out** follows Main Out's real output mute for its light. A press inverts that state and writes the result to both the current Main Out and Main Out B output mutes, independent of Speaker B.
 - **Groups** are receive-only in RME's protocol — TotalMix never reports their state — so a group key tracks its own presses and cannot see changes made in the window.
 
 ## Appearance

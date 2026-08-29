@@ -63,6 +63,11 @@ import {
 	subscribeControlRoomOutput,
 } from "./global-volume-target.js";
 import { toggleControlRoomMainMute } from "./control-room-main-mute.js";
+import {
+	mainMuteIndicatorOn,
+	subscribeMainMuteIndicator,
+	usesMainMuteIndicator,
+} from "./global-volume-main-mute-indicator.js";
 
 export type GlobalVolumeTarget =
 	| "main"
@@ -239,6 +244,10 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 
 		for (const flag of this.washAddresses(settings, gm)) {
 			unsubs.push(gm.subscribe(flag, render));
+		}
+
+		if (target.isDial() && usesMainMuteIndicator(settings)) {
+			unsubs.push(subscribeMainMuteIndicator(settings, gm, render));
 		}
 
 		this.primeChannel(gm, settings);
@@ -845,10 +854,13 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const value =
 			override ??
 			(address !== undefined ? this.currentValue(gm, settings, address) : undefined);
+		const mainMute = mainMuteIndicatorOn(settings, gm, gm.connected);
 
 		if (value === undefined) {
 			if (target.isDial()) {
-				await target.setFeedback(washFeedback(this.labelFor(gm, settings), "—", 0, "none"));
+				await target.setFeedback(
+					washFeedback(this.labelFor(gm, settings), "—", 0, "none", mainMute),
+				);
 			} else {
 				await target.setTitle("—");
 			}
@@ -869,6 +881,7 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 					gm.connected ? label : "—",
 					bar,
 					gm.connected ? this.washFor(settings, gm) : "none",
+					mainMute,
 				),
 			);
 			return;
@@ -893,7 +906,9 @@ export class GlobalVolume extends SingletonAction<GlobalVolumeSettings> {
 		const offline = !gm.connected;
 		const name = this.labelFor(gm, settings);
 		const wash = offline ? "none" : this.washFor(settings, gm);
-		const mute = wash === "mute";
+		// The ARC-style indicator is deliberately narrower than the generic wash:
+		// only Active Monitor with a Mute Main Out gesture may light this pill.
+		const mute = wash === "mute" || mainMuteIndicatorOn(settings, gm, gm.connected);
 		const solo = wash === "solo";
 		const nudge = target.isKey() ? (settings.nudge ?? "up") : undefined;
 

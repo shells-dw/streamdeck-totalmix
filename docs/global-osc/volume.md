@@ -11,6 +11,7 @@ Level, pan and preamp gain over Global OSC, addressed by absolute channel number
 | Target | What it controls | Settings |
 |---|---|---|
 | **Main Out (Control Room)** | The output channel TotalMix has assigned as Main Out. Follows the assignment if it changes. | — |
+| **Active Monitor (Main / Speaker B)** | Main Out while Speaker B is off, or Main Out B while Speaker B is on. Follows both assignments and Speaker B changes made by TotalMix, ARC USB, Stream Deck or another Global OSC controller. | — |
 | **Channel fader** | A channel's fader. For output channels this is the channel's own fader. For input and playback channels it is the send into a submix — see below. | Bus, Channel, Submix |
 | **Submix send (mix node)** | One node of the mix matrix: the level of a source into an output's submix. | Source bus, Source channel, To output |
 | **Input gain (preamp)** | Preamp gain of an input channel, in whole dB, with the ceiling read from the reported device (see [Devices](../devices.md)). Linked stereo pairs move together. Channels without a preamp show 0 and ignore the dial. | Channel |
@@ -29,13 +30,17 @@ Channels are chosen by name — the list shows what TotalMix calls them ("5 · A
 
 ## Stepping, press and touch
 
-See [Dials and gestures](../dials-and-gestures.md). Defaults here: press mutes (Main Out: fader to −∞; a submix send: solo), touch parks the fader at −∞ (Main Out: dim; pan: centre).
+See [Dials and gestures](../dials-and-gestures.md). Defaults here: press mutes (Main Out and Active Monitor: fader to −∞; a submix send: solo), touch parks the fader at −∞ (Main Out and Active Monitor: dim; pan: centre).
 
 Global OSC has no cue in its channel section, so *Cue* is not offered; a mix node has no mute of its own, so its press defaults to solo.
+
+**Mute Main Out** is a separate ARC USB-style Control Room gesture. It reads Main Out's real output mute, inverts it, then writes that same state to the outputs currently assigned to Main Out and Main Out B. Speaker B does not choose the operation target, and Main Out alone remains the displayed state source. This does not replace **This dial → Mute**, which continues to park the controlled fader at −∞ and restore it.
 
 ## On the key or display
 
 With the [TotalMix look](../appearance.md): a fader strip with meter and peak hold, or a knob for gain and pan. Keys show a chevron for their nudge direction.
+
+When the target is **Active Monitor** and either gesture is **Mute Main Out**, the display also follows Main Out's real mute state. The TotalMix look lights its blue **M** pill; the Icon look shows a red rounded **M** badge beside the dB readout. No other target or mute gesture uses this indicator.
 
 ## Notes
 

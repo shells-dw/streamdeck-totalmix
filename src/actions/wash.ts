@@ -20,6 +20,10 @@ const SOLO_WASH = "imgs/soloWash.png";
 /** Transparent image of the same size; clearing the wash swaps files. */
 const CLEAR_WASH = "imgs/clearWash.png";
 
+/** Small ARC-style Main Out mute badge used by the Global Active Monitor dial. */
+export const MAIN_MUTE_BADGE = "imgs/mainMuteBadge.png";
+export const CLEAR_MUTE_BADGE = "imgs/clearMuteBadge.png";
+
 const NORMAL_INK = "#FFFFFF";
 const NORMAL_BAR_FILL = "#2ea3f2";
 const NORMAL_BAR_BG = "0:#1b1b1b,1:#1b1b1b";
@@ -76,12 +80,20 @@ const PALETTES: Readonly<Record<Wash, Palette | null>> = {
  * wash is a PNG path; inline SVG makes Stream Deck reject the layout.
  * @param bar Indicator position, 0..100.
  */
-export function washFeedback(name: string, label: string, bar: number, wash: Wash): FeedbackPayload {
+export function washFeedback(
+	name: string,
+	label: string,
+	bar: number,
+	wash: Wash,
+	mainMute = false,
+): FeedbackPayload {
 	const paint = PALETTES[wash];
 	const ink = paint?.ink ?? NORMAL_INK;
 
 	return {
 		bg: paint?.image ?? CLEAR_WASH,
+		// Explicitly clear the pixmap on every render: setFeedback values are sticky.
+		muteIndicator: mainMute ? MAIN_MUTE_BADGE : CLEAR_MUTE_BADGE,
 		name: { value: name, color: ink },
 		value: { value: label, color: ink },
 		indicator: {

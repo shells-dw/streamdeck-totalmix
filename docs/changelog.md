@@ -1,6 +1,14 @@
 [← Documentation home](index.md)
 
 # Changelog
+
+## Unreleased
+
+### Added
+- **Active Monitor (Main / Speaker B)** target for Global OSC Volume. It follows Main Out while Speaker B is off and Main Out B while it is on, including live assignment and Speaker B changes from any controller.
+- ARC USB-style **Mute Main Out** for Global OSC Volume gestures and Toggle. Main Out's real output mute is the state source; each trigger writes the inverse to both assigned monitor outputs.
+- Main Out mute feedback on Active Monitor dials using that gesture: the TotalMix look's blue M pill and a red M badge in the Icon look.
+
 ## [5.0.0] - 2026-08-29
 ### Added
 - I couldn't be bothered to maintain a private dev repo and the v4 repo, so I finally combined both for the release version.

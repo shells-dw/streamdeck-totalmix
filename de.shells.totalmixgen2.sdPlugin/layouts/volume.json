@@ -26,6 +26,13 @@
       "alignment": "center"
     },
     {
+      "key": "muteIndicator",
+      "type": "pixmap",
+      "rect": [16, 31, 22, 22],
+      "zOrder": 20,
+      "value": "imgs/clearMuteBadge.png"
+    },
+    {
       "key": "indicator",
       "type": "bar",
       "rect": [16, 60, 168, 12],
