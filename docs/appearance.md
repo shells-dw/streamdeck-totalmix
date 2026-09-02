@@ -2,7 +2,7 @@
 
 # Appearance
 
-Every action — Global OSC and classic — has an **Appearance** setting in its property inspector.
+Every action has an *Appearance* setting in its button settings, Global OSC and classic alike.
 
 ## TotalMix look (default)
 
@@ -10,15 +10,31 @@ Keys and Stream Deck+ displays are drawn by the plugin on every change, in colou
 
 ![Strip anatomy](images/v5_strip_anatomy.png)
 
-- **Fader strips** for levels: channel name in the header, M and S pills lit by the mixer, the meter (Global OSC, once *Send Level Messages* is on), RME's scale with 0 dB marked, the cap on the real fader curve, and the readout in dB. The meter carries a peak-hold line: held for 1.5 s, then falling at 12 dB/s. Clipping turns the meter red. Meters repaint at most five times a second on a 1 dB grid; the **Meter** checkbox on a Global OSC Volume key switches the meter off for that key if you'd rather save deck traffic. The classic Levels action draws the strip without a meter — the classic protocol only reports levels for the visible bank, which didn't make for a usable meter.
-- **Knobs** for preamp gain (fills from the left up to your interface's maximum), pan (fills from the centre, `L50 / C / R50`) and effect parameters (arc in the section's colour, value beside it, parameter name and section badge underneath).
-- **Dropdown boxes** for list parameters, with the entry name and a row of position dots.
-- **Buttons** for toggles and triggers: blue for mute-type switches, orange for solo/PFL and talkback, red for 48V and record, orange text for the effect sections, with the channel name underneath.
-- **Panels** for the Display action: meter, device name, connection state, DSP gauge, DURec clock and transport symbol.
+**Fader strips** for levels: channel name, M and S pills, the meter, RME's scale with 0 dB marked and the +3 and −3 ticks coloured as in the mixer, the cap on the real fader curve, and the readout in dB. *Meter*, *FX lamps* and *Mute / Solo* each switch off their own column, and the fader takes the room they leave. The classic Levels action draws no meter, because that protocol only reports levels for the visible bank.
+
+**Knobs** for preamp gain, pan and effect parameters, the arc in the section's colour. **Dropdown boxes** for list parameters. **Buttons** for toggles and triggers: blue for mute-type switches, orange for solo, PFL and talkback, red for 48V and record, orange text for the effect sections. **Panels** for the Display action, including the EQ and dynamics curves and the gain-reduction needle.
 
 When TotalMix is not reachable the artwork greys out and the readout shows "—". The chevron in a key's header shows which way it nudges.
 
 ![Key states](images/v5_key_states.png)
+
+### Meters
+
+Peak level with a hold line, held for 1.5 s and then falling at 12 dB/s; clipping turns the bar red. A stereo pair meters both sides, a mono channel one. With *Gain reduction* ticked, a blue bar beside the meter grows down from the 0 dB mark by the compressor's reduction, continued in green by the expander.
+
+![Meters](images/v5_meters.png)
+
+On a Stream Deck+ display the meter shares the fader's own range and dB mapping, so a level reads directly against the scale below the fader. M and S stack in a column at the left, the FX lamps at the right.
+
+### Channel colours
+
+![Channel colours](images/v5_channel_colours.png)
+
+Global OSC reports the colour set in TotalMix's *Color (Name Field)* list, and every channel-scoped key and dial takes it, so all the buttons for one channel read as a set. The body, header, readout band and fader track are tinted, and the header rule is painted in the colour's own ink. A channel with no colour set keeps the plugin's default tones.
+
+A toggle key's face keeps its function's colour rather than the channel's, since the face is what tells you what the button does; the channel colour shows in the key's body and in a bar across the top edge. On the EQ and dynamics panels the plot keeps its dark well, because the curve is read against that field. Parameters with no channel behind them — control room, global toggles, reverb and echo, snapshots, layouts, the transport — keep the default tones.
+
+Channels hidden in TotalMix's channel layout are left out of the channel lists in a button's settings.
 
 ## Icon look
 

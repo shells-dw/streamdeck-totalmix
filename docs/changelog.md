@@ -1,9 +1,69 @@
 [← Documentation home](index.md)
 
 # Changelog
+
+## v5.2.0 - 2026-09-02
+
+### Added
+- **Follow the monitor path** is now offered as a Global OSC Volume target, and as the *Monitor* choice of the Balance target; both follow the slot the *Monitor path: step through slots* Trigger key last selected.
+- *Defaults for new buttons* (host and ports) on the FX & Dynamics property inspector, as on the other Global OSC actions.
+- A **REQ lamp** on output fader strips, lit while that output's Room EQ is on. Not a lamp TotalMix draws: the section's state is otherwise only visible inside the settings panel.
+- **Next channel** and **Previous channel** as a key press mode and as dial press or touch gestures, on Global OSC Volume and FX & Dynamics, stepping a channel list built with a picker under *Advanced: channel cycling*. Naming a group there shares the position, so a row of dials moves as one channel strip; without one the channel is written to the button's own settings and survives a restart.
+- **Clip latch** and **Signal watch**, two Global OSC Display modes over the level stream. Clip latches at a set dBFS and holds until pressed, showing the highest peak since the last clear; Signal watch raises once a channel has stayed below a floor for a set time, for a mic that has come unplugged mid-take, and clears itself when signal returns. Both need "Send Level Messages", and can blink rather than hold their face lit. A channel that goes silent stops reporting, so the silence timer runs on the clock rather than on arrivals.
+- **Fade over** beside *Set a value* on both Volume actions: the level ramps to its target over a set time instead of jumping. The ramp interpolates on the fader position, so the move is even across the throw, and a second press retargets rather than running two ramps. A bar across the top of the readout shows how far it has left to run. Also available as a dial press or touch gesture, *Set the value below*.
+- **Confirm with a second press** on both Toggle actions. The first press arms the key and captions it, the second within a couple of seconds writes; an armed key that is never confirmed writes nothing. Phantom power is the reason it exists.
+- **Talkback + dim** as a Global OSC Toggle parameter: writes talkback and dim together on each edge, so with *Hold* it is press-to-talk with the monitors ducking.
+- **Cue: step through outputs** as a Global OSC Trigger mode. The list is built from a picker rather than typed, and stores channel numbers the way every other picker in the plugin does. Cue is one exclusive assignment, so advancing releases the previous output and cueing the last one again clears it.
+- **Monitor path: step through slots** as a Global OSC Trigger mode, the key captioned with the slot it last selected, with a matching **Follow the monitor path** target on Global OSC Volume. The slot is shared by every button through Stream Deck's global settings, so one key steps Main Out, Speaker B and the Phones slots while the level buttons follow it.
+- **Lit colour** on both Toggle actions: the face lights in TotalMix's own colour for the parameter, or red, green, amber or blue. Per button and in *Defaults for new buttons*.
+- A *Set a value* key marks its value on the artwork beside the current one: a line across the fader track, a tick outside the knob ring, a ring around the entry's dot. Global OSC list keys carry dots; the classic protocol does not number list entries, so those keys show the marker only on faders and knobs.
+- **Set a value** as a third key-press mode on Volume, FX & Dynamics and the classic Levels & Parameters, beside Nudge up and Nudge down. The key writes a fixed value on every press, entered in the parameter's own unit: dB for levels and gain, Hz for frequencies, −1 to 1 for pan, a list position or a track number where those apply.
+- **Dim**, **Recall volume** and **External input gain** as Global OSC FX & Dynamics parameters
+- **Reverb type** and **Echo type** as classic Levels & Parameters targets 
+- **Input gain, right side of a stereo pair** and **DURec playback track** as classic Levels & Parameters targets.
+- **Hold (momentary)** on both Toggle actions. With it ticked the key switches the parameter on while held and off on release, for push-to-talk and for auditioning a Cue. Over Global OSC each edge writes the value directly; over classic OSC only the on/off parameters do, and the toggle-scale ones send a flip solely when the mixer's state differs from the state wanted.
+- **DURec track** as a Global OSC FX & Dynamics parameter, the playback track a channel takes from the recording. Position 0 reads "Off"; the count comes from the recording, so the list is open-ended rather than clamped.
+- **Cue**, **Talkback source** and **External input source** as Global OSC Toggle parameters.
+- **FX lamps** on Global OSC Volume fader strips: TotalMix's own indicators beside the fader — the settings gear, EQ and dynamics — lit whenever the mixer lights them. EQ covers the EQ section and the low cut, dynamics covers the compressor/expander and Auto Level, and the gear covers MS processing and phase on inputs and playbacks, and crossfeed, phase, Room EQ and loopback on outputs. Playback channels carry the gear alone, as in the mixer. Each lamp is a small face carrying its mark: a column right of the fader on a key, and on a Stream Deck+ touch strip a column at the right edge opposite M and S, for which the fader's travel is shortened. On by default; a checkbox per key.
+- **Mute / Solo** checkbox on Global OSC Volume strips, and adaptive strip geometry. The artwork is drawn per change, so a column that is switched off gives its room back: without the M and S pills the key's fader starts under the header instead of below them, and on a Stream Deck+ display the travel begins at the left edge; without the FX lamps the display's travel runs to the right edge. On a key the lamps sit in margin that was already free, so switching them off leaves the fader as it was. Both checkboxes are on by default; a strip without the pills shows no mute or solo state.
+- The same **FX lamps** and **Mute / Solo** checkboxes on the Display action's level view, for the channel it meters. On a key the pills pair up on one row to share the right-hand column with the lamps, and with both switched off the meter itself widens; on a Stream Deck+ display the meter takes back whichever column is off.
+- An **EQ curve** mode on the Display action: the summed magnitude response of the three bands and the low cut over 20 Hz to 20 kHz, coloured per band.
+- **Gain reduction bar** on Global OSC Volume strips and the Display action's level view: TotalMix's blue bar beside the meter, growing down from the 0 dB mark by the compressor's computed reduction, continued in green by the expander's attenuation, over a dimmed track while the section is on. Off by default; a checkbox per key.
+- The Display action's level view takes the channel colour like the other channel-scoped views.
+- The expander's attenuation is computed forward from the level, which TotalMix meters before the expander.
+- The compressor estimator caps the input recovered from a steady reading at the highest recent meter peak, so gated material with a fast attack may invert into reductions far past what the DSP does.
+- The compressor reduction is estimated from measured meter behaviour: onset peaks are read as input rather than inverted, the peaks a slow attack lets through are removed before inverting, and any sustained meter fall releases the estimate at the section's release time towards the reading-as-input floor, following TotalMix's bouncing bar instead of pinning the peak value. The expander evaluates its curve at a level projected one meter-hold ahead of a falling meter, closing the displayed gate nearer to when TotalMix's does, and the dynamics-curve dot subtracts the attack leak.
+- Property inspector lists that depend on another setting (channel on bus, list entries on parameter, sources on source bus) are pushed by the plugin when that setting changes, in every action. The inspector's own refresh could race the settings write and show the previous bus's list until the next change.
+- The Display action's level view shows the channel's mute and PFL state as M and S pills, and meters both sides of a stereo pair.
+- **Dynamics gain reduction** mode on the Display action: a VU-style needle of the compressor's gain reduction (0 to 20 dB, logarithmic scale) with the value beneath and an EXP lamp for the expander, on keys and touch strips. Global OSC carries no gain-reduction value and the channel meter reads the section's output, so the input is recovered through the inverse of the static curve; needle and lamp follow with a 60 ms time constant; the gain-reduction bars are unsmoothed.
+- Two dynamics modes on the Display action: **Transfer curve** draws a channel's dynamics section as its static response across the whole face, and **Values** lists the numbers.
+- **Follow the active speaker** option on the Global OSC Volume Main Out target. With it set, the dial hands over to Main Out B while Speaker B is switched on; without it, it stays on Main Out.
+- **Speaker B (Control Room)** target for Global OSC Volume, addressing the output assigned as Main Out B whether or not Speaker B is switched on. The strip renders inactive while it is off.
+- **Phones (Control Room)** target for Global OSC Volume, slots 1–4 the way Main Out follows its assignment. It resolves to an ordinary output channel, so it uses that channel's real mute and the channel gesture defaults rather than the Main Out ones.
+- **Mute Main Out** gesture and Global OSC Toggle parameter. The control room has no mute of its own, so this writes the real output mute of every assigned monitor output. Dim and Recall move the fader, which the existing fader-to-−∞ mute has to share.
+- **Balance (Control Room)** target for Global OSC Volume: the balance of the output assigned to Main Out, Speaker B or a Phones slot, following the assignment like the level targets.
+- **Talkback destination** as a Global OSC Toggle channel parameter, output bus only.
+- TotalMix channel colours on every channel-scoped Global OSC key and dial — fader strips, knobs, toggle faces, list boxes and the EQ and dynamics panels. Tints the strip body, header, readout band and fader track, and paints the header rule in the channel's name-field colour. A mix node takes its source channel's colour.
+
+### Changed
+- Connecting also sends `/sendsettings`, since control-room and FX settings are not transmitted by `/sendall`.
+- Channel pickers skip channels TotalMix reports as hidden in the channel layout (`color` 0).
+
+### Fixed
+- The Balance target's *Follow the monitor path* choice did nothing; the plugin did not resolve it.
+- A button following the monitor path came up on Main Out after every plugin start until the path was next changed; the stored slot was read too late. It is now read before the button binds.
+- Classic *Hold* parameter (Talkback, Dim, page-2 switches) left the parameter on when the key was released within 400 ms of the press: the release compared against a cache that had not been updated by the flip. The flip now caches the resulting state, and the release flips back only what the press flipped.
+- Classic preamp gain stepped 1.5 dB per detent on a dial and the button's *dB per step* on a key; both now step 1 dB, as documented and as Global OSC does.
+- The classic *Input gain (right side)* target hid the *Device* setting it uses for its gain span.
+- A Global OSC FX & Dynamics dial on a parameter TotalMix had not reported stepped from 0 and wrote that; the move is now ignored and the channel re-requested, as on the level actions.
+- Show/hide window keys on the Global OSC Trigger action did not update the shared window state the Toggle action's *Show / hide window* key tracks.
+- *Mute look* was offered on gain, pan and effect targets, which draw knobs and ignore it; the row now shows for fader targets only.
+- The FX & Dynamics make-up gain arc used a display range separate from the write range; both now use the measured −30…+30 dB.
+
+
 ## [5.0.0] - 2026-08-29
 ### Added
-- I couldn't be bothered to maintain a private dev repo and the v4 repo, so I finally combined both for the release version.
+- The private development repository and the v4 repository are merged into one for the release.
 - TotalMix-ish look for every action, Global OSC and classic. Keys and Stream Deck+ displays are drawn live similar to the mixer's own colours: fader strips with the RME scale, meter and M/S state, knobs with section-coloured arcs, dropdown boxes for list parameters, and TotalMix-style buttons for switches and triggers. Each action has an **Appearance** setting; "Icon" restores the previous artwork.
 - Peak meters on fader strips (Global OSC) — the meter well fills from `/level` when "Send Level Messages" is enabled on the Global OSC controller; clipping turns it red.
 - Direct entry selection on keys. For list parameters (EQ and Room EQ band type, low cut slope, crossfeed, reference level, reverb and echo type) a key can write a chosen entry instead of stepping: **On press → Select an entry**, then pick the **Entry** and what a **Second press** does while the key is lit (nothing, back to the previous entry, or switch to another entry). Keys light while their entry is active.
@@ -26,11 +86,27 @@
 
 ## [4.5.0] - 2026-08-28
 ### Fixed
+- A second press on a key with the make-up gain following put the parameter back but left the gain wherever the rule and the trim put it: it recomputed from the restored setting instead of undoing its own write. Both now go back together.
+- A *Set a value* key with a computed value never went back on its second press. It compared the parameter against the value it would write *now*, and a computed figure moves with the compressor and the meter, so the comparison missed, the key wrote again and overwrote the value it was meant to restore. It now recognises what it last wrote.
+- A dial press did nothing on a parameter with no section of its own, Crossfeed and DURec track among them: the press writes the section's enable, and those have none. The press now parks the parameter at its off position and a second press restores. Parameters with no published default, Width and Delay, still have nothing to park at and their press stays idle.
+- The block origin for a spread panel counts from 1, so the top-left key of the device is column 1, row 1. It counted from 0 before, which put a block entered as 1, 1 one key down and to the right of where it looked.
+- The channel and cue lists are written as the channel numbers on the mixer rather than 0-based wire values, so adding channel 17 puts 17 in the list. Lists saved before this shift by one and want re-adding.
+- The list editors could not add the entry the picker was already showing. An `sdpi-select` that has not been changed reports an empty value while displaying its first entry, and the helper took that literally instead of reading the element under it.
+- Channel stepping moved the setting but not the button. `setSettings` raises `didReceiveSettings` for the property inspector only, not for the plugin, so nothing rebound and the button kept its old channel; only the grouped path worked, because that rebinds through its own listeners. The write is now followed by an explicit rebind.
+- Every classic write that is read back now caches what it sent, not only the nudge and the on/off keys: the dial and touch gestures for mute, solo, cue and phantom, set to unity, centre, to neutral and back, and to −∞ and back. Each of those decides what to write from the cached value, so without it the second gesture repeated the first. kOSCScaleToggle parameters still go through the flip path, where 1.0 is a command rather than a state.
+- A classic nudge or set key moved the value once and then did nothing. Same cause as the on/off keys below: the write was not cached, so every further press read the pre-press value and sent the same thing again. Both now write through the caching path.
+- Classic Mute, Solo, Phantom and Cue keys switched on but never off, and never lit. Those parameters carry their value, so a press sends the inverse of the cached state, but the write did not cache it: TotalMix's echo arrives inside the settle window and is dropped as the plugin's own, and page 1 is not re-dumped while it is the resident page, so the cache stayed at nought and every press sent 1 again. The write now caches what it sent, as the Global OSC side already did.
+- Solo over Global OSC wrote and read the channel's `pfl`, which is the PFL button and does nothing outside TotalMix's PFL mode. The table carries solo on the mix node, so the S pill on a fader strip, the Solo dial gesture and the new Toggle parameter all address `/mix/{in|pb}/{channel}/{output}/solo`. Solo therefore belongs to one submix, as in the mixer; outputs have no solo and keep Cue. The Toggle's PFL parameter no longer draws itself as an S in the solo colour.
+- A classic selection key showed "33 %" or "67 %" instead of the entry. The wire value is a fraction of the list, and the readout fell through to a percentage whenever TotalMix had not reported a name for the current value, which is the case right after a press. It now names the position from the plugin's own list, and classic list keys draw position dots for the same reason.
+- The FX & Dynamics *Positions per step* slider did nothing. List parameters have always moved one entry per detent, ignoring it. Removed.
+- The classic *Positions* slider is gone. It asked for the length of a list the plugin now knows, and read as a step size besides. The count comes from the entry names, which is also what the wire position is scaled over.
+- A classic *Set a value* key on an EQ band type or the low cut slope now picks the entry by name rather than asking for its number. Over Global OSC that is what *Select an entry* already does, so *Set a value* is offered there only for the DURec track, whose entries are numbers.
+- Two buttons on the same parameter did not follow each other. A dial move or a nudge press writes through the coalesced path, which cached the new value without waking the address's other subscribers; the echo is then suppressed as the plugin's own write, so a second key or dial on that parameter never learned of it. Coalesced writes now notify like the discrete ones. Both protocols.
+- A full refresh no longer sends `/sendmix`. The watchdog repeats the refresh, and re-sending the whole mix matrix each time floods the plugin with renders.
 - A TotalMix restart is detected on any packet after a silence, not only when the first packet is a bare heartbeat, and the classic connection now clears its cached views so buttons re-read their state instead of showing pre-restart values.
 - The classic connection's background rotation over pinned channels could queue the same channel visit repeatedly; visits are now queued once.
 - Level meter addresses on page 1 are cached per bus and bank like the other strip parameters.
-- Generally the whole FX controls since I now got my hands on an interface that actually supports these (yay!).
-- SO MUCH MORE.
+- FX, EQ, dynamics and Room EQ controls verified against an interface that provides them.
 
 ### Changed
 - The classic volume action appears as "Levels & Parameters" in the action list. Same UUID, existing buttons unaffected.
@@ -61,6 +137,22 @@
 - The Global OSC connection reads the device name from the interface and uses it to scale the gain dial's position bar.
 - Gain readouts now carry their unit ("60 dB" instead of "60"), passing through whatever unit TotalMix reports.
 ### Fixed
+- A second press on a key with the make-up gain following put the parameter back but left the gain wherever the rule and the trim put it: it recomputed from the restored setting instead of undoing its own write. Both now go back together.
+- A *Set a value* key with a computed value never went back on its second press. It compared the parameter against the value it would write *now*, and a computed figure moves with the compressor and the meter, so the comparison missed, the key wrote again and overwrote the value it was meant to restore. It now recognises what it last wrote.
+- A dial press did nothing on a parameter with no section of its own, Crossfeed and DURec track among them: the press writes the section's enable, and those have none. The press now parks the parameter at its off position and a second press restores. Parameters with no published default, Width and Delay, still have nothing to park at and their press stays idle.
+- The block origin for a spread panel counts from 1, so the top-left key of the device is column 1, row 1. It counted from 0 before, which put a block entered as 1, 1 one key down and to the right of where it looked.
+- The channel and cue lists are written as the channel numbers on the mixer rather than 0-based wire values, so adding channel 17 puts 17 in the list. Lists saved before this shift by one and want re-adding.
+- The list editors could not add the entry the picker was already showing. An `sdpi-select` that has not been changed reports an empty value while displaying its first entry, and the helper took that literally instead of reading the element under it.
+- Channel stepping moved the setting but not the button. `setSettings` raises `didReceiveSettings` for the property inspector only, not for the plugin, so nothing rebound and the button kept its old channel; only the grouped path worked, because that rebinds through its own listeners. The write is now followed by an explicit rebind.
+- Every classic write that is read back now caches what it sent, not only the nudge and the on/off keys: the dial and touch gestures for mute, solo, cue and phantom, set to unity, centre, to neutral and back, and to −∞ and back. Each of those decides what to write from the cached value, so without it the second gesture repeated the first. kOSCScaleToggle parameters still go through the flip path, where 1.0 is a command rather than a state.
+- A classic nudge or set key moved the value once and then did nothing. Same cause as the on/off keys below: the write was not cached, so every further press read the pre-press value and sent the same thing again. Both now write through the caching path.
+- Classic Mute, Solo, Phantom and Cue keys switched on but never off, and never lit. Those parameters carry their value, so a press sends the inverse of the cached state, but the write did not cache it: TotalMix's echo arrives inside the settle window and is dropped as the plugin's own, and page 1 is not re-dumped while it is the resident page, so the cache stayed at nought and every press sent 1 again. The write now caches what it sent, as the Global OSC side already did.
+- Solo over Global OSC wrote and read the channel's `pfl`, which is the PFL button and does nothing outside TotalMix's PFL mode. The table carries solo on the mix node, so the S pill on a fader strip, the Solo dial gesture and the new Toggle parameter all address `/mix/{in|pb}/{channel}/{output}/solo`. Solo therefore belongs to one submix, as in the mixer; outputs have no solo and keep Cue. The Toggle's PFL parameter no longer draws itself as an S in the solo colour.
+- A classic selection key showed "33 %" or "67 %" instead of the entry. The wire value is a fraction of the list, and the readout fell through to a percentage whenever TotalMix had not reported a name for the current value, which is the case right after a press. It now names the position from the plugin's own list, and classic list keys draw position dots for the same reason.
+- The FX & Dynamics *Positions per step* slider did nothing. List parameters have always moved one entry per detent, ignoring it. Removed.
+- The classic *Positions* slider is gone. It asked for the length of a list the plugin now knows, and read as a step size besides. The count comes from the entry names, which is also what the wire position is scaled over.
+- A classic *Set a value* key on an EQ band type or the low cut slope now picks the entry by name rather than asking for its number. Over Global OSC that is what *Select an entry* already does, so *Set a value* is offered there only for the DURec track, whose entries are numbers.
+- Two buttons on the same parameter did not follow each other. A dial move or a nudge press writes through the coalesced path, which cached the new value without waking the address's other subscribers; the echo is then suppressed as the plugin's own write, so a second key or dial on that parameter never learned of it. Coalesced writes now notify like the discrete ones. Both protocols.
 - Global OSC status data (device name, connection state, DSP load, DURec time and state) now arrives on its own. The refresh cycle only ever requested the mix and channel parameters, which don't include the status block, so a Display key stayed blank until pressed once; the status request is now part of every refresh.
 - A failed port bind (port already taken) left the connection setup unfinished. Bind failures are now handled and logged, with a dedicated "port already in use" message naming the affected port.
 - Two connections could silently bind the same receive port. Port collisions now fail with a log message saying which port to change. If you see a new "port in use" error after updating, your classic and Global OSC slots probably share a receive port.
@@ -78,6 +170,9 @@
 
 ## [4.2.1] - 2026-08-22
 ### Changed
+- Fader scales match TotalMix: ticks at +3, 0, -3, -6, -10, -20, -40 and -60 dB, the +3 tick red and the -3 tick green, and every labelled value numbered on both the key and touch strips.
+- The touch strip stacks M over S in a left-hand column, and the meter now spans the fader's own range on the same dB mapping, so a level reads directly against the fader scale.
+- Strip meters are TotalMix's green rather than the previous cyan, taller on both the key and touch strips, and split into two bars for a stereo pair, each side metered from its own `/level` channel.
 - New plugin UUID — this now installs and runs alongside the v3 plugin instead of replacing it. Buttons from the old plugin do not carry over. **NOTE:** both plugins cannot use the same OSC controllers — see [Coming from v3](setup.md#using-both-plugins-coming-from-v3).
 - Renamed to "TotalMix FX Gen2", in both the plugin name and the action-list category, to tell the two apart.
 - Requires Stream Deck 6.9 or newer (was 6.6). Moved to SDK version 3 for DRM protection: file encryption and integrity checking.
@@ -85,6 +180,22 @@
 ### Added
 - Individual action-list icons for all seven actions, replacing the single shared icon. The four "(TotalMix 2.1+)" actions carry a marker dot so they read as variants of their classic counterparts.
 ### Fixed
+- A second press on a key with the make-up gain following put the parameter back but left the gain wherever the rule and the trim put it: it recomputed from the restored setting instead of undoing its own write. Both now go back together.
+- A *Set a value* key with a computed value never went back on its second press. It compared the parameter against the value it would write *now*, and a computed figure moves with the compressor and the meter, so the comparison missed, the key wrote again and overwrote the value it was meant to restore. It now recognises what it last wrote.
+- A dial press did nothing on a parameter with no section of its own, Crossfeed and DURec track among them: the press writes the section's enable, and those have none. The press now parks the parameter at its off position and a second press restores. Parameters with no published default, Width and Delay, still have nothing to park at and their press stays idle.
+- The block origin for a spread panel counts from 1, so the top-left key of the device is column 1, row 1. It counted from 0 before, which put a block entered as 1, 1 one key down and to the right of where it looked.
+- The channel and cue lists are written as the channel numbers on the mixer rather than 0-based wire values, so adding channel 17 puts 17 in the list. Lists saved before this shift by one and want re-adding.
+- The list editors could not add the entry the picker was already showing. An `sdpi-select` that has not been changed reports an empty value while displaying its first entry, and the helper took that literally instead of reading the element under it.
+- Channel stepping moved the setting but not the button. `setSettings` raises `didReceiveSettings` for the property inspector only, not for the plugin, so nothing rebound and the button kept its old channel; only the grouped path worked, because that rebinds through its own listeners. The write is now followed by an explicit rebind.
+- Every classic write that is read back now caches what it sent, not only the nudge and the on/off keys: the dial and touch gestures for mute, solo, cue and phantom, set to unity, centre, to neutral and back, and to −∞ and back. Each of those decides what to write from the cached value, so without it the second gesture repeated the first. kOSCScaleToggle parameters still go through the flip path, where 1.0 is a command rather than a state.
+- A classic nudge or set key moved the value once and then did nothing. Same cause as the on/off keys below: the write was not cached, so every further press read the pre-press value and sent the same thing again. Both now write through the caching path.
+- Classic Mute, Solo, Phantom and Cue keys switched on but never off, and never lit. Those parameters carry their value, so a press sends the inverse of the cached state, but the write did not cache it: TotalMix's echo arrives inside the settle window and is dropped as the plugin's own, and page 1 is not re-dumped while it is the resident page, so the cache stayed at nought and every press sent 1 again. The write now caches what it sent, as the Global OSC side already did.
+- Solo over Global OSC wrote and read the channel's `pfl`, which is the PFL button and does nothing outside TotalMix's PFL mode. The table carries solo on the mix node, so the S pill on a fader strip, the Solo dial gesture and the new Toggle parameter all address `/mix/{in|pb}/{channel}/{output}/solo`. Solo therefore belongs to one submix, as in the mixer; outputs have no solo and keep Cue. The Toggle's PFL parameter no longer draws itself as an S in the solo colour.
+- A classic selection key showed "33 %" or "67 %" instead of the entry. The wire value is a fraction of the list, and the readout fell through to a percentage whenever TotalMix had not reported a name for the current value, which is the case right after a press. It now names the position from the plugin's own list, and classic list keys draw position dots for the same reason.
+- The FX & Dynamics *Positions per step* slider did nothing. List parameters have always moved one entry per detent, ignoring it. Removed.
+- The classic *Positions* slider is gone. It asked for the length of a list the plugin now knows, and read as a step size besides. The count comes from the entry names, which is also what the wire position is scaled over.
+- A classic *Set a value* key on an EQ band type or the low cut slope now picks the entry by name rather than asking for its number. Over Global OSC that is what *Select an entry* already does, so *Set a value* is offered there only for the DURec track, whose entries are numbers.
+- Two buttons on the same parameter did not follow each other. A dial move or a nudge press writes through the coalesced path, which cached the new value without waking the address's other subscribers; the echo is then suppressed as the plugin's own write, so a second key or dial on that parameter never learned of it. Coalesced writes now notify like the discrete ones. Both protocols.
 - Plugin icon was 72×72 and is now supplied at the required 256×256 and 512×512.
 
 ## [4.2.0] - 2026-08-21
@@ -119,140 +230,27 @@ Complete rewrite. TypeScript on Elgato's Node SDK, replacing the C#/.NET plugin.
 - Zero runtime dependencies beyond the Stream Deck SDK. OSC is handled by an in-house codec.
 - Every OSC address the plugin can send is validated against RME's official OSC table in the test suite.
 ### Fixed
+- A second press on a key with the make-up gain following put the parameter back but left the gain wherever the rule and the trim put it: it recomputed from the restored setting instead of undoing its own write. Both now go back together.
+- A *Set a value* key with a computed value never went back on its second press. It compared the parameter against the value it would write *now*, and a computed figure moves with the compressor and the meter, so the comparison missed, the key wrote again and overwrote the value it was meant to restore. It now recognises what it last wrote.
+- A dial press did nothing on a parameter with no section of its own, Crossfeed and DURec track among them: the press writes the section's enable, and those have none. The press now parks the parameter at its off position and a second press restores. Parameters with no published default, Width and Delay, still have nothing to park at and their press stays idle.
+- The block origin for a spread panel counts from 1, so the top-left key of the device is column 1, row 1. It counted from 0 before, which put a block entered as 1, 1 one key down and to the right of where it looked.
+- The channel and cue lists are written as the channel numbers on the mixer rather than 0-based wire values, so adding channel 17 puts 17 in the list. Lists saved before this shift by one and want re-adding.
+- The list editors could not add the entry the picker was already showing. An `sdpi-select` that has not been changed reports an empty value while displaying its first entry, and the helper took that literally instead of reading the element under it.
+- Channel stepping moved the setting but not the button. `setSettings` raises `didReceiveSettings` for the property inspector only, not for the plugin, so nothing rebound and the button kept its old channel; only the grouped path worked, because that rebinds through its own listeners. The write is now followed by an explicit rebind.
+- Every classic write that is read back now caches what it sent, not only the nudge and the on/off keys: the dial and touch gestures for mute, solo, cue and phantom, set to unity, centre, to neutral and back, and to −∞ and back. Each of those decides what to write from the cached value, so without it the second gesture repeated the first. kOSCScaleToggle parameters still go through the flip path, where 1.0 is a command rather than a state.
+- A classic nudge or set key moved the value once and then did nothing. Same cause as the on/off keys below: the write was not cached, so every further press read the pre-press value and sent the same thing again. Both now write through the caching path.
+- Classic Mute, Solo, Phantom and Cue keys switched on but never off, and never lit. Those parameters carry their value, so a press sends the inverse of the cached state, but the write did not cache it: TotalMix's echo arrives inside the settle window and is dropped as the plugin's own, and page 1 is not re-dumped while it is the resident page, so the cache stayed at nought and every press sent 1 again. The write now caches what it sent, as the Global OSC side already did.
+- Solo over Global OSC wrote and read the channel's `pfl`, which is the PFL button and does nothing outside TotalMix's PFL mode. The table carries solo on the mix node, so the S pill on a fader strip, the Solo dial gesture and the new Toggle parameter all address `/mix/{in|pb}/{channel}/{output}/solo`. Solo therefore belongs to one submix, as in the mixer; outputs have no solo and keep Cue. The Toggle's PFL parameter no longer draws itself as an S in the solo colour.
+- A classic selection key showed "33 %" or "67 %" instead of the entry. The wire value is a fraction of the list, and the readout fell through to a percentage whenever TotalMix had not reported a name for the current value, which is the case right after a press. It now names the position from the plugin's own list, and classic list keys draw position dots for the same reason.
+- The FX & Dynamics *Positions per step* slider did nothing. List parameters have always moved one entry per detent, ignoring it. Removed.
+- The classic *Positions* slider is gone. It asked for the length of a list the plugin now knows, and read as a step size besides. The count comes from the entry names, which is also what the wire position is scaled over.
+- A classic *Set a value* key on an EQ band type or the low cut slope now picks the entry by name rather than asking for its number. Over Global OSC that is what *Select an entry* already does, so *Set a value* is offered there only for the DURec track, whose entries are numbers.
+- Two buttons on the same parameter did not follow each other. A dial move or a nudge press writes through the coalesced path, which cached the new value without waking the address's other subscribers; the echo is then suppressed as the plugin's own write, so a second key or dial on that parameter never learned of it. Coalesced writes now notify like the discrete ones. Both protocols.
 - Per-strip mute, solo, phantom and cue could only ever switch on, never off. These are on/off parameters in RME's spec, not toggles, and were being sent as toggles.
 - Main volume did not work at all — the address used did not exist.
 - Changing a button's function in the property inspector did not take effect until the button reappeared; it kept acting on the previously selected parameter.
 ### Removed
 - **MIDI actions.** OSC covers everything they did and reports state back, which MIDI cannot. Stay on 3.3.5 if you need MIDI.
 - **`de.shells.totalmix.exe.config`.** Connection settings are per button, under "Connection".
-### Upgrading
 Existing buttons will not carry over and need to be re-added, as the actions have been consolidated. Ports and icons are unchanged.
-
-
-<details><summary>Change History</summary><p>
-
-## [3.3.5] - 2023-03-28
-### Fixed
-- Remote OSC instances (on another host) are working now. Please refer to the corresponding documentation, thanks for @roguedarkjedi for pointing that out and making a PR (I did not merge in the end, sorry), I totally forgot about that.
-### Improved/Changed
-- Various minor changes I came across over time, all under the hood, nothing UI facing.
-- Added documentation for remote host config.
-
-## [3.3.4] - 2023-01-15
-### Added
-- Config flag "killAndRestartOnStuck" (default off) which does exactly that (or tries to at least) and should resolve the issue with TotalMix not responding to OSC requests after the PC went to sleep (which is not an issue of this plugin, but TotalMix) or for other reasons.
-Note that there's a snag to it (as with everything concerning TotalMix :roll_eyes:) - TotalMix stores everything you set, do, toggle, or otherwise interact with the UI in a config file, however it does this only when it exits gracefully. When it's killed, nothing is saved. Brilliant, isn't it.
-That means that if the plugin kills TotalMix and restarts it, to reenable the OSC servers, changes you made during the runtime of the TotalMix UI will not have been saved. Keep that in mind.
-
-### Improved
-- Readme now has a more detailed explanation about the config parameters hidden behind a dropdown in the respective section.
-## [3.3.3] - 2023-01-14
-### Added/Improved
-- Added a check for the background mirroring task if the OSC listener is still active or not after the plugin has successfully started, preventing an infinite loop that would occur otherwise. Now, the mirroring task will stop until the background OSC listener is available again, then resume (and the icons will flash briefly to let the user know something's up).
-
-## [3.3.2] - 2023-01-14
-### Fixed
-- Toggle Channel Function would display the wrong icon when mirroring is willingly disabled in the config
-## [3.3.1] - 2023-01-12
-### Fixed
-- PI bug that could lead to channel selection reverting back to Input channel 1 without reflecting that on the UI if function was selected shortly after channel, hence rendering button functions ending up acting on the wrong channel
-## [3.3.0] - 2023-01-11
-### Added
-- Control Channel now has the option to incrementally lower or raise volume levels (including the option to set a multiplier for the step size)
-- Trigger Global Function now has the option to incrementally lower or raise Main volume levels
-## [3.2.3] - 2022-12-30
-### Fixed
-- Some icons could flicker between normal and "no connection" icons when TotalMix was not available.
-## [3.2.2] - 2022-12-29
-### Added
-- Added images for EQ, Comp, Autolevel instead of default mixer.
-## [3.2.1] - 2022-12-27
-### Changed
-- Mirroring is globally on for the plugin by default now. Removed option to mirror single buttons from the UI to unclutter the menu. Instead there is now a [global setting](https://github.com/shells-dw/streamdeck-totalmix#deshellstotalmixexeconfig) to disable mirroring completely. Once mirroring is set up and working, there should not be a need to mirror or not mirror single buttons.
-### Fixed
-- Channel Toggle functions wouldn't work with mirroring disabled
-- Channel selection list would be empty with mirroring disabled
-- Updating from Marketplace version (or any other old version for that matter) would break existing buttons. While it is not impossible for existing buttons to break, this should be happening only occassionally, not for sure.
-- Clarified in README.MD that updating requires to enable the second OSC endpoint.
-### Added
-- Global settings to disable mirroring and - if set - configure channel amount.
-## [3.2.0] - 2022-12-21
-### Fixed
-- Channel names >9 are now displayed correctly
-- Actions now update the current channel count automatically in the drop down list (before, the channel count was only checked when adding a button, then saved in the corresponding action settings and never reevaluated again)
-### Fix attempt
-- Crash caused by waiting for a callback on async reading a socket that was already disposed. I call it fix attempt as I did not yet find the reason why this happens in the first place, it has been a b[...] to track down as it could happen after several hours of plugin runtime on my machine, so for now the exception is caught and the plugin shouldn't crash from it anymore. Depending the actual root cause this may or may not lead to the mirroring getting stuck. Please report issues if it does. As said, I had a hard time to actually get that crash on my machine with my interface.
-## [3.1.4] - 2022-12-12
-### Added
-- Snapshot names will be read from local TotalMix config file as they are not transmitted via OSC
-## [3.1.3] - 2022-12-12
-### Fixed
-- Global Functions Display Channel Name checkbox was not functional
-- Global Functions skipped over default "Global Mute" making it flicker the wrong icon/name
-### Added
-- a *load of try/catch logging on the receiving/sending parts
-### Notes
-- listener thread ocassionally throws an exception (safe handle closed in UDP receiver somewhere), investigating if that's caused by the lib or .NET. It's been an elusive one... StreamDeck detects the plugin going down and restarts it, so impact is... meh. It's not great, but for now it'll be that way.
-## [3.1.2] - 2022-12-07
-### Fixed
-- Background task updating the device wasn't as sync as it should be
-### Improved
-- Added checks for TotalMix being unreachable or just having the command OSC listener running and act accrordingly
-### Misc
-- misc cleanup
-## [3.1.1] - 2022-12-05
-### Improved
-- Made track/channel name display optional but default for all actions 
-## [3.1.0] - 2022-12-05
-### Improved
-- Support for more/less than 16 channels!
-    - During button load the plugin now tries to determine how many channels your interface offers (which is rather what the user set in "faders per bank" setting in TotalMix OSC setup) and offers these channels now in the plugin
-    -> which allows interfaces with more (or less) channels to be fully supported as well now :)
-## [3.0.0] - 2022-12-02
-### General
-- Partial rewrite of the plugin with lots of improvements, not necessarily every little change will be represented here
-- This update might not be completely compatible with existing actions/buttons made with earlier versions. You might have to redo your buttons. It's annoying, I know, but I can't keep multiple code-bases to cover all eventualities active in the same plugin to keep full compatibility.
-### Updated
-- Mirror function reworked. Switched the library and how it's implemented to make it more robust, quicker, less ressource intensive and compatible with Windows 11
-- added multiple additional icons to make actions more clear (less using default "Mixer"-style logo which made different actions look the same)
-- Track names (channel names) as set in TotalMix are reflected on the StreamDeck to make it easier to distinguish buttons.
-- Phantom Power is now able to be mirrored too and moved to Trigger Channel Functions
-- overall more beautification ;)
-### Fixed
-- Windows 11 issues should be fixed now.
-- Plugin (or at least mirroring) stopping working after it ran a while should be fixed now.
-- Some less common actions have been sending a wrong value and never worked - fixed now.
-## [2.2.1] - 2022-05-14
-### Updated
-- updated readme.md to reflect potential issues with Windows 11 and mirror channel
-- moved files locally from a dying drive, git recognizes them all as modified now and I can't be bothered to mess with that, so I'm pushing it, but nothing should have changed except for a bit of debugging I added for testing this Windows 11 thing in osconoff.cs.
-## [2.2.0] - 2022-04-29
-### Improvement
-- Updated default graphics
-- Updated README.md to reflect graphics changes
-## [2.1.0] - 2022-04-28
-### Improvement
-- Show/Hide UI should work now even when/after moving back to Stream Deck top level
-### Various
-- removed unused namespaces from all modules, cleaned up a bit, updated readme.md
-## [2.0.0] - 2022-04-20
-### Feature
-- hold-mode (no latch mode) for OSC Global Functions
-- enable toggle icons for all modules
-### Fixed
-- various minor fixes
-## [1.2.1] - 2021-07-04
-### Fixed
-- calulations updated for 16 channels in OSC Channel handling
-## [1.2.0] - 2021-07-04
-### Fixed
-- Mirrored buttons initilization delay
-
-### Added
-- Real time updates for channel mute/solo. StreamDeck should now (with a slight delay at times for technical reasons) update the button state if a channel is muted or solo-ed inside TotalMix or by other means (if you enable the mirror-checkbox on that button)
-- Option to hide/restore the TotalMix window (using Windows techniques, haven't found out how RME does that with ARC, probably not exposed for third parties)
-- Support for up to 48 channels (3x 16) _pending testing, I don't have access to a 16 channel RME interface myself at the moment_
-- 
-</p></details>
-
 

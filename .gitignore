@@ -1,6 +1,11 @@
 node_modules/
 tools/
+mockup/
 de.shells.totalmixgen2.sdPlugin/bin/
 *.streamDeckPlugin
 fixtures/osc-capture.log
+osc-capture.log
 de.shells.totalmixgen2.sdPlugin/logs/*
+src/osc/fixture.test.ts
+src/actions/gr-envelope.test.ts
+src/actions/probe-runs.fixture.json
