@@ -12,7 +12,7 @@ On/off switches over Global OSC. Key only. The key's state is the mixer's: a pre
 |---|---|---|
 | Control Room | Dim, Mono, Talkback, Talkback + dim, External input, Speaker B, Mute Main Out, Mute FX return, Link Main/Speaker B | none |
 | Global | Mute enable, Solo enable | none |
-| Channel | Mute, Solo (inputs, playbacks; Submix), PFL, Phase (L/R separate), Phantom power (48V), Instrument, Pad, AutoSet, M/S processing, Loopback, Stereo link, Record enable, Talkback destination | Bus, Channel |
+| Channel | Mute, Solo (inputs, playbacks; Submix), PFL (inputs, playbacks), Phase (L/R separate), Phantom power (48V), Instrument, Pad, AutoSet, M/S processing, Loopback, Stereo link, Record enable, Talkback destination | Bus, Channel |
 | Control room assignment | Cue, Talkback source, External input source | Channel |
 | Channel processing | Low cut, EQ, Dynamics, AutoLevel, Room EQ | Bus, Channel |
 | Effects | Reverb, Echo | none |
@@ -22,7 +22,7 @@ TotalMix has no control-room mute of its own, so Mute Main Out is built from wha
 
 Talkback destination is the per-channel switch marking an output as a talkback destination. Outputs only. With *Cycle outputs* set, a press moves the destination to the next output in the list instead, and the key follows it.
 
-Solo and PFL are different buttons. Solo is the mixer's Solo, which Global OSC carries on the channel's mix node rather than on the channel, so it belongs to one submix: pick which under *Submix*, or leave it on Main Out. Outputs have no solo, they have Cue. PFL is the separate PFL button, which only does something while TotalMix is in PFL mode.
+Solo and PFL are separate parameters. Solo is the mixer's Solo, which Global OSC carries on the channel's mix node rather than on the channel, so it belongs to one submix: pick which under *Submix*, or leave it on Main Out. Outputs have neither, they have Cue. PFL is the Solo button while *Live Mode, PFL replaces Solo* is on (*Settings → Mixer*), and is only reported then.
 
 The three assignment parameters are not per-channel switches. TotalMix keeps one channel number for each: the output being cued, the input the talkback mic sits on, and the input feeding the external-input path. A key lights when the assignment points at its channel; a press writes its channel, and a press on a lit key clears the assignment. Because there is one assignment per kind, a second Cue key takes cue away from the first without needing to be told. Cue picks from the outputs, the two sources from the inputs, so the bus picker is hidden.
 

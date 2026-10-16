@@ -2,7 +2,30 @@
 
 # Changelog
 
-## [5.4.0] - 2026-09-29
+## [5.5.1] - 2026-10-15
+
+### Fixed
+- Input and playback faders without a reported level wrote to the channel instead of the submix node.
+- PFL no longer offered on outputs.
+- Peak-hold line stayed at the bottom of the meter after the signal stopped.
+
+### Changed
+- PFL mode named as in TotalMix: *Live Mode, PFL replaces Solo*.
+
+## [5.5.0] - 2026-10-02
+
+### Added
+- **Dim** on Global OSC Volume: lowers a fader by a set amount (*Dim by (dB)*, default 20) and restores it on the next press. Key press mode, dial press or touch, or hold. Works on channel faders, submix sends, Main Out, Speaker B and Phones, independent of TotalMix's control-room Dim.
+- *Dim amount* can follow the reduction of TotalMix's control-room Dim instead of an own value.
+- **Second press** for *Set a value* on Global OSC Volume: *Nothing*, *Back to the previous value* or *Switch to another value*, as on FX & Dynamics.
+- *Fade over* applies to Dim, and to the second press of *Set a value*.
+- *Key face* for keys with Dim or *Set a value* on press or hold: a DIM or SET button, lit while engaged; with the icon appearance, DIM and SET icons in on and off states.
+
+### Fixed
+- The *Value* field did not show when *Hold the key* was set to *Set the value below*.
+- A *Set a value* press without a fade did not stop a fade still running on the same key.
+
+## [5.4.0] - 2026-09-21
 
 ### Added
 - 48V and INST pills on Global OSC Volume strips and knobs ([#72](https://github.com/shells-dw/streamdeck-totalmix/issues/72)), switchable via *48V / Inst*.

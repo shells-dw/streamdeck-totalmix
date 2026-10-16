@@ -53,6 +53,8 @@ See [Dials and gestures](../dials-and-gestures.md). Defaults here: press mutes (
 
 Global OSC has no cue in its channel section, so *Cue* is not offered. A mix node has no mute of its own, so its press defaults to solo. Solo on an input or playback strip is the solo of its node into the strip's submix, which is where the protocol carries it; an output has no solo.
 
+*Dim* lowers this fader by its own amount and restores it on the next press, separately from the control room's Dim; *Set a value* can go back to the previous level on its second press. See [Dials and gestures](../dials-and-gestures.md#keys-instead-of-dials).
+
 *Mute Main Out* is a control-room gesture available on any dial. TotalMix has no control-room mute of its own, so it writes the real output mute of every assigned monitor output and reads Main Out for its state. It exists alongside *Set to −∞* because Dim and Recall move that fader too.
 
 ## On the key or display
