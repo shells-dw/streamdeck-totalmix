@@ -1,6 +1,3 @@
-![GitHub](https://img.shields.io/github/license/shells-dw/streamdeck-totalmix)     ![GitHub last commit](https://img.shields.io/github/last-commit/shells-dw/streamdeck-totalmix) [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dwshells) [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/dwshells)
-
-
 # TotalMix FX Control (unofficial Stream Deck plugin)
 
 Control [RME TotalMix FX][] from your [Elgato Stream Deck][Stream Deck] on Windows and macOS. Faders, mute, solo, 48V, snapshots, DURec, EQ, dynamics, reverb and Room EQ on keys and Stream Deck+ dials, drawn live in the TotalMix look so the deck always shows what the mixer is doing.
