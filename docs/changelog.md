@@ -2,6 +2,13 @@
 
 # Changelog
 
+## [5.5.2] - 2026-10-25
+
+### Fixed
+- After a PC start, Global OSC input and playback faders could stay at "—" and a turn dropped the fader to −∞, until a settings panel was opened.
+- A fader turn before its level was known wrote −∞ to the mixer.
+- Large interfaces could exceed the plugin's state limit, so part of TotalMix's data was dropped.
+
 ## [5.5.1] - 2026-10-15
 
 ### Fixed
