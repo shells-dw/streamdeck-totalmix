@@ -25,7 +25,7 @@ Requires an RME interface running TotalMix FX.
 
 ## Installation
 
-Install *TotalMix FX Control* from the Elgato Marketplace in the Stream Deck app, or download the plugin file from the [latest release](https://github.com/shells-dw/streamdeck-totalmix/releases/latest) and open it.
+Install *TotalMix FX Control* from the [Elgato Marketplace](https://marketplace.elgato.com/product/totalmix-fx-control-bca82a36-06bc-45ce-8bbe-10c18befa21e) in the Stream Deck app, or download the plugin file from the [latest release](https://github.com/shells-dw/streamdeck-totalmix/releases/latest) and open it.
 
 ## Setup
 
