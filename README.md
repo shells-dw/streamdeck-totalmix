@@ -73,10 +73,11 @@ Open a [GitHub issue][GitHub issues] and attach the plugin logs:
 ## Support
 
 If you'd like to drop me a coffee for the hours I've spent on this: [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dwshells) [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/dwshells)
-
 ## Disclaimer
-
+ 
 This is a private project, I am not affiliated with RME or Elgato.
+ 
+This plugin changes levels on your audio interface. A wrong setting, a bug or an unexpected TotalMix state can produce sudden loud output. Test new buttons at low monitor volume first.
 
 <!-- Reference Links -->
 
