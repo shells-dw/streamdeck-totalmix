@@ -17,9 +17,26 @@ Every key press, dial move and connection event is logged. When reporting an iss
 - Ports don't match: the plugin's *Port incoming* / *Port outgoing* are TotalMix's *incoming* / *outgoing* ports for that Remote Controller. Defaults 7001/9001 (classic) and 7002/9002 (Global OSC).
 - For the Global OSC actions, the controller's *Compatibility (Mode)* is not set to Global OSC, or *Send changes* / *Send status* are off in its Details.
 
+## Faders show "—" for a while after starting the PC
+
+TotalMix streams meter levels and status before it answers requests, so the first requests after a start can go unanswered. The plugin asks again until the data arrives, a channel or submix up to five times over about 30 s; the log shows `no answer to /sendsubmix/… yet; asking again`. A fader that still reads "—" after that is on a channel TotalMix does not report: hidden for OSC Remote, or a channel number past what the interface has.
+
+## A yellow notice at the top of a button's settings
+
+The plugin shows what is wrong with that button's connection; the same sentence is in the log.
+
+- *TotalMix sends Global OSC data … but this is a classic button* (or the reverse): the button and its Remote Controller use different protocols. Either change the controller's *Compatibility (Mode)* or use the matching actions. The actions marked "(TotalMix 2.1+)" are the Global OSC ones.
+- *udp/… is already in use*: see below.
+- *Nothing received from TotalMix* or *does not answer requests*: check the points under "Nothing happens" for the ports named in the notice.
+
 ## "Port already in use" in the log
 
-Two connections share one *outgoing* port, which the plugin listens on. Typically that's the classic and the Global OSC slot both on 9001, or the v3 plugin still running on the same controllers. Give each connection its own port pair (under *Connection* in the button, or *Defaults for new buttons* for new ones) and match it in TotalMix.
+The plugin listens on the controller's *outgoing* port, and something else holds it. The log line says which:
+
+- *by this plugin's classic / Global OSC buttons*: classic and Global OSC buttons name the same port. Each family needs its own Remote Controller and port pair.
+- *by another program*: another OSC application, the v3 plugin on the same controllers, or TotalMix itself with *Port incoming* set to that number. The log line carries a command that names the program.
+
+The plugin keeps retrying, so the buttons start working once the port is free.
 
 ## The channel list is empty
 
