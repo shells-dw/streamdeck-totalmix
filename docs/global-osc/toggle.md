@@ -40,6 +40,17 @@ Ticked, the first press arms the key and captions it; a second press within a co
 
 *Talkback + dim* writes talkback and dim together, so with *Hold* it is push-to-talk with the monitors ducked.
 
+## Press: toggle, switch on, switch off
+
+*Press* sets what a press writes. *Toggle*, the default, flips the parameter. *Switch on* and *Switch off* write that state on every press, whatever the current state, so a key in a Multi Action always leaves the parameter where you want it. The key still lights from the mixer's state.
+
+- *Mute Main Out* sets the mute of Main Out and Main Out B together.
+- *Talkback + dim* sets talkback and dim together.
+- Cue, talkback source and external input source: *Switch on* assigns the key's channel. *Switch off* clears the assignment only while it is on the key's channel, so a cue on another output stays.
+- Not offered for *Show / hide the TotalMix window*, or for a talkback destination stepping through an output list.
+
+*Hold (momentary)* is only offered with *Toggle*.
+
 ## Hold (momentary)
 
 With **Hold** ticked, the key switches the parameter on while it is held and off when released, instead of flipping it. It works for any parameter, e.g. talkback, or cue to audition an output while the key is down.

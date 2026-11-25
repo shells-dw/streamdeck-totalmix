@@ -33,6 +33,37 @@ Main Out and Speaker B press to mute (fader to −∞) and touch to dim. A Phone
 
 In TotalMix an input strip's fader is its send into the submix currently selected in the window, so over Global OSC these levels live on the mix matrix, one per output. A *Channel fader* on an input or playback channel therefore has a *Submix* picker. *Main Out (auto)* follows the Main Out assignment. *Control room monitor (auto)* also follows the Speaker B switch. Or pin any output's submix. The fader you see in the TotalMix window only moves while that submix is selected there; the audio changes either way. Output channels have one real fader and no picker.
 
+### Fader groups
+
+TotalMix does not move the other faders of a fader group when one of them is set over OSC, so the plugin can do it. *Fader group* picks the TotalMix fader group (1 to 4) a control moves along with its own fader. The default, *None*, moves the control's fader alone.
+
+With a group chosen, every fader in that group moves by the same amount in dB as the control's fader and keeps its distance to the others, as it does when a grouped fader is dragged in TotalMix. The display keeps showing the level of the control's own channel. The setting is offered for *Channel fader*, *Mix node* and the control room targets, and it applies to every way the control moves the fader: dial, nudge, *Set a value*, dim, fades and −∞.
+
+- The group is followed only while it is switched on in TotalMix. While it is off, the control moves its own fader alone.
+- A group can hold outputs, inputs and playbacks. An input or playback has one fader per submix, and TotalMix groups those faders one by one, so a group can reach into several submixes.
+- A fader that reaches the top or bottom of its travel stops there while the rest keep moving.
+- Sending the fader to −∞ takes the group with it, and bringing it back restores the others at their previous distances.
+- A group member that is already at −∞ stays there while the control's fader is above −∞. When the control's fader is at −∞ as well, the members at −∞ rise with it to the same level.
+- Inputs and playbacks are written the way TotalMix moves a group itself: an input that is carried below the bottom of its fader keeps its distance to the others and comes back at that distance, also when the group is then moved in TotalMix.
+- An input or playback fader is followed once TotalMix has reported it. The plugin asks TotalMix for all mix nodes shortly after connecting and after every reconnect.
+
+#### *Set all faders in group* in TotalMix
+
+The controller's Details in TotalMix have an option *Set all faders in group*. It decides who moves a group when the plugin moves one of its faders:
+
+- Off: TotalMix moves only the fader the plugin wrote. The control's *Fader group* setting decides whether the rest of the group follows, so one control can move the group and another can move a single fader of it.
+- On: TotalMix moves the whole group for every fader the plugin writes while the group is switched on, whatever the control's *Fader group* setting is. A single fader of an active group can then not be moved on its own from the Stream Deck.
+
+Leave it off to choose per control. With it on, every control behaves like a fader in TotalMix and the control's *Fader group* can stay on *None*.
+
+The fader strip shows the group as an **F1** to **F4** pill beside M and S: in the group's TotalMix colour (1 red, 2 blue, 3 green, 4 purple) while the group is on, unlit while it is off.
+
+TotalMix lets a group with no channel in it be switched on. The plugin shows such a group as off: the pill is faded and a GRP button reads "Empty".
+
+*Fader group on/off* switches the chosen group in TotalMix. It is available as a dial's press or touch gesture and as a key's press or hold. A key whose press is *Fader group on/off* can show a **GRP** button, lit in the group's colour while the group is on, by setting *Key face* to *Button*; with the icon look it shows that group's icon in its on or off state.
+
+The first time a control moves a group, the log names the faders that follow.
+
 #### Seeing which submix a control is on
 
 With the submix automatic, or with several dials on the same channel into different submixes, the strip alone does not say where a fader goes. Two options show it, both for input and playback controls only, since an output is a submix rather than feeding one.
@@ -86,4 +117,4 @@ A submix send has no mute in Global OSC, so a send at the bottom of its throw co
 ## Notes
 
 - Works with TotalMix's *Send faders in linear scale* on or off.
-- A channel fader that TotalMix has not reported yet starts stepping from −∞ rather than ignoring the move.
+- A channel fader TotalMix left out of a submix or channel it did report starts stepping from −∞. While nothing of that submix or channel has arrived, a turn is dropped and the data is requested instead.
