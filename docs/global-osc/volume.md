@@ -18,7 +18,7 @@ Level, pan and preamp gain over Global OSC, addressed by absolute channel number
 | Channel fader | A channel's fader. For output channels this is the channel's own fader. For input and playback channels it is the send into a submix, see below. | Bus, Channel, Submix |
 | Submix send (mix node) | One node of the mix matrix: the level of a source into an output's submix. | Source bus, Source channel, To output |
 | Input gain (preamp) | Preamp gain of an input channel, in whole dB, with the ceiling read from the reported device (see [Devices](../devices.md)). Linked stereo pairs move together. Channels without a preamp show 0 and ignore the dial. | Channel |
-| Pan (channel) | A channel's balance, `L50 / C / R50`. *Followers* lists channels on the same bus whose pans follow this one, either as the opposite value (L30 here, R30 there, for mono channels kept as a stereo pair) or the same value (linked pans). | Bus, Channel, Mirror pan |
+| Pan (channel) | A channel's balance, from `L100` through `C` to `R100`. *Followers* lists channels on the same bus whose pans follow this one, and *Follow as* sets how: the opposite value (L30 here, R30 there, for mono channels kept as a stereo pair) or the same value (linked pans). | Bus, Channel, Followers, Follow as |
 | Pan (submix send) | The balance of one mix node. | Source bus, Source channel, To output |
 
 ### Control room targets
@@ -35,9 +35,9 @@ In TotalMix an input strip's fader is its send into the submix currently selecte
 
 ### Fader groups
 
-TotalMix does not move the other faders of a fader group when one of them is set over OSC, so the plugin can do it. *Fader group* picks the TotalMix fader group (1 to 4) a control moves along with its own fader. The default, *None*, moves the control's fader alone.
+Whether TotalMix moves the other faders of a fader group when one of them is set over OSC depends on *Set all faders in group* in the controller's Details. With that option on, TotalMix moves the whole group itself. With it off, TotalMix moves only the fader that was written, and the plugin can move the rest: *Fader group* picks the TotalMix fader group (1 to 4) a control moves along with its own fader. The default, *None*, moves the control's fader alone. See [*Set all faders in group* in TotalMix](#set-all-faders-in-group-in-totalmix) below.
 
-With a group chosen, every fader in that group moves by the same amount in dB as the control's fader and keeps its distance to the others, as it does when a grouped fader is dragged in TotalMix. The display keeps showing the level of the control's own channel. The setting is offered for *Channel fader*, *Mix node* and the control room targets, and it applies to every way the control moves the fader: dial, nudge, *Set a value*, dim, fades and −∞.
+With a group chosen, every fader in that group moves by the same amount in dB as the control's fader and keeps its distance to the others, as it does when a grouped fader is dragged in TotalMix. The display keeps showing the level of the control's own channel. The setting is offered for *Channel fader*, *Submix send (mix node)* and the control room level targets, and it applies to every way the control moves the fader: dial, nudge, *Set a value*, dim, fades and −∞.
 
 - The group is followed only while it is switched on in TotalMix. While it is off, the control moves its own fader alone.
 - A group can hold outputs, inputs and playbacks. An input or playback has one fader per submix, and TotalMix groups those faders one by one, so a group can reach into several submixes.
@@ -60,7 +60,7 @@ The fader strip shows the group as an **F1** to **F4** pill beside M and S: in t
 
 TotalMix lets a group with no channel in it be switched on. The plugin shows such a group as off: the pill is faded and a GRP button reads "Empty".
 
-*Fader group on/off* switches the chosen group in TotalMix. It is available as a dial's press or touch gesture and as a key's press or hold. A key whose press is *Fader group on/off* can show a **GRP** button, lit in the group's colour while the group is on, by setting *Key face* to *Button*; with the icon look it shows that group's icon in its on or off state.
+*Fader group on/off* switches the chosen group in TotalMix. It is available as a dial's press or touch gesture and as a key's press or hold. A key whose press or hold is *Fader group on/off* can show a **GRP** button, lit in the group's colour while the group is on, by setting *Key face* to *Button*; with the icon look, a key whose press is *Fader group on/off* shows that group's icon in its on or off state.
 
 The first time a control moves a group, the log names the faders that follow.
 
@@ -72,15 +72,13 @@ With the submix automatic, or with several dials on the same channel into differ
 
 *Submix label* keeps the name on a dial's fader strip permanently. *Below the name* adds a second header line: both names stay whole and the readout keeps its size, and in exchange the body is 12 px shorter, so the pills, lamps and meter are flatter while the fader keeps its full travel. *Beside the name* writes "Mic 1 › Main" on the one header line and leaves the body alone; the pair shares the name's width, so longer names shrink to a 10 px font and the submix is cut first ("Chat<-Loop › Win -…"). Off by default. Keys have no label, because their header has room for the name only; use the gesture there. A *Submix send* target, whose name normally reads "source → output", shows the source alone while the label is on.
 
-*Submix linked to OSC Controller* in TotalMix's Options menu (RME's protocol notes call it "Follow Submix") should be off for the Global OSC Remote Controller: left on, a controller restricted to one submix holds the TotalMix window on that submix. TotalMix FX 2.1 beta 6 and later ignore the option for a Global OSC controller.
-
 ### Channels
 
 Channels are chosen by name. The list shows what TotalMix calls them ("5 · Analog 5/6"), read from the interface. Stereo pairs are addressed by their left channel. The list reloads when you change the bus or target; the refresh button next to it re-reads the names on demand, after renaming a channel in TotalMix for example.
 
 ## Stepping, press and touch
 
-See [Dials and gestures](../dials-and-gestures.md). Defaults here: press mutes (Main Out: fader to −∞; a submix send: solo), touch parks the fader at −∞ (Main Out: dim; pan: centre).
+See [Dials and gestures](../dials-and-gestures.md). Defaults here: press mutes (Main Out and Speaker B: fader to −∞; a submix send: solo), touch parks the fader at −∞ (Main Out and Speaker B: dim; pan and balance: centre).
 
 Global OSC has no cue in its channel section, so *Cue* is not offered. A mix node has no mute of its own, so its press defaults to solo. Solo on an input or playback strip is the solo of its node into the strip's submix, which is where the protocol carries it; an output has no solo.
 
@@ -102,13 +100,13 @@ With the [TotalMix look](../appearance.md) a level draws a fader strip with mete
 | Dynamics | compressor/expander or Auto Level |
 | Settings (gear) | in/pb: MS processing or phase — out: crossfeed, phase, Room EQ or loopback |
 
-Playback channels have the gear alone. The lamps are read-only, so a key that only needs to *see* EQ and dynamics state no longer needs a Toggle key each.
+Playback channels have the gear alone. The lamps are read-only; they show the EQ and dynamics state without a Toggle key for each.
 
 Output strips also show Room EQ: an orange **REQ** tag in the header while that output's Room EQ is on, and nothing while it is off. On a display it sits in the middle, between the name at the left and the readout at the right; on a key, where the header holds only the name, it sits left of it. TotalMix does not draw one; the section's state is otherwise only visible inside the settings panel. The tag belongs to the FX lamps and goes with them when they are switched off.
 
 *Mute look* (fader targets only; gain and pan knobs have no mute treatment) decides how a cut strip is drawn: *Subtle* lights the M pill blue, as TotalMix does. *Red badge* lights the same pill red. *Red badge and cross* adds a red cross over the strip. *Red badge and cast* adds a translucent red below the header band instead. *Red cast and cross* has both.
 
-A submix send has no mute in Global OSC, so a send at the bottom of its throw counts as cut too: the pill reads `-oo` and takes whichever treatment is set. Every step can be chosen per button, or for new buttons under *Defaults for new buttons*.
+A submix send has no mute in Global OSC, so a send at the bottom of its throw counts as cut too: the pill reads `-oo` and takes whichever treatment is set. The look is chosen per button, or for new buttons under *Defaults for new buttons*.
 
 *Mute / Solo* draws the M and S pills. Both are on by default, and either one switched off hands its room to the fader: on a display the travel grows towards that edge, on a key the strip grows into the space the pills held. Without the pills the strip shows no mute or solo state at all.
 
@@ -117,4 +115,5 @@ A submix send has no mute in Global OSC, so a send at the bottom of its throw co
 ## Notes
 
 - Works with TotalMix's *Send faders in linear scale* on or off.
+- *Submix linked to OSC Controller* in TotalMix's Options menu (RME's protocol notes call it "Follow Submix") should be off for the Global OSC Remote Controller: left on, a controller restricted to one submix holds the TotalMix window on that submix. TotalMix FX 2.1 beta 6 and later ignore the option for a Global OSC controller.
 - A channel fader TotalMix left out of a submix or channel it did report starts stepping from −∞. While nothing of that submix or channel has arrived, a turn is dropped and the data is requested instead.

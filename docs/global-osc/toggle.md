@@ -11,7 +11,7 @@ On/off switches over Global OSC. Key only. The key's state is the mixer's: a pre
 | Group | Parameters | Settings |
 |---|---|---|
 | Control Room | Dim, Mono, Talkback, Talkback + dim, External input, Speaker B, Mute Main Out, Mute FX return, Link Main/Speaker B | none |
-| Global | Mute enable, Solo enable | none |
+| Global | Mute enable, Solo enable, Show / hide the TotalMix window | none |
 | Channel | Mute, Solo (inputs, playbacks; Submix), PFL (inputs, playbacks), Phase (L/R separate), Phantom power (48V), Instrument, Pad, AutoSet, M/S processing, Loopback, Stereo link, Record enable, Talkback destination | Bus, Channel |
 | Control room assignment | Cue, Talkback source, External input source | Channel |
 | Channel processing | Low cut, EQ, Dynamics, AutoLevel, Room EQ | Bus, Channel |
@@ -36,9 +36,7 @@ Mute, solo and PFL keys take TotalMix's own M/S button look: the letter and a th
 
 ## Confirm with a second press
 
-Ticked, the first press arms the key and captions it; a second press within a couple of seconds writes. Left unconfirmed, nothing is written. Meant for phantom power.
-
-*Talkback + dim* writes talkback and dim together, so with *Hold* it is push-to-talk with the monitors ducked.
+Ticked, the first press arms the key and captions it; a second press within 2.5 s writes. Left unconfirmed, nothing is written. Meant for phantom power.
 
 ## Press: toggle, switch on, switch off
 
@@ -55,10 +53,12 @@ Ticked, the first press arms the key and captions it; a second press within a co
 
 With **Hold** ticked, the key switches the parameter on while it is held and off when released, instead of flipping it. It works for any parameter, e.g. talkback, or cue to audition an output while the key is down.
 
-If a hold key is released while the connection is down nothing is written, so the parameter stays on. The key shows the mixer's state either way.
+*Talkback + dim* writes talkback and dim together, so with *Hold* it is push-to-talk with the monitors ducked.
 
-The Dim and Talkback + dim keys show the dim amount on their face, in TotalMix's 0.5 dB steps.
+If a hold key is released while the connection is down nothing is written, so the parameter stays on. The key shows the mixer's state either way.
 
 ## Appearance
 
 The [TotalMix look](../appearance.md) draws a TotalMix-style button lit in the parameter's colour with the channel name underneath. "Icon" uses the classic on/off icon pair.
+
+The Dim and Talkback + dim keys show the dim amount on their face, in TotalMix's 0.5 dB steps.
