@@ -27,7 +27,7 @@ New here? [Setup](setup.md) walks through the few TotalMix settings the plugin n
 - [Volume](global-osc/volume.md). Faders, control room monitors, submix sends, pan, preamp gain.
 - [Toggle](global-osc/toggle.md). On/off switches with state from the mixer.
 - [Trigger](global-osc/trigger.md). Snapshots (load and save), layouts, presets, undo/redo, solo and mute clear, DURec transport, window.
-- [Display](global-osc/display.md). Meters, device status, DSP load, DURec time, EQ and dynamics curves, gain-reduction needle.
+- [Display](global-osc/display.md). Meters, clip latch and signal watch, device status, DSP load, DURec time, EQ and dynamics curves, gain-reduction needle.
 - [FX & Dynamics](global-osc/effects.md). EQ, low cut, dynamics, Auto Level, Room EQ, reverb, echo, list parameters and select keys.
 
 ### Classic actions (TotalMix FX 1.96 to 2.0)

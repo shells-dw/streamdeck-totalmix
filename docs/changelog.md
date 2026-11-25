@@ -4,7 +4,7 @@
 
 ## [5.7.0] - 2026-11-16
 
-### New
+### Added
 - Fader groups on Volume (TotalMix 2.1+): choose a group per control and its outputs, inputs and playbacks move with the fader.
 - Fader group on/off as a dial gesture, key press or hold.
 - Fader group icons in TotalMix's group colours.
@@ -319,7 +319,7 @@ Complete rewrite. TypeScript on Elgato's Node SDK, replacing the C#/.NET plugin.
 - Channel picker now lists actual TotalMix channel names, read live from the interface.
 - Bus and bank pinning, so a button keeps controlling the same channel regardless of where you navigate in the mixer.
 - Every key press and connection event is logged, for easier issue reports.
-### Improved/Changed
+### Changed
 - Volume steps in dB along RME's published fader curve. Previously a step moved roughly 4× further in dB at the bottom of the throw than at the top.
 - One persistent OSC connection replaces the per-query socket open/close cycle and the constant polling. No background CPU load when idle.
 - Live state mirroring is now push-based, so buttons reflect TotalMix GUI changes immediately.
