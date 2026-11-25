@@ -2,6 +2,35 @@
 
 # Changelog
 
+## [5.7.0] - 2026-11-16
+
+### New
+- Fader groups on Volume (TotalMix 2.1+): choose a group per control and its outputs, inputs and playbacks move with the fader.
+- Fader group on/off as a dial gesture, key press or hold.
+- Fader group icons in TotalMix's group colours.
+- A notice in a button's settings when its connection has a problem, including a classic button on a Global OSC controller or the reverse.
+
+### Changed
+- Toggle: the group or snapshot number is a list instead of a slider.
+- Smaller download.
+
+### Fixed
+- Changing a button's port or host could report "port already in use".
+- A port that was busy at startup stayed dead until the settings were changed.
+- A Solo key on Main Out (auto) could show the wrong state.
+- "Press again" could stay on a Toggle key.
+- A channel list could land in the settings of the next button when switching buttons quickly.
+
+## [5.6.0] - 2026-11-05
+
+### Added
+- *Press* on the Toggle (TotalMix 2.1+) action: *Toggle*, *Switch on* or *Switch off*, for Multi Actions.
+
+### Fixed
+- Channel cycling and *Step with* groups did nothing on an *Input gain* button.
+- A connection that had received only levels and status was not marked down when TotalMix stopped sending.
+- A Display or classic Volume dial could end up on its previous settings after a layout switch.
+
 ## [5.5.2] - 2026-10-25
 
 ### Fixed

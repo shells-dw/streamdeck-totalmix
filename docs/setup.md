@@ -21,7 +21,7 @@ Set up whichever family you intend to use, both only if you want both. Open *Opt
 2. Enter `127.0.0.1` in *Remote Controller Address*. That means "this computer"; if Stream Deck runs on a different machine, enter that machine's IP address instead.
 3. Leave the ports at incoming 7002 / outgoing 9002, which are the plugin's defaults.
 4. Set *Compatibility (Mode)* to *Global OSC*.
-5. Click *Details* and enable at least *Send changes* and *Send status*. *Send faders in linear scale* and *Send all data on start (enable)* are supported and recommended.
+5. Click *Details* and enable at least *Send changes* and *Send status*. *Send faders in linear scale* and *Send all data on start (enable)* are supported and recommended. *Set all faders in group* changes how fader groups react to the plugin; see [Fader groups](global-osc/volume.md#fader-groups).
 6. Tick *Send Level Messages* for peak meters on the fader strips and the Display action; without it, the meters stay empty.
 
 ![Global OSC](images/Global_OSC_setup1-1.png) ![Global OSC details](images/Global_OSC_setup1-2.png)
@@ -52,7 +52,8 @@ Every button carries its own connection settings under *Connection* in its setti
 - Changing a default does not move buttons already on your deck; they keep the connection they were created with, so buttons on different Remote Controllers can coexist.
 - The classic and the Global OSC actions keep separate defaults, because they address separate controllers.
 - TotalMix can run on another computer: set its IP address as the host and allow the connection through any firewall in between.
-- Every Remote Controller needs its own pair of ports. The plugin listens on the controller's *outgoing* port; if two buttons name the same outgoing port for different controllers, say both 9001, the plugin logs a "port already in use" message naming the port. TotalMix itself listens on the *incoming* port, which must also differ between controllers.
+- Every Remote Controller needs its own pair of ports. The plugin listens on the controller's *outgoing* port, and all buttons that name the same outgoing port share one connection, so they should also name the same host and *incoming* port. A classic and a Global OSC button cannot share a port; the plugin then logs a "port already in use" message and shows a notice in the button's settings. TotalMix itself listens on the *incoming* port, which must also differ between controllers.
+- Ports must be 1024 or higher.
 
 ## Using both plugins (coming from v3)
 

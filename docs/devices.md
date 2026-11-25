@@ -17,6 +17,7 @@ The plugin holds a small table of RME interfaces for two things TotalMix does no
 | Babyface Pro / Pro FS | 65 dB | Babyface Pro FS manual (TotalMix's control spans 0 to 65 dB; the marketed 76 dB includes the PAD) |
 | Fireface 400 / 800 | 65 dB | inferred |
 | Babyface (original) | 60 dB | inferred |
+| Digiface USB | none, no preamps | recognised so it is not reported as unknown |
 | unknown | 65 dB (classic), 75 dB (Global OSC) | fallback |
 
 A wrong entry only changes how far a detent travels; the displayed value is always TotalMix's readout.
